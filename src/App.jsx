@@ -3,11 +3,33 @@ import { supabase } from './lib/supabase'
 
 export default function App() {
   const [jobs, setJobs] = useState([])
+  const [jobNumber, setJobNumber] = useState('')
+const [jobName, setJobName] = useState('')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Testing Supabase connection...')
 
   useEffect(() => {
     loadJobs()
+    async function addJob() {
+  if (!jobNumber || !jobName) {
+    alert("Enter job number and name")
+    return
+  }
+
+  const { error } = await supabase.from('jobs').insert({
+    job_number: jobNumber,
+    job_name: jobName,
+    active: true
+  })
+
+  if (error) {
+    alert(error.message)
+  } else {
+    setJobNumber('')
+    setJobName('')
+    loadJobs()
+  }
+}
   }, [])
 
   async function loadJobs() {
@@ -42,6 +64,27 @@ export default function App() {
         </button>
 
         <div style={{ marginTop: '24px' }}>
+          <div style={{ marginTop: '20px' }}>
+  <h2 style={styles.subtitle}>Add Job</h2>
+
+  <input
+    placeholder="Job Number"
+    value={jobNumber}
+    onChange={(e) => setJobNumber(e.target.value)}
+    style={styles.input}
+  />
+
+  <input
+    placeholder="Job Name"
+    value={jobName}
+    onChange={(e) => setJobName(e.target.value)}
+    style={styles.input}
+  />
+
+  <button onClick={addJob} style={styles.button}>
+    Add Job
+  </button>
+</div>
           <h2 style={styles.subtitle}>Jobs Table Test</h2>
 
           {loading ? (
@@ -129,3 +172,11 @@ const styles = {
     padding: '10px',
   },
 }
+input: {
+  display: 'block',
+  width: '100%',
+  marginBottom: '10px',
+  padding: '10px',
+  borderRadius: '8px',
+  border: '1px solid #ccc'
+},
