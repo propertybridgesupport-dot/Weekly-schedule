@@ -171,12 +171,14 @@ const styles = {
     borderBottom: '1px solid #e5e7eb',
     padding: '10px',
   },
+
+  // 👇 THIS MUST BE INSIDE THE OBJECT
+  input: {
+    display: 'block',
+    width: '100%',
+    marginBottom: '10px',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #ccc'
+  }
 }
-input: {
-  display: 'block',
-  width: '100%',
-  marginBottom: '10px',
-  padding: '10px',
-  borderRadius: '8px',
-  border: '1px solid #ccc'
-},
