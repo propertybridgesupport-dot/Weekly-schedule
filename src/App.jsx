@@ -2009,6 +2009,12 @@ export default function App() {
                               {formatDate(assignment.assignment_from_date)} to{' '}
                               {formatDate(assignment.assignment_to_date)}
                             </div>
+                            <div style={styles.assignmentDaysText}>
+                              {formatAssignmentWeekdays(
+                                assignment.assignment_from_date,
+                                assignment.assignment_to_date
+                              )}
+                            </div>
                             <div>
                               <strong>Work:</strong>{' '}
                               {assignment.work_description || '—'}
@@ -2223,6 +2229,12 @@ export default function App() {
                                     <div>
                                       <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
                                     </div>
+                                    <div style={styles.printCompactDaysLine}>
+                                      {formatAssignmentWeekdays(
+                                        assignment.assignment_from_date,
+                                        assignment.assignment_to_date
+                                      )}
+                                    </div>
                                     {assignment.split_note ? (
                                       <div>
                                         <strong>Note:</strong> {assignment.split_note}
@@ -2311,6 +2323,30 @@ function formatLongDate(value) {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+function formatAssignmentWeekdays(fromDate, toDate) {
+  if (!fromDate && !toDate) return '—'
+  const start = fromDate ? new Date(`${fromDate}T00:00:00`) : new Date(`${toDate}T00:00:00`)
+  const end = toDate ? new Date(`${toDate}T00:00:00`) : new Date(`${fromDate}T00:00:00`)
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—'
+
+  const first = start <= end ? start : end
+  const last = start <= end ? end : start
+  const labels = []
+
+  const current = new Date(first)
+  while (current <= last) {
+    labels.push(
+      current.toLocaleDateString('en-US', {
+        weekday: 'short',
+      })
+    )
+    current.setDate(current.getDate() + 1)
+  }
+
+  return labels.length ? labels.join(', ') : '—'
 }
 
 function formatSurveyorDays(assignment) {
@@ -2925,8 +2961,21 @@ const styles = {
     display: 'grid',
     gap: '1px',
   },
+  printCompactDaysLine: {
+    fontSize: '9px',
+    color: '#6b7280',
+    marginTop: '-1px',
+    paddingLeft: '40px',
+    letterSpacing: '0.1px',
+  },
   printCompactNoteCol: {
     fontSize: '11px',
+  },
+  assignmentDaysText: {
+    fontSize: '11px',
+    color: '#6b7280',
+    marginTop: '2px',
+    marginLeft: '48px',
   },
   printCompactEmpty: {
     fontSize: '12px',
