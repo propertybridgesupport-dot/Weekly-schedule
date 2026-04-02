@@ -149,6 +149,9 @@ export default function App() {
     return decodeMobileShareSnapshot(searchParams.get('snapshot'))
   }, [])
   const isMobileShareMode = Boolean(searchParams?.get('mobileShare') === '1' && mobileShareSnapshot)
+  const isViewerMode = Boolean(searchParams?.get('viewer') === '1')
+  const viewerWeekFromParam = searchParams?.get('weekFrom') || ''
+  const viewerWeekToParam = searchParams?.get('weekTo') || ''
 
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -249,6 +252,14 @@ const [printLayout, setPrintLayout] = useState('report')
   }, [selectedWeekFrom, selectedWeekTo])
 
   useEffect(() => {
+    if (!isViewerMode) return
+    if (viewerWeekFromParam && viewerWeekToParam) {
+      setSelectedWeekFrom(viewerWeekFromParam)
+      setSelectedWeekTo(viewerWeekToParam)
+    }
+  }, [isViewerMode, viewerWeekFromParam, viewerWeekToParam])
+
+  useEffect(() => {
     try {
       const savedContacts = window.localStorage.getItem('weeklyScheduleMobileContacts')
       if (savedContacts) {
@@ -320,6 +331,18 @@ const gridScheduleItems = useMemo(() => {
   }
 
   function createMobileShareUrl() {
+    if (typeof window === 'undefined') return ''
+    if (!selectedWeekFrom || !selectedWeekTo) return ''
+    const base = `${window.location.origin}${window.location.pathname}`
+    const params = new URLSearchParams({
+      viewer: '1',
+      weekFrom: selectedWeekFrom,
+      weekTo: selectedWeekTo,
+    })
+    return `${base}?${params.toString()}`
+  }
+
+  function createSnapshotShareUrl() {
     if (typeof window === 'undefined') return ''
     const snapshot = buildMobileShareSnapshot(gridScheduleItems, selectedWeekFrom, selectedWeekTo)
     if (!snapshot) return ''
@@ -1288,7 +1311,7 @@ const gridScheduleItems = useMemo(() => {
 
 
   function buildSmsMessageText() {
-    return `Weekly schedule for ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}: ${createMobileShareUrl()}`
+    return `${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)} ${createMobileShareUrl()}`
   }
 
   function openSmsApp(phoneNumbers = []) {
@@ -1414,6 +1437,44 @@ const gridScheduleItems = useMemo(() => {
     )
   }
 
+  if (isViewerMode && session) {
+    return (
+      <div style={styles.mobileSharePage}>
+        <div style={styles.mobileShareShell}>
+          <div style={styles.mobileReadonlyHeader}>
+            <div style={styles.mobileReadonlyHeaderTop}>
+              <div>
+                <div style={styles.mobileReadonlyCompany}>Command Construction Industries</div>
+                <div style={styles.mobileReadonlyTitle}>Weekly Schedule</div>
+                <div style={styles.mobileReadonlyDate}>
+                  {selectedWeekFrom && selectedWeekTo
+                    ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
+                    : ''}
+                </div>
+              </div>
+
+              <div style={styles.mobileReadonlyBrandBlock}>
+                <img
+                  src="/command-logo.png"
+                  alt="Command Construction Industries Logo"
+                  style={styles.mobileReadonlyLogo}
+                />
+                <div style={styles.mobileReadonlyQuote}>
+                  “The road to success is always under construction.”
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.mobileReadonlyDivider} />
+          </div>
+
+          {renderReadonlyScheduleCards(gridScheduleItems, { compact: true })}
+        </div>
+      </div>
+    )
+  }
+
+
   if (isMobileShareMode && mobileShareSnapshot) {
     return (
       <div style={styles.mobileSharePage}>
@@ -1497,8 +1558,8 @@ const gridScheduleItems = useMemo(() => {
     <div style={styles.page}>
 <style>{`
   @page {
-    size: portrait;
-    margin: 0.18in;
+    size: ${printLayout === 'grid' ? 'landscape' : 'portrait'};
+    margin: ${printLayout === 'grid' ? '0.12in' : '0.18in'};
   }
 
   .nav-button {
@@ -1548,10 +1609,12 @@ const gridScheduleItems = useMemo(() => {
       box-shadow: none !important;
       border-radius: 0 !important;
       transform-origin: top center;
+      padding: ${'${printLayout === 'grid' ? '0.14in 0.16in 0.12in' : '0.2in 0.22in 0.16in'}'} !important;
     }
 
     .print-report-list {
-      gap: 0 !important;
+      display: block !important;
+      padding-top: 10px !important;
     }
 
     .print-report-card {
@@ -1562,6 +1625,22 @@ const gridScheduleItems = useMemo(() => {
     .print-job-divider {
       margin-top: 8px !important;
       margin-bottom: 8px !important;
+    }
+
+    .print-grid-mode .print-preview-stage,
+    .print-grid-mode .print-paper {
+      background: #ffffff !important;
+    }
+
+    .print-grid-mode .print-paper {
+      width: 100% !important;
+      padding: 0.1in 0.12in 0.08in !important;
+    }
+
+    .print-grid-mode .print-grid-board {
+      transform: scale(0.93);
+      transform-origin: top left;
+      width: 107.5%;
     }
   }
 `}</style>
@@ -2618,7 +2697,7 @@ const gridScheduleItems = useMemo(() => {
 
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
-          <div style={styles.printPageWrap} className="print-page-wrap">
+          <div style={styles.printPageWrap} className={`print-page-wrap ${printLayout === 'grid' ? 'print-grid-mode' : 'print-report-mode'}`}>
 <div style={styles.assignmentHeader} className="no-print">
   <h2 style={styles.sectionTitle}>Print / PDF View</h2>
 
@@ -2691,7 +2770,7 @@ const gridScheduleItems = useMemo(() => {
   button to open your email app and attach the PDF.
 </div>
             <div style={styles.printPreviewStage} className="print-preview-stage">
-              <div style={styles.reportPaper} className="print-paper">
+              <div style={printLayout === 'grid' ? styles.reportPaperGrid : styles.reportPaper} className="print-paper">
               <div style={styles.reportHeader}>
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
@@ -2859,7 +2938,7 @@ const gridScheduleItems = useMemo(() => {
                 </p>
               ) : (
                 <div style={styles.printGridWrap}>
-                  <div style={styles.printGridBoard}>
+                  <div style={styles.printGridBoard} className="print-grid-board">
                     <div style={styles.printGridHeaderCell}>Job</div>
                     {WEEKDAY_KEYS.map((dayKey) => (
                       <div key={dayKey} style={styles.printGridHeaderCell}>
@@ -3056,26 +3135,33 @@ const styles = {
   printPreviewStage: {
     display: 'flex',
     justifyContent: 'center',
-    padding: '28px',
-    background: '#f4f6f8',
-    border: '1px solid #d8dee6',
+    padding: '20px',
+    background: '#eef3f7',
+    border: '1px solid #d5dde6',
     borderRadius: '18px',
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
   },
   reportPaper: {
-    width: '8.5in',
-    minHeight: '11in',
+    width: '7.9in',
+    minHeight: '10.3in',
     background: '#ffffff',
     border: '1px solid #d8dee6',
     borderRadius: '8px',
-    padding: '28px 30px 24px',
+    padding: '22px 24px 18px',
+    boxShadow: '0 18px 42px rgba(15,23,42,0.10)',
+  },
+  reportPaperGrid: {
+    width: '10.9in',
+    minHeight: '7.8in',
+    background: '#ffffff',
+    border: '1px solid #d8dee6',
+    borderRadius: '8px',
+    padding: '16px 18px 14px',
     boxShadow: '0 18px 42px rgba(15,23,42,0.10)',
   },
   printReportList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0',
-    paddingTop: '22px',
+    display: 'block',
+    paddingTop: '10px',
   },
   printReportCard: {
     paddingTop: '2px',
@@ -3673,11 +3759,11 @@ const styles = {
     marginBottom: '10px',
   },
   reportHeader: {
-    marginBottom: '14px',
+    marginBottom: '10px',
   },
   reportHeaderTopBorder: {
     borderTop: '1px solid #c7cdd4',
-    marginBottom: '10px',
+    marginBottom: '8px',
   },
   reportHeaderTop: {
     display: 'flex',
@@ -3774,7 +3860,7 @@ printNotesTextarea: {
 
 printGridBoard: {
   display: 'grid',
-  gridTemplateColumns: '1.5fr repeat(5, 1fr)',
+  gridTemplateColumns: '1.35fr repeat(5, minmax(0, 1fr))',
   border: '1px solid #d1d5db',
   borderBottom: 'none',
 },
@@ -3782,37 +3868,37 @@ printGridBoard: {
 printGridHeaderCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '6px',
+  padding: '5px',
   fontWeight: '700',
-  fontSize: '11px',
+  fontSize: '10px',
   backgroundColor: '#f7f1e7',
 },
 
 printGridJobCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '6px',
-  fontSize: '10px',
-  lineHeight: '1.25',
+  padding: '5px',
+  fontSize: '9px',
+  lineHeight: '1.18',
 },
 
 printGridJobTitle: {
   fontWeight: '700',
-  fontSize: '10px',
+  fontSize: '9px',
 },
 
 printGridJobSubTitle: {
-  fontSize: '9px',
-  marginTop: '2px',
+  fontSize: '8px',
+  marginTop: '1px',
 },
 
 printGridDayCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '4px',
-  fontSize: '9px',
-  lineHeight: '1.2',
-  minHeight: '54px',
+  padding: '3px',
+  fontSize: '8px',
+  lineHeight: '1.1',
+  minHeight: '42px',
 },
 
 mobileSharePage: {
@@ -3841,6 +3927,11 @@ mobileShareShell: {
 },
 mobileReadonlyHeader: {
   marginBottom: '14px',
+  background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+  borderRadius: '16px',
+  padding: '18px 18px 14px',
+  borderTop: '4px solid #dd7a00',
+  boxShadow: '0 12px 28px rgba(15,23,42,0.18)',
 },
 mobileReadonlyHeaderTop: {
   display: 'flex',
@@ -3854,19 +3945,19 @@ mobileReadonlyCompany: {
   fontWeight: '700',
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  color: '#1f2937',
+  color: '#f0b35d',
   marginBottom: '3px',
 },
 mobileReadonlyTitle: {
   fontSize: '26px',
   fontWeight: '800',
-  color: '#0f172a',
+  color: '#ffffff',
   lineHeight: '1.1',
 },
 mobileReadonlyDate: {
   marginTop: '5px',
   fontSize: '14px',
-  color: '#475569',
+  color: '#e5e7eb',
 },
 mobileReadonlyBrandBlock: {
   display: 'flex',
@@ -3883,14 +3974,14 @@ mobileReadonlyLogo: {
 },
 mobileReadonlyQuote: {
   maxWidth: '260px',
-  color: '#7c4a03',
+  color: '#f8e7c7',
   fontSize: '13px',
   lineHeight: '1.35',
   fontStyle: 'italic',
   fontFamily: 'Georgia, Times New Roman, serif',
 },
 mobileReadonlyDivider: {
-  borderTop: '1px solid #d1d5db',
+  borderTop: '1px solid rgba(248, 231, 199, 0.24)',
   marginTop: '10px',
 },
 mobileReadonlyList: {
