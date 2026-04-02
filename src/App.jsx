@@ -2165,13 +2165,6 @@ const [reportNotes, setReportNotes] = useState('')
   <em>Print / Save PDF</em> first, save the PDF, then click the email
   button to open your email app and attach the PDF.
 </div>
-
-            <div style={styles.emailNoteBox} className="no-print">
-              <strong>How this works right now:</strong> click{' '}
-              <em>Print / Save PDF</em> first, save the PDF, then click the email
-              button to open your email app and attach the PDF.
-            </div>
-
             <div style={styles.reportPaper} className="print-paper">
               <div style={styles.reportHeader}>
                 <div style={styles.reportHeaderTopBorder} />
