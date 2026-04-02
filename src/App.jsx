@@ -1888,50 +1888,134 @@ export default function App() {
       )}
 
       {activeTab === 'grid' && (
+         {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
-            <div style={styles.assignmentHeader}>
-              <h2 style={styles.sectionTitle}>Weekly Grid View</h2>
-              <button onClick={loadAllData} style={styles.buttonSecondary}>
-                Refresh Grid
-              </button>
+            <div style={styles.assignmentHeader} className="no-print">
+              <h2 style={styles.sectionTitle}>Print / PDF View</h2>
+              <div style={styles.topBarButtons}>
+                <button onClick={() => window.print()} style={styles.button}>
+                  Print / Save PDF
+                </button>
+
+                <select
+                  value={selectedEmailGroupId}
+                  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
+                  style={styles.jobPrefixSelect}
+                >
+                  <option value="">Select Email Group</option>
+                  {emailGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => emailSchedule(selectedEmailGroup)}
+                  style={styles.buttonSecondary}
+                >
+                  Email Selected Group
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.emailNoteBox} className="no-print">
+              <strong>How this works right now:</strong> click{' '}
+              <em>Print / Save PDF</em> first, save the PDF, then click the email
+              button to open your email app and attach the PDF.
+            </div>
+
+            <div style={styles.printHeader}>
+              <h1 style={styles.printTitle}>Weekly Schedule</h1>
+              <p style={styles.printSubtitle}>
+                Printable condensed version of saved schedule items
+              </p>
             </div>
 
             {scheduleItems.length === 0 ? (
               <p style={styles.text}>No schedule items saved yet.</p>
             ) : (
-              <div style={styles.gridBoard}>
-                <div style={styles.gridHeaderCell}>Job</div>
-                {WEEKDAY_KEYS.map((dayKey) => (
-                  <div key={dayKey} style={styles.gridHeaderCell}>
-                    {WEEKDAY_LABELS[dayKey]}
-                  </div>
-                ))}
-
+              <div style={styles.scheduleList}>
                 {scheduleItems.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <div style={styles.gridJobCell}>
-                      <div style={styles.gridJobTitle}>
-                        {item.jobs?.job_number || '—'}
-                      </div>
-                      <div style={styles.gridJobSubTitle}>
-                        {item.jobs?.job_name || 'No Job Name'}
-                      </div>
+                  <div key={item.id} style={styles.printCompactCard}>
+                    <div style={styles.printCompactJobTitle}>
+                      {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
                     </div>
 
-                    {WEEKDAY_KEYS.map((dayKey) => (
-                      <div key={`${item.id}-${dayKey}`} style={styles.gridDayCell}>
-                        {renderDayContents(item, dayKey)}
+                    <div style={styles.printCompactDates}>
+                      <strong>Week:</strong> {formatDate(item.from_date)} to {formatDate(item.to_date)}
+                    </div>
+
+                    <div style={styles.printCompactMetaRow}>
+                      <div><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
+                      <div><strong>Superintendent:</strong> {item.superintendents?.name || '—'}</div>
+                      <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
+                    </div>
+
+                    {item.notes && (
+                      <div style={styles.printCompactJobNotes}>
+                        <strong>Job Notes:</strong> {item.notes}
                       </div>
-                    ))}
-                  </React.Fragment>
+                    )}
+
+                    <div style={styles.printCompactSectionLabel}>Foreman Assignments</div>
+
+                    {item.schedule_item_foremen?.length ? (
+                      <div style={styles.printCompactAssignmentTable}>
+                        {item.schedule_item_foremen.map((assignment) => (
+                          <div key={assignment.id} style={styles.printCompactAssignmentRow}>
+                            <div style={styles.printCompactNameCol}>
+                              <strong>{assignment.foremen?.name || '—'}</strong>
+                            </div>
+                            <div style={styles.printCompactInfoCol}>
+                              <div>
+                                <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                              </div>
+                              <div>
+                                <strong>Work:</strong> {assignment.work_description || '—'}
+                              </div>
+                            </div>
+                            <div style={styles.printCompactNoteCol}>
+                              <strong>Note:</strong> {assignment.split_note || '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={styles.printCompactEmpty}>No foremen assigned</div>
+                    )}
+
+                    <div style={styles.printCompactSectionLabel}>Surveyor Assignments</div>
+
+                    {item.schedule_item_surveyors?.length ? (
+                      <div style={styles.printCompactAssignmentTable}>
+                        {item.schedule_item_surveyors.map((assignment) => (
+                          <div key={assignment.id} style={styles.printCompactAssignmentRow}>
+                            <div style={styles.printCompactNameCol}>
+                              <strong>{assignment.surveyors?.name || '—'}</strong>
+                            </div>
+                            <div style={styles.printCompactInfoCol}>
+                              <div>
+                                <strong>Days:</strong> {formatSurveyorDays(assignment)}
+                              </div>
+                            </div>
+                            <div style={styles.printCompactNoteCol}>
+                              <strong>Note:</strong> {assignment.note || '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={styles.printCompactEmpty}>No surveyor assignments</div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
           </div>
         </div>
       )}
-
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
@@ -2185,6 +2269,80 @@ function assignmentCoversDay(assignment, dayKey, weekFromDate) {
 }
 
 const styles = {
+    printCompactCard: {
+    border: '1px solid #d1d5db',
+    borderRadius: '10px',
+    padding: '14px',
+    marginBottom: '14px',
+    background: '#ffffff',
+    pageBreakInside: 'avoid',
+  },
+  printCompactJobTitle: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: '6px',
+  },
+  printCompactDates: {
+    fontSize: '13px',
+    color: '#374151',
+    marginBottom: '8px',
+  },
+  printCompactMetaRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: '10px',
+    fontSize: '13px',
+    color: '#111827',
+    marginBottom: '8px',
+    padding: '8px 10px',
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+  },
+  printCompactJobNotes: {
+    fontSize: '13px',
+    color: '#111827',
+    marginBottom: '10px',
+  },
+  printCompactSectionLabel: {
+    fontWeight: 'bold',
+    fontSize: '13px',
+    color: '#111827',
+    marginTop: '10px',
+    marginBottom: '6px',
+  },
+  printCompactAssignmentTable: {
+    display: 'grid',
+    gap: '6px',
+  },
+  printCompactAssignmentRow: {
+    display: 'grid',
+    gridTemplateColumns: '180px 1fr 1fr',
+    gap: '10px',
+    alignItems: 'start',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '8px',
+    fontSize: '12px',
+    color: '#111827',
+    background: '#ffffff',
+  },
+  printCompactNameCol: {
+    fontSize: '12px',
+  },
+  printCompactInfoCol: {
+    display: 'grid',
+    gap: '4px',
+  },
+  printCompactNoteCol: {
+    fontSize: '12px',
+  },
+  printCompactEmpty: {
+    fontSize: '12px',
+    color: '#6b7280',
+    marginBottom: '4px',
+  },
   page: {
     minHeight: '100vh',
     background: '#f3f4f6',
