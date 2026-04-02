@@ -1196,10 +1196,8 @@ const gridScheduleItems = useMemo(() => {
       width: 100% !important;
       max-width: 7.9in !important;
       margin: 0 auto !important;
-    }
-
-    .print-page-wrap {
-      page-break-before: auto !important;
+      transform: scale(0.95);
+      transform-origin: top center;
     }
 
     .print-report-list {
@@ -1220,8 +1218,10 @@ const gridScheduleItems = useMemo(() => {
       <div style={styles.headerCard} className="no-print">
         <div style={styles.topBar}>
           <div>
-            <h1 style={styles.title}>Weekly Schedule App</h1>
-            <p style={styles.text}>{message}</p>
+            <h1 style={{ ...styles.title, color: '#ffffff' }}>Weekly Schedule App</h1>
+            <p style={{ ...styles.text, color: '#fde7c2' }}>
+              Command Construction Industries Scheduling System
+            </p>
           </div>
 
           <div style={styles.topBarButtons}>
@@ -1944,11 +1944,15 @@ const gridScheduleItems = useMemo(() => {
               </div>
             </div>
 
-            {filteredScheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
-            ) : (
+            {scheduleItems.filter(
+  (item) =>
+    (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
+    (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
+).length === 0 ? (
+  <p style={styles.text}>No jobs with foreman or surveyor assignments yet.</p>
+) : (
               <div style={styles.scheduleList}>
-                {filteredScheduleItems.map((item) => (
+                {gridScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
@@ -2188,7 +2192,6 @@ const gridScheduleItems = useMemo(() => {
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
                   <div style={styles.reportTitleBlock}>
-                    <div style={styles.reportEyebrow}>Command Construction Industries</div>
                     <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
                     <div style={styles.reportDate}>
                       {selectedWeekFrom && selectedWeekTo
@@ -2196,16 +2199,11 @@ const gridScheduleItems = useMemo(() => {
                         : ''}
                     </div>
                   </div>
-                  <div style={styles.reportBrandBlock}>
-                    <img
-                      src="/command-logo.png"
-                      alt="Command Construction Industries Logo"
-                      style={styles.reportLogo}
-                    />
-                    <div style={styles.reportQuote}>
-                      “The road to success is always under construction.”
-                    </div>
-                  </div>
+                  <img
+                    src="/command-logo.png"
+                    alt="Command Industries Logo"
+                    style={styles.reportLogo}
+                  />
                 </div>
                 <div style={styles.reportDivider} />
               </div>
@@ -2494,17 +2492,18 @@ function assignmentCoversDay(assignment, dayKey, weekFromDate) {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#f3f4f6',
+    background: 'linear-gradient(180deg, #fff8ef 0%, #f7f4ee 100%)',
     padding: '30px 20px',
     fontFamily: 'Arial, sans-serif',
   },
   headerCard: {
     maxWidth: '1200px',
     margin: '0 auto 20px auto',
-    background: '#ffffff',
-    borderRadius: '10px',
+    background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+    borderRadius: '14px',
     padding: '24px',
-    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+    borderTop: '4px solid #d97706',
+    boxShadow: '0 12px 30px rgba(17,24,39,0.22)',
   },
   card: {
     maxWidth: '900px',
@@ -2564,27 +2563,29 @@ const styles = {
     fontSize: '14px',
   },
   sectionCard: {
-    background: '#ffffff',
-    borderRadius: '10px',
+    background: '#fffdf8',
+    borderRadius: '14px',
     padding: '20px',
-    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+    borderTop: '4px solid #d97706',
+    boxShadow: '0 8px 20px rgba(15,23,42,0.08)',
   },
   assignmentCard: {
-    border: '1px solid #e5e7eb',
+    border: '1px solid #ead7c2',
     borderRadius: '12px',
     padding: '16px',
     marginBottom: '16px',
-    background: '#fafafa',
+    background: '#fffaf3',
   },
   scheduleCard: {
-    border: '1px solid #e5e7eb',
+    border: '1px solid #ead7c2',
     borderRadius: '14px',
     padding: '16px',
     marginBottom: '16px',
-    background: '#fafafa',
+    background: '#fffaf3',
+    boxShadow: '0 4px 10px rgba(17,24,39,0.04)',
   },
   foremanViewCard: {
-    border: '1px solid #e5e7eb',
+    border: '1px solid #e6dccf',
     borderRadius: '10px',
     padding: '12px',
     marginBottom: '18px',
@@ -2670,12 +2671,12 @@ const styles = {
   },
   emailNoteBox: {
     marginBottom: '16px',
-    background: '#f9fafb',
-    border: '1px solid #e5e7eb',
+    background: '#fff7ed',
+    border: '1px solid #fed7aa',
     borderRadius: '10px',
     padding: '12px',
     fontSize: '14px',
-    color: '#374151',
+    color: '#7c2d12',
   },
   emailGroupBlock: {
     border: '1px solid #e5e7eb',
@@ -2726,11 +2727,11 @@ const styles = {
     marginBottom: '18px',
   },
   jobPrefixSelect: {
-    width: '160px',
+    width: '170px',
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid #ccc',
-    background: '#ffffff',
+    border: '1px solid #d9c7b1',
+    background: '#fffdfa',
     boxSizing: 'border-box',
   },
   jobDash: {
@@ -2760,6 +2761,7 @@ const styles = {
     margin: 0,
     marginBottom: '8px',
     fontSize: '32px',
+    color: '#111827',
   },
   sectionTitle: {
     marginTop: 0,
@@ -2790,17 +2792,18 @@ const styles = {
   },
   button: {
     marginTop: '8px',
-    background: '#111827',
+    background: '#d97706',
     color: '#ffffff',
     border: 'none',
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
+    boxShadow: '0 6px 16px rgba(217,119,6,0.22)',
   },
   buttonSecondary: {
     background: '#ffffff',
     color: '#111827',
-    border: '1px solid #e5e7eb',
+    border: '1px solid #d7c4ab',
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
@@ -2816,7 +2819,7 @@ const styles = {
   smallButton: {
     background: '#ffffff',
     color: '#111827',
-    border: '1px solid #e5e7eb',
+    border: '1px solid #d7c4ab',
     borderRadius: '8px',
     padding: '6px 10px',
     cursor: 'pointer',
@@ -2837,7 +2840,8 @@ const styles = {
     marginBottom: '18px',
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid #ccc',
+    border: '1px solid #d9c7b1',
+    background: '#fffdfa',
     boxSizing: 'border-box',
   },
   select: {
@@ -2846,9 +2850,9 @@ const styles = {
     marginBottom: '18px',
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid #ccc',
+    border: '1px solid #d9c7b1',
     boxSizing: 'border-box',
-    background: '#ffffff',
+    background: '#fffdfa',
   },
   textarea: {
     display: 'block',
@@ -2856,7 +2860,8 @@ const styles = {
     minHeight: '90px',
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid #ccc',
+    border: '1px solid #d9c7b1',
+    background: '#fffdfa',
     boxSizing: 'border-box',
     resize: 'vertical',
   },
@@ -2897,16 +2902,17 @@ const styles = {
     overflowX: 'auto',
   },
   gridHeaderCell: {
-    background: '#111827',
+    background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
     color: '#ffffff',
+    borderTop: '3px solid #d97706',
     borderRadius: '10px',
     padding: '12px',
     fontWeight: 'bold',
     minHeight: '48px',
   },
   gridJobCell: {
-    background: '#f9fafb',
-    border: '1px solid #e5e7eb',
+    background: '#fffaf3',
+    border: '1px solid #ead7c2',
     borderRadius: '10px',
     padding: '12px',
     minHeight: '140px',
@@ -2923,7 +2929,7 @@ const styles = {
   },
   gridDayCell: {
     background: '#ffffff',
-    border: '1px solid #e5e7eb',
+    border: '1px solid #e9e2d7',
     borderRadius: '10px',
     padding: '10px',
     minHeight: '140px',
@@ -2933,14 +2939,14 @@ const styles = {
     gap: '8px',
   },
   gridForemanChip: {
-    background: '#eef2ff',
-    border: '1px solid #c7d2fe',
+    background: '#fff3e0',
+    border: '1px solid #f6c78f',
     borderRadius: '10px',
     padding: '8px',
   },
   gridSurveyorChip: {
     background: '#ecfdf5',
-    border: '1px solid #a7f3d0',
+    border: '1px solid #86efac',
     borderRadius: '10px',
     padding: '8px',
   },
@@ -3109,7 +3115,7 @@ const styles = {
   },
   reportHeaderTop: {
     display: 'flex',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: '14px',
     minHeight: '50px',
@@ -3122,36 +3128,12 @@ const styles = {
     flex: 1,
     paddingTop: '1px',
   },
-  reportEyebrow: {
-    fontSize: '10px',
-    fontWeight: '700',
-    letterSpacing: '1.2px',
-    textTransform: 'uppercase',
-    color: '#c25b12',
-    marginBottom: '4px',
-  },
-  reportBrandBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: '6px',
-    flexShrink: 0,
-  },
   reportLogo: {
     height: '44px',
     width: '148px',
     objectFit: 'contain',
     objectPosition: 'right center',
     flexShrink: 0,
-  },
-  reportQuote: {
-    maxWidth: '230px',
-    fontSize: '11px',
-    lineHeight: 1.3,
-    textAlign: 'right',
-    color: '#6b7280',
-    fontStyle: 'italic',
-    fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif',
   },
   reportTitle: {
     fontSize: '20px',
@@ -3198,35 +3180,30 @@ printNotesTextarea: {
 },
     printGridWrap: {
   marginTop: '14px',
-  pageBreakInside: 'avoid',
-  breakInside: 'avoid',
 },
 
 printGridBoard: {
   display: 'grid',
-  gridTemplateColumns: '1.35fr repeat(5, minmax(0, 1fr))',
+  gridTemplateColumns: '1.5fr repeat(5, 1fr)',
   border: '1px solid #d1d5db',
   borderBottom: 'none',
-  pageBreakInside: 'avoid',
-  breakInside: 'avoid',
 },
 
 printGridHeaderCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '5px',
+  padding: '6px',
   fontWeight: '700',
-  fontSize: '10px',
+  fontSize: '11px',
   backgroundColor: '#f8fafc',
 },
 
 printGridJobCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '5px',
-  fontSize: '9.5px',
-  lineHeight: '1.2',
-  backgroundColor: '#ffffff',
+  padding: '6px',
+  fontSize: '10px',
+  lineHeight: '1.25',
 },
 
 printGridJobTitle: {
@@ -3242,10 +3219,9 @@ printGridJobSubTitle: {
 printGridDayCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '3px',
-  fontSize: '8.5px',
-  lineHeight: '1.15',
-  minHeight: '46px',
-  backgroundColor: '#ffffff',
+  padding: '4px',
+  fontSize: '9px',
+  lineHeight: '1.2',
+  minHeight: '54px',
 },
 }
