@@ -131,13 +131,8 @@ export default function App() {
   }, [jobs])
 
   const filteredScheduleItems = useMemo(() => {
-    if (!selectedWeekFrom || !selectedWeekTo) return scheduleItems
-
-    return scheduleItems.filter(
-      (item) =>
-        item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo
-    )
-  }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
+    return scheduleItems
+  }, [scheduleItems])
 
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
@@ -1843,11 +1838,7 @@ export default function App() {
             </div>
 
             {filteredScheduleItems.length === 0 ? (
-              <p style={styles.text}>
-                {selectedWeekFrom && selectedWeekTo
-                  ? 'No schedule items saved yet for this week.'
-                  : 'Choose a week to view the schedule.'}
-              </p>
+              <p style={styles.text}>No schedule items saved yet.</p>
             ) : (
               <div style={styles.scheduleList}>
                 {filteredScheduleItems.map((item) => (
@@ -2064,11 +2055,7 @@ export default function App() {
               </div>
 
 {filteredScheduleItems.length === 0 ? (
-                <p style={styles.text}>
-                  {selectedWeekFrom && selectedWeekTo
-                    ? 'No schedule items saved yet for this week.'
-                    : 'Choose a week on the Weekly Schedule tab first.'}
-                </p>
+                <p style={styles.text}>No schedule items saved yet.</p>
               ) : (
                 <div style={styles.printReportList}>
                   {filteredScheduleItems.map((item) => (
