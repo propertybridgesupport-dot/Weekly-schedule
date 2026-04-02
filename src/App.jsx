@@ -1196,14 +1196,12 @@ const gridScheduleItems = useMemo(() => {
       width: 100% !important;
       max-width: 7.9in !important;
       margin: 0 auto !important;
-      transform: none !important;
-      box-shadow: none !important;
-      border: none !important;
+      transform: scale(0.95);
+      transform-origin: top center;
     }
 
     .print-report-list {
       gap: 0 !important;
-      padding-top: 8px !important;
     }
 
     .print-report-card {
@@ -2093,7 +2091,13 @@ const gridScheduleItems = useMemo(() => {
                   </div>
                 ))}
 
-          {gridScheduleItems.map((item) => (
+          {scheduleItems
+  .filter(
+    (item) =>
+      (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
+      (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
+  )
+  .map((item) => (
     <React.Fragment key={item.id}>
                     <div style={styles.gridJobCell}>
                       <div style={styles.gridJobTitle}>
@@ -2188,7 +2192,7 @@ const gridScheduleItems = useMemo(() => {
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
                   <div style={styles.reportTitleBlock}>
-                    <div style={styles.reportTitle}>{printLayout === 'grid' ? 'WEEKLY GRID' : 'WEEKLY SCHEDULE'}</div>
+                    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
                     <div style={styles.reportDate}>
                       {selectedWeekFrom && selectedWeekTo
                         ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
@@ -2537,17 +2541,17 @@ const styles = {
     background: '#ffffff',
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
-    padding: '14px 16px 12px',
+    padding: '18px 18px 14px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.035)',
   },
   printReportList: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0',
-    paddingTop: '8px',
+    paddingTop: '22px',
   },
   printReportCard: {
-    paddingTop: '0',
+    paddingTop: '2px',
     paddingBottom: '8px',
     marginBottom: '0',
     pageBreakInside: 'avoid',
@@ -2618,7 +2622,7 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
     flexWrap: 'wrap',
-    marginBottom: '8px',
+    marginBottom: '14px',
   },
   bottomButtons: {
     display: 'flex',
@@ -2629,7 +2633,7 @@ const styles = {
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '12px',
+    gap: '14px',
   },
   metaGrid: {
     display: 'grid',
@@ -3092,7 +3096,7 @@ const styles = {
   jobDivider: {
     borderTop: '1px solid #cfd6de',
     marginTop: '12px',
-    marginBottom: '8px',
+    marginBottom: '10px',
   },
   reportHeader: {
     marginBottom: '14px',
@@ -3136,7 +3140,7 @@ const styles = {
     marginTop: '4px',
   },
   reportDivider: {
-    marginTop: '6px',
+    marginTop: '9px',
     borderBottom: '1px solid #c7cdd4',
   },
   printSectionHeader: {
