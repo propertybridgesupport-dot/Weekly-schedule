@@ -2111,67 +2111,60 @@ const [reportNotes, setReportNotes] = useState('')
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.printPageWrap} className="print-page-wrap">
-            <div style={styles.assignmentHeader} className="no-print">
-              <h2 style={styles.sectionTitle}>Print / PDF View</h2>
-              <div style={styles.topBarButtons}>
-                <button onClick={() => window.print()} style={styles.button}>
-                  Print / Save PDF
-<button
-  onClick={() => window.print()}
-  style={styles.button}
->
-  Print / Save PDF
-</button>
+<div style={styles.assignmentHeader} className="no-print">
+  <h2 style={styles.sectionTitle}>Print / PDF View</h2>
 
-<select
-  value={notesStyle}
-  onChange={(e) => setNotesStyle(e.target.value)}
-  style={styles.jobPrefixSelect}
->
-  <option value="accent">Accent Style</option>
-  <option value="box">Box Style</option>
-</select>
+  <div style={styles.topBarButtons}>
+    <button onClick={() => window.print()} style={styles.button}>
+      Print / Save PDF
+    </button>
 
-<select
-  value={selectedEmailGroupId}
-  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
-  style={styles.jobPrefixSelect}
->
-  <option value="">Select Email Group</option>
-  {emailGroups.map((group) => (
-    <option key={group.id} value={group.id}>
-      {group.name}
-    </option>
-  ))}
-</select>
+    <select
+      value={notesStyle}
+      onChange={(e) => setNotesStyle(e.target.value)}
+      style={styles.jobPrefixSelect}
+    >
+      <option value="accent">Accent Style</option>
+      <option value="box">Box Style</option>
+    </select>
 
-<button
-  onClick={() => emailSchedule(selectedEmailGroup)}
-  style={styles.buttonSecondary}
->
-  Email Selected Group
-</button>
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => emailSchedule(selectedEmailGroup)}
-                  style={styles.buttonSecondary}
-                >
-                  Email Selected Group
-                </button>
-              </div>
-            </div>
+    <select
+      value={selectedEmailGroupId}
+      onChange={(e) => setSelectedEmailGroupId(e.target.value)}
+      style={styles.jobPrefixSelect}
+    >
+      <option value="">Select Email Group</option>
+      {emailGroups.map((group) => (
+        <option key={group.id} value={group.id}>
+          {group.name}
+        </option>
+      ))}
+    </select>
 
-            <div style={styles.printNotesInputWrap} className="no-print">
-              <label style={styles.label}>Report Notes (optional)</label>
-              <textarea
-                value={reportNotes}
-                onChange={(e) => setReportNotes(e.target.value)}
-                placeholder="Add any overall notes for this report..."
-                style={styles.printNotesTextarea}
-              />
-            </div>
+    <button
+      onClick={() => emailSchedule(selectedEmailGroup)}
+      style={styles.buttonSecondary}
+    >
+      Email Selected Group
+    </button>
+  </div>
+</div>
+
+<div style={styles.printNotesInputWrap} className="no-print">
+  <label style={styles.label}>Report Notes (optional)</label>
+  <textarea
+    value={reportNotes}
+    onChange={(e) => setReportNotes(e.target.value)}
+    placeholder="Add any overall notes for this report..."
+    style={styles.printNotesTextarea}
+  />
+</div>
+
+<div style={styles.emailNoteBox} className="no-print">
+  <strong>How this works right now:</strong> click{' '}
+  <em>Print / Save PDF</em> first, save the PDF, then click the email
+  button to open your email app and attach the PDF.
+</div>
 
             <div style={styles.emailNoteBox} className="no-print">
               <strong>How this works right now:</strong> click{' '}
