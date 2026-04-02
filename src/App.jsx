@@ -36,7 +36,59 @@ const WEEKDAY_LABELS = {
   friday: 'Fri',
 }
 
+function toIsoDate(value) {
+  const date = value instanceof Date ? new Date(value) : new Date(value)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getMondaySundayRange(baseDate = new Date()) {
+  const date = new Date(baseDate)
+  date.setHours(0, 0, 0, 0)
+  const dayOfWeek = date.getDay()
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+
+  const monday = new Date(date)
+  monday.setDate(date.getDate() + mondayOffset)
+
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+
+  return {
+    from: toIsoDate(monday),
+    to: toIsoDate(sunday),
+  }
+}
+
+function getInitialWeekRange() {
+  const currentWeek = getMondaySundayRange()
+
+  if (typeof window === 'undefined') {
+    return currentWeek
+  }
+
+  try {
+    const savedFrom = window.localStorage.getItem('weeklyScheduleSelectedWeekFrom')
+    const savedTo = window.localStorage.getItem('weeklyScheduleSelectedWeekTo')
+
+    if (
+      /^\d{4}-\d{2}-\d{2}$/.test(savedFrom || '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(savedTo || '')
+    ) {
+      return { from: savedFrom, to: savedTo }
+    }
+  } catch (error) {
+    console.error('Could not read saved week range.', error)
+  }
+
+  return currentWeek
+}
+
 export default function App() {
+  const initialWeekRange = getInitialWeekRange()
+
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
@@ -51,8 +103,8 @@ export default function App() {
   const [emailGroups, setEmailGroups] = useState([])
   const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
 
-  const [selectedWeekFrom, setSelectedWeekFrom] = useState('')
-  const [selectedWeekTo, setSelectedWeekTo] = useState('')
+  const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
+  const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
   const [notesStyle, setNotesStyle] = useState('accent')
 
   const [jobPrefix, setJobPrefix] = useState('CC')
@@ -122,6 +174,22 @@ export default function App() {
       loadAllData()
     }
   }, [session])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('weeklyScheduleSelectedWeekFrom', selectedWeekFrom)
+      window.localStorage.setItem('weeklyScheduleSelectedWeekTo', selectedWeekTo)
+    } catch (error) {
+      console.error('Could not save selected week range.', error)
+    }
+  }, [selectedWeekFrom, selectedWeekTo])
+
+  function applyWeekFromAnyDate(value) {
+    if (!value) return
+    const nextRange = getMondaySundayRange(new Date(`${value}T00:00:00`))
+    setSelectedWeekFrom(nextRange.from)
+    setSelectedWeekTo(nextRange.to)
+  }
 
   const sortedJobs = useMemo(() => {
     return [...jobs].sort((a, b) => {
@@ -1822,7 +1890,7 @@ export default function App() {
                 <input
                   type="date"
                   value={selectedWeekFrom}
-                  onChange={(e) => setSelectedWeekFrom(e.target.value)}
+                  onChange={(e) => applyWeekFromAnyDate(e.target.value)}
                   style={styles.input}
                 />
               </div>
@@ -1832,7 +1900,7 @@ export default function App() {
                 <input
                   type="date"
                   value={selectedWeekTo}
-                  onChange={(e) => setSelectedWeekTo(e.target.value)}
+                  onChange={(e) => applyWeekFromAnyDate(e.target.value)}
                   style={styles.input}
                 />
               </div>
