@@ -2039,24 +2039,25 @@ export default function App() {
             </div>
 
             <div style={styles.reportPaper}>
-             <div style={styles.reportHeaderRow}>
-  <div>
-    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
-    <div style={styles.reportDate}>
-      {selectedWeekFrom && selectedWeekTo
-        ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
-        : ''}
-    </div>
-  </div>
-
-  <img
-    src="/command-logo.png"
-    alt="Command Industries Logo"
-    style={styles.reportLogo}
-  />
-</div>
-
-<div style={styles.reportDivider} />
+              <div style={styles.reportHeader}>
+                <div style={styles.reportHeaderTopBorder} />
+                <div style={styles.reportHeaderTop}>
+                  <div style={styles.reportTitleBlock}>
+                    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
+                    <div style={styles.reportDate}>
+                      {selectedWeekFrom && selectedWeekTo
+                        ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
+                        : ''}
+                    </div>
+                  </div>
+                  <img
+                    src="/command-logo.png"
+                    alt="Command Industries Logo"
+                    style={styles.reportLogo}
+                  />
+                </div>
+                <div style={styles.reportDivider} />
+              </div>
 
 {filteredScheduleItems.length === 0 ? (
                 <p style={styles.text}>No schedule items saved yet.</p>
@@ -2068,64 +2069,68 @@ export default function App() {
                         {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
                       </div>
 
-                      <div style={styles.printPmLine}>
-                        <strong>PM:</strong> {item.project_managers?.name || '—'}
-                      </div>
-
-                      {item.notes && (
-                        <div style={styles.printCompactJobNotes}>
-                          <strong>Job Notes:</strong> {item.notes}
+                      <div style={styles.printIndentedBlock}>
+                        <div style={styles.printCompactMetaRow}>
+                          <div><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
+                          <div><strong>Superintendent:</strong> {item.superintendents?.name || '—'}</div>
+                          <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
                         </div>
-                      )}
 
-                      {item.schedule_item_foremen?.length ? (
-                        <>
-                          <div style={styles.printCompactSectionLabel}>Foreman Assignments</div>
-                          <div style={styles.printCompactAssignmentTable}>
-                            {item.schedule_item_foremen.map((assignment) => (
-                              <div key={assignment.id} style={styles.printCompactAssignmentRow}>
-                                <div style={styles.printCompactNameCol}>
-                                  <strong>{assignment.foremen?.name || '—'}</strong>
-                                </div>
-                                <div style={styles.printCompactInfoCol}>
-                                  <div>
-                                    <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
-                                  </div>
-                                  <div>
-                                    <strong>Work:</strong> {assignment.work_description || '—'}
-                                  </div>
-                                </div>
-                                <div style={styles.printCompactNoteCol}>
-                                  <strong>Note:</strong> {assignment.split_note || '—'}
-                                </div>
-                              </div>
-                            ))}
+                        {item.notes && (
+                          <div style={styles.printCompactJobNotes}>
+                            <strong>Job Notes:</strong> {item.notes}
                           </div>
-                        </>
-                      ) : null}
+                        )}
 
-                      {item.schedule_item_surveyors?.length ? (
-                        <>
-                          <div style={styles.printCompactSectionLabel}>Surveyor Assignments</div>
-                          <div style={styles.printCompactAssignmentTable}>
-                            {item.schedule_item_surveyors.map((assignment) => (
-                              <div key={assignment.id} style={styles.printCompactAssignmentRow}>
-                                <div style={styles.printCompactNameCol}>
-                                  <strong>{assignment.surveyors?.name || '—'}</strong>
-                                </div>
-                                <div style={styles.printCompactInfoCol}>
-                                  <div>
-                                    <strong>Days:</strong> {formatSurveyorDays(assignment)}
+                        {item.schedule_item_foremen?.length ? (
+                          <>
+                            <div style={styles.printCompactSectionLabel}>Foreman Assignments</div>
+                            <div style={styles.printCompactAssignmentTable}>
+                              {item.schedule_item_foremen.map((assignment) => (
+                                <div key={assignment.id} style={styles.printCompactAssignmentRow}>
+                                  <div style={styles.printCompactNameCol}>
+                                    <strong>{assignment.foremen?.name || '—'}</strong>
+                                  </div>
+                                  <div style={styles.printCompactInfoCol}>
+                                    <div>
+                                      <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                                    </div>
+                                    <div>
+                                      <strong>Work:</strong> {assignment.work_description || '—'}
+                                    </div>
+                                  </div>
+                                  <div style={styles.printCompactNoteCol}>
+                                    <strong>Note:</strong> {assignment.split_note || '—'}
                                   </div>
                                 </div>
-                                <div style={styles.printCompactNoteCol}>
-                                  <strong>Note:</strong> {assignment.note || '—'}
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+
+                        {item.schedule_item_surveyors?.length ? (
+                          <>
+                            <div style={styles.printCompactSectionLabel}>Surveyor Assignments</div>
+                            <div style={styles.printCompactAssignmentTable}>
+                              {item.schedule_item_surveyors.map((assignment) => (
+                                <div key={assignment.id} style={styles.printCompactAssignmentRow}>
+                                  <div style={styles.printCompactNameCol}>
+                                    <strong>{assignment.surveyors?.name || '—'}</strong>
+                                  </div>
+                                  <div style={styles.printCompactInfoCol}>
+                                    <div>
+                                      <strong>Days:</strong> {formatSurveyorDays(assignment)}
+                                    </div>
+                                  </div>
+                                  <div style={styles.printCompactNoteCol}>
+                                    <strong>Note:</strong> {assignment.note || '—'}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : null}
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2271,11 +2276,11 @@ const styles = {
   printReportList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: '12px',
   },
   printReportCard: {
     borderBottom: '1px solid #d1d5db',
-    paddingBottom: '16px',
+    paddingBottom: '12px',
     pageBreakInside: 'avoid',
   },
   printPmLine: {
@@ -2694,7 +2699,10 @@ const styles = {
     fontSize: '15px',
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: '3px',
+    marginBottom: '4px',
+  },
+  printIndentedBlock: {
+    marginLeft: '18px',
   },
   printCompactDates: {
     fontSize: '13px',
@@ -2704,52 +2712,56 @@ const styles = {
   printCompactMetaRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '10px',
-    fontSize: '13px',
+    gap: '8px',
+    fontSize: '12px',
     color: '#111827',
-    marginBottom: '8px',
-    padding: '8px 10px',
+    marginBottom: '6px',
+    padding: '6px 8px',
     background: '#f9fafb',
     border: '1px solid #e5e7eb',
-    borderRadius: '8px',
+    borderRadius: '6px',
   },
   printCompactJobNotes: {
-    fontSize: '13px',
+    fontSize: '12px',
     color: '#111827',
-    marginBottom: '10px',
+    marginBottom: '8px',
+    lineHeight: 1.35,
   },
   printCompactSectionLabel: {
     fontWeight: 'bold',
-    fontSize: '13px',
+    fontSize: '12px',
     color: '#111827',
-    marginTop: '10px',
-    marginBottom: '6px',
+    marginTop: '8px',
+    marginBottom: '4px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px',
   },
   printCompactAssignmentTable: {
     display: 'grid',
-    gap: '6px',
+    gap: '4px',
   },
   printCompactAssignmentRow: {
     display: 'grid',
-    gridTemplateColumns: '180px 1fr 1fr',
-    gap: '10px',
+    gridTemplateColumns: '145px minmax(0, 1.4fr) minmax(0, 1fr)',
+    gap: '8px',
     alignItems: 'start',
     border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    padding: '8px',
-    fontSize: '12px',
+    borderRadius: '6px',
+    padding: '6px 8px',
+    fontSize: '11px',
     color: '#111827',
     background: '#ffffff',
+    lineHeight: 1.3,
   },
   printCompactNameCol: {
     fontSize: '11px',
   },
   printCompactInfoCol: {
     display: 'grid',
-    gap: '2px',
+    gap: '1px',
   },
   printCompactNoteCol: {
-    fontSize: '12px',
+    fontSize: '11px',
   },
   printCompactEmpty: {
     fontSize: '12px',
@@ -2757,12 +2769,16 @@ const styles = {
     marginBottom: '4px',
   },
   reportHeader: {
-    marginBottom: '12px',
+    marginBottom: '10px',
+  },
+  reportHeaderTopBorder: {
+    borderTop: '1px solid #9ca3af',
+    marginBottom: '10px',
   },
   reportHeaderTop: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     gap: '18px',
   },
   reportTitleBlock: {
@@ -2773,42 +2789,27 @@ const styles = {
     flex: 1,
   },
   reportLogo: {
-    height: '58px',
-    width: '180px',
+    height: '52px',
+    width: '170px',
     objectFit: 'contain',
-    objectPosition: 'left center',
+    objectPosition: 'right center',
     flexShrink: 0,
   },
   reportTitle: {
-    fontSize: '22px',
+    fontSize: '21px',
     fontWeight: 'bold',
-    letterSpacing: '1px',
+    letterSpacing: '0.9px',
     color: '#111827',
-    lineHeight: 1.1,
+    lineHeight: 1.05,
   },
   reportDate: {
-    fontSize: '13px',
+    fontSize: '12px',
     color: '#374151',
-    marginTop: '4px',
+    marginTop: '3px',
   },
   reportDivider: {
     marginTop: '8px',
-    borderBottom: '1px solid #d1d5db',
+    borderBottom: '1px solid #9ca3af',
   },
-  reportHeaderRow: {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: '10px',
-},
 
-reportTitle: {
-  fontSize: '20px',
-  fontWeight: '700',
-  letterSpacing: '0.5px',
-},
-reportDate: {
-  fontSize: '13px',
-  marginTop: '2px',
-},
 }
