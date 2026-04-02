@@ -86,13 +86,77 @@ function getInitialWeekRange() {
   return currentWeek
 }
 
+function decodeMobileShareSnapshot(rawValue) {
+  if (!rawValue) return null
+
+  try {
+    const normalized = decodeURIComponent(rawValue)
+    const jsonText = atob(normalized)
+    return JSON.parse(jsonText)
+  } catch (error) {
+    console.error('Could not decode mobile share snapshot.', error)
+    return null
+  }
+}
+
+function buildMobileShareSnapshot(items, selectedWeekFrom, selectedWeekTo) {
+  const payload = {
+    weekFrom: selectedWeekFrom,
+    weekTo: selectedWeekTo,
+    createdAt: new Date().toISOString(),
+    items: items.map((item) => ({
+      id: item.id,
+      jobNumber: item.jobs?.job_number || '—',
+      jobName: item.jobs?.job_name || 'No Job Name',
+      projectManager: item.project_managers?.name || '—',
+      superintendent: item.superintendents?.name || '—',
+      surveyor: item.surveyors?.name || '—',
+      notes: item.notes || '',
+      foremen: (item.schedule_item_foremen || []).map((assignment) => ({
+        id: assignment.id,
+        name: assignment.foremen?.name || '—',
+        fromDate: assignment.assignment_from_date || '',
+        toDate: assignment.assignment_to_date || '',
+        work: assignment.work_description || '',
+        splitNote: assignment.split_note || '',
+      })),
+      surveyorAssignments: (item.schedule_item_surveyors || []).map((assignment) => ({
+        id: assignment.id,
+        name: assignment.surveyors?.name || '—',
+        monday: !!assignment.monday,
+        tuesday: !!assignment.tuesday,
+        wednesday: !!assignment.wednesday,
+        thursday: !!assignment.thursday,
+        friday: !!assignment.friday,
+        note: assignment.note || '',
+      })),
+    })),
+  }
+
+  try {
+    return encodeURIComponent(btoa(JSON.stringify(payload)))
+  } catch (error) {
+    console.error('Could not build mobile share snapshot.', error)
+    return ''
+  }
+}
+
 export default function App() {
   const initialWeekRange = getInitialWeekRange()
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const mobileShareSnapshot = useMemo(() => {
+    if (!searchParams) return null
+    return decodeMobileShareSnapshot(searchParams.get('snapshot'))
+  }, [])
+  const isMobileShareMode = Boolean(searchParams?.get('mobileShare') === '1' && mobileShareSnapshot)
 
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
   const [activeTab, setActiveTab] = useState('weekly')
+  const [mobileContacts, setMobileContacts] = useState([])
+  const [newMobileContactName, setNewMobileContactName] = useState('')
+  const [newMobileContactPhone, setNewMobileContactPhone] = useState('')
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -185,29 +249,23 @@ const [printLayout, setPrintLayout] = useState('report')
   }, [selectedWeekFrom, selectedWeekTo])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-
     try {
-      const params = new URLSearchParams(window.location.search)
-      const view = params.get('view')
-      const from = params.get('from')
-      const to = params.get('to')
-
-      if (view === 'mobile') {
-        setActiveTab('mobile')
-      }
-
-      if (
-        /^\d{4}-\d{2}-\d{2}$/.test(from || '') &&
-        /^\d{4}-\d{2}-\d{2}$/.test(to || '')
-      ) {
-        setSelectedWeekFrom(from)
-        setSelectedWeekTo(to)
+      const savedContacts = window.localStorage.getItem('weeklyScheduleMobileContacts')
+      if (savedContacts) {
+        setMobileContacts(JSON.parse(savedContacts))
       }
     } catch (error) {
-      console.error('Could not read shareable mobile view params.', error)
+      console.error('Could not load mobile contacts.', error)
     }
   }, [])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('weeklyScheduleMobileContacts', JSON.stringify(mobileContacts))
+    } catch (error) {
+      console.error('Could not save mobile contacts.', error)
+    }
+  }, [mobileContacts])
 
   function applyWeekFromAnyDate(value) {
     if (!value) return
@@ -227,17 +285,6 @@ const [printLayout, setPrintLayout] = useState('report')
   const filteredScheduleItems = useMemo(() => {
     return scheduleItems
   }, [scheduleItems])
-
-  const currentWeekScheduleItems = useMemo(() => {
-    return scheduleItems.filter((item) => {
-      return (
-        !selectedWeekFrom ||
-        !selectedWeekTo ||
-        (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
-      )
-    })
-  }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
-
 const gridScheduleItems = useMemo(() => {
   return scheduleItems.filter((item) => {
     const matchesWeek =
@@ -255,32 +302,81 @@ const gridScheduleItems = useMemo(() => {
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
-  function getMobileViewUrl() {
+  function addMobileContact() {
+    const trimmedPhone = newMobileContactPhone.trim()
+    const trimmedName = newMobileContactName.trim()
+    if (!trimmedPhone) return
+
+    setMobileContacts((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name: trimmedName || 'No Name', phone: trimmedPhone },
+    ])
+    setNewMobileContactName('')
+    setNewMobileContactPhone('')
+  }
+
+  function removeMobileContact(id) {
+    setMobileContacts((prev) => prev.filter((contact) => contact.id !== id))
+  }
+
+  function createMobileShareUrl() {
     if (typeof window === 'undefined') return ''
-
-    const url = new URL(window.location.href)
-    url.searchParams.set('view', 'mobile')
-    url.searchParams.set('from', selectedWeekFrom)
-    url.searchParams.set('to', selectedWeekTo)
-    return url.toString()
+    const snapshot = buildMobileShareSnapshot(gridScheduleItems, selectedWeekFrom, selectedWeekTo)
+    if (!snapshot) return ''
+    const base = `${window.location.origin}${window.location.pathname}`
+    return `${base}?mobileShare=1&snapshot=${snapshot}`
   }
 
-  function openMobileView() {
-    const url = getMobileViewUrl()
-    if (!url) return
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
-  async function copyMobileViewLink() {
-    const url = getMobileViewUrl()
-    if (!url) return
+  async function copyMobileShareLink() {
+    const url = createMobileShareUrl()
+    if (!url) {
+      alert('Could not create mobile share link.')
+      return
+    }
 
     try {
       await navigator.clipboard.writeText(url)
-      setMessage('Mobile view link copied.')
+      alert('Mobile share link copied.')
     } catch (error) {
-      console.error(error)
-      window.prompt('Copy this mobile view link:', url)
+      alert(url)
+    }
+  }
+
+  function openMobileShareView() {
+    const url = createMobileShareUrl()
+    if (!url) {
+      alert('Could not create mobile share link.')
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function copyMobileSmsMessage() {
+    const url = createMobileShareUrl()
+    if (!url) {
+      alert('Could not create mobile share link.')
+      return
+    }
+    const message = `Weekly schedule for ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}: ${url}`
+    try {
+      await navigator.clipboard.writeText(message)
+      alert('SMS message copied. Paste it into your text app.')
+    } catch (error) {
+      alert(message)
+    }
+  }
+
+  async function copyMobilePhones() {
+    if (!mobileContacts.length) {
+      alert('No mobile contacts saved yet.')
+      return
+    }
+    const phoneList = mobileContacts.map((contact) => `${contact.name}: ${contact.phone}`).join('\n')
+    try {
+      await navigator.clipboard.writeText(phoneList)
+      alert('Mobile contact list copied.')
+    } catch (error) {
+      alert(phoneList)
     }
   }
 
@@ -1190,6 +1286,69 @@ const gridScheduleItems = useMemo(() => {
     )
   }
 
+  if (isMobileShareMode && mobileShareSnapshot) {
+    return (
+      <div style={styles.mobileSharePage}>
+        <div style={styles.mobileShareShell}>
+          <div style={styles.mobileShareHeader}>
+            <img
+              src="/command-logo.png"
+              alt="Command Construction Industries Logo"
+              style={styles.mobileShareLogo}
+            />
+            <div style={styles.mobileShareQuote}>
+              “The road to success is always under construction.”
+            </div>
+            <div style={styles.mobileShareTitle}>Weekly Schedule</div>
+            <div style={styles.mobileShareDate}>
+              {mobileShareSnapshot.weekFrom && mobileShareSnapshot.weekTo
+                ? `Week of ${formatLongDate(mobileShareSnapshot.weekFrom)} – ${formatLongDate(mobileShareSnapshot.weekTo)}`
+                : ''}
+            </div>
+          </div>
+
+          <div style={styles.mobileViewList}>
+            {(mobileShareSnapshot.items || []).map((item) => (
+              <div key={item.id} style={styles.mobileCard}>
+                <div style={styles.mobileCardTitle}>{item.jobNumber} — {item.jobName}</div>
+                <div style={styles.mobileMetaRow}><strong>PM:</strong> {item.projectManager}</div>
+                <div style={styles.mobileMetaRow}><strong>Super:</strong> {item.superintendent}</div>
+                <div style={styles.mobileMetaRow}><strong>Surveyor:</strong> {item.surveyor}</div>
+                {item.notes ? <div style={styles.mobileNotes}><strong>Job Notes:</strong> {item.notes}</div> : null}
+                {item.foremen?.length ? (
+                  <div style={styles.mobileSection}>
+                    <div style={styles.mobileSectionTitle}>Foreman Assignments</div>
+                    {item.foremen.map((assignment) => (
+                      <div key={assignment.id} style={styles.mobileAssignmentCard}>
+                        <div><strong>{assignment.name}</strong></div>
+                        <div>{formatDate(assignment.fromDate)} to {formatDate(assignment.toDate)}</div>
+                        <div style={styles.mobileSubtle}>{formatAssignmentWeekdays(assignment.fromDate, assignment.toDate)}</div>
+                        <div><strong>Work:</strong> {assignment.work || '—'}</div>
+                        {assignment.splitNote ? <div><strong>Note:</strong> {assignment.splitNote}</div> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {item.surveyorAssignments?.length ? (
+                  <div style={styles.mobileSection}>
+                    <div style={styles.mobileSectionTitle}>Surveyor Assignments</div>
+                    {item.surveyorAssignments.map((assignment) => (
+                      <div key={assignment.id} style={styles.mobileAssignmentCard}>
+                        <div><strong>{assignment.name}</strong></div>
+                        <div><strong>Days:</strong> {formatSurveyorDays(assignment)}</div>
+                        {assignment.note ? <div><strong>Note:</strong> {assignment.note}</div> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (loading && !session) {
     return (
       <div style={styles.page} className="print-root">
@@ -1255,35 +1414,42 @@ const gridScheduleItems = useMemo(() => {
       background: #ffffff !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      margin: 0 !important;
-      padding: 0 !important;
     }
 
     .no-print {
       display: none !important;
     }
 
-    .print-root, .print-page-wrap, .page {
+    .print-root {
       margin: 0 !important;
       padding: 0 !important;
       background: #ffffff !important;
-      box-shadow: none !important;
+    }
+
+    .print-page-wrap {
+      max-width: none !important;
+    }
+
+    .print-preview-stage {
+      padding: 0 !important;
+      background: #ffffff !important;
       border: none !important;
+      box-shadow: none !important;
     }
 
     .print-paper {
-      width: 7.8in !important;
-      max-width: 7.8in !important;
-      margin: 0 auto !important;
-      box-shadow: none !important;
+      width: 100% !important;
+      max-width: none !important;
+      min-height: auto !important;
+      margin: 0 !important;
       border: none !important;
+      box-shadow: none !important;
       border-radius: 0 !important;
-      background: #ffffff !important;
+      transform-origin: top center;
     }
 
     .print-report-list {
       gap: 0 !important;
-      padding-top: 10px !important;
     }
 
     .print-report-card {
@@ -2228,93 +2394,112 @@ const gridScheduleItems = useMemo(() => {
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader}>
-              <div>
-                <h2 style={styles.sectionTitle}>Mobile Share View</h2>
-                <div style={styles.smallText}>
-                  Optimized for easy viewing on a phone.
-                </div>
-              </div>
-              <div style={styles.topBarButtons} className="no-print">
-                <button onClick={openMobileView} style={styles.buttonSecondary}>
-                  Open Shareable View
+              <h2 style={styles.sectionTitle}>Mobile View</h2>
+              <div style={styles.topBarButtons}>
+                <button onClick={openMobileShareView} style={styles.button}>
+                  Open Mobile View
                 </button>
-                <button onClick={copyMobileViewLink} style={styles.buttonSecondary}>
+                <button onClick={copyMobileShareLink} style={styles.buttonSecondary}>
                   Copy Mobile Link
+                </button>
+                <button onClick={copyMobileSmsMessage} style={styles.buttonSecondary}>
+                  Copy SMS Message
                 </button>
               </div>
             </div>
 
-            {currentWeekScheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet for this week.</p>
-            ) : (
-              <div style={styles.mobileViewWrap}>
-                <div style={styles.mobileViewIntro}>
-                  <div style={styles.mobileViewCompany}>Command Construction Industries</div>
-                  <div style={styles.mobileViewWeek}>
-                    {selectedWeekFrom && selectedWeekTo
-                      ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
-                      : 'Current Weekly Schedule'}
-                  </div>
-                </div>
+            <div style={styles.mobileNoticeBox}>
+              <strong>Sharing note:</strong> the link below opens a read-only mobile version with no edit tabs. It does not use the normal app navigation. If your full deployment still enforces authentication before route load, you will need the final deployed share page to allow public access to this snapshot link.
+            </div>
 
-                {currentWeekScheduleItems.map((item) => (
+            <div style={styles.mobileShareTools}>
+              <div style={styles.mobileShareLinkBox}>
+                {createMobileShareUrl() || 'Select a week first to generate a link.'}
+              </div>
+            </div>
+
+            <div style={styles.mobileViewList}>
+              {gridScheduleItems.length === 0 ? (
+                <p style={styles.text}>No jobs with foreman or surveyor assignments for this week.</p>
+              ) : (
+                gridScheduleItems.map((item) => (
                   <div key={item.id} style={styles.mobileCard}>
-                    <div style={styles.mobileCardTitle}>
-                      {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
-                    </div>
-
+                    <div style={styles.mobileCardTitle}>{item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}</div>
                     <div style={styles.mobileMetaRow}><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
                     <div style={styles.mobileMetaRow}><strong>Super:</strong> {item.superintendents?.name || '—'}</div>
                     <div style={styles.mobileMetaRow}><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
-
-                    {item.notes ? (
-                      <div style={styles.mobileNotesBox}>
-                        <strong>Job Notes:</strong> {item.notes}
-                      </div>
-                    ) : null}
-
+                    {item.notes ? <div style={styles.mobileNotes}><strong>Job Notes:</strong> {item.notes}</div> : null}
                     {item.schedule_item_foremen?.length ? (
                       <div style={styles.mobileSection}>
-                        <div style={styles.mobileSectionLabel}>Foreman Assignments</div>
+                        <div style={styles.mobileSectionTitle}>Foreman Assignments</div>
                         {item.schedule_item_foremen.map((assignment) => (
                           <div key={assignment.id} style={styles.mobileAssignmentCard}>
-                            <div style={styles.mobileAssignmentName}>{assignment.foremen?.name || '—'}</div>
-                            <div style={styles.mobileMetaRow}>
-                              <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
-                            </div>
-                            <div style={styles.mobileAssignmentDays}>
-                              {formatAssignmentWeekdays(
-                                assignment.assignment_from_date,
-                                assignment.assignment_to_date
-                              )}
-                            </div>
-                            <div style={styles.mobileMetaRow}><strong>Work:</strong> {assignment.work_description || '—'}</div>
-                            {assignment.split_note ? (
-                              <div style={styles.mobileMetaRow}><strong>Note:</strong> {assignment.split_note}</div>
-                            ) : null}
+                            <div><strong>{assignment.foremen?.name || '—'}</strong></div>
+                            <div>{formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}</div>
+                            <div style={styles.mobileSubtle}>{formatAssignmentWeekdays(assignment.assignment_from_date, assignment.assignment_to_date)}</div>
+                            <div><strong>Work:</strong> {assignment.work_description || '—'}</div>
+                            {assignment.split_note ? <div><strong>Note:</strong> {assignment.split_note}</div> : null}
                           </div>
                         ))}
                       </div>
                     ) : null}
-
                     {item.schedule_item_surveyors?.length ? (
                       <div style={styles.mobileSection}>
-                        <div style={styles.mobileSectionLabel}>Surveyor Assignments</div>
+                        <div style={styles.mobileSectionTitle}>Surveyor Assignments</div>
                         {item.schedule_item_surveyors.map((assignment) => (
                           <div key={assignment.id} style={styles.mobileAssignmentCard}>
-                            <div style={styles.mobileAssignmentName}>{assignment.surveyors?.name || '—'}</div>
-                            <div style={styles.mobileMetaRow}><strong>Days:</strong> {formatSurveyorDays(assignment)}</div>
-                            {assignment.note ? (
-                              <div style={styles.mobileMetaRow}><strong>Note:</strong> {assignment.note}</div>
-                            ) : null}
+                            <div><strong>{assignment.surveyors?.name || '—'}</strong></div>
+                            <div><strong>Days:</strong> {formatSurveyorDays(assignment)}</div>
+                            {assignment.note ? <div><strong>Note:</strong> {assignment.note}</div> : null}
                           </div>
                         ))}
                       </div>
                     ) : null}
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
+          </div>
+
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <h2 style={styles.sectionTitle}>Mobile Share Contacts</h2>
+              <button onClick={copyMobilePhones} style={styles.buttonSecondary}>
+                Copy Contact List
+              </button>
+            </div>
+            <div style={styles.formGrid}>
+              <input
+                placeholder="Contact name"
+                value={newMobileContactName}
+                onChange={(e) => setNewMobileContactName(e.target.value)}
+                style={styles.input}
+              />
+              <input
+                placeholder="Cell number"
+                value={newMobileContactPhone}
+                onChange={(e) => setNewMobileContactPhone(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+            <div style={styles.formButtonRow}>
+              <button onClick={addMobileContact} style={styles.button}>Add Mobile Contact</button>
+            </div>
+            <div style={styles.listWrap}>
+              {mobileContacts.length === 0 ? (
+                <div style={styles.smallText}>No mobile contacts saved yet.</div>
+              ) : (
+                mobileContacts.map((contact) => (
+                  <div key={contact.id} style={styles.listItem}>
+                    <div>{contact.name} — {contact.phone}</div>
+                    <button onClick={() => removeMobileContact(contact.id)} style={styles.smallDangerButton}>Delete</button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={styles.mobileNoticeBox}>
+              <strong>Important:</strong> this saves phone numbers in this app/browser for convenience. One-click bulk texting still needs an SMS service or phone integration. Right now, the app can generate and copy the public read-only mobile link and copy an SMS-ready message.
+            </div>
           </div>
         </div>
       )}
@@ -2368,11 +2553,11 @@ const gridScheduleItems = useMemo(() => {
       Email Selected Group
     </button>
 
-    <button onClick={openMobileView} style={styles.buttonSecondary}>
+    <button onClick={openMobileShareView} style={styles.buttonSecondary}>
       Open Mobile View
     </button>
 
-    <button onClick={copyMobileViewLink} style={styles.buttonSecondary}>
+    <button onClick={copyMobileShareLink} style={styles.buttonSecondary}>
       Copy Mobile Link
     </button>
   </div>
@@ -2393,7 +2578,8 @@ const gridScheduleItems = useMemo(() => {
   <em>Print / Save PDF</em> first, save the PDF, then click the email
   button to open your email app and attach the PDF.
 </div>
-            <div style={styles.reportPaper} className="print-paper">
+            <div style={styles.printPreviewStage} className="print-preview-stage">
+              <div style={styles.reportPaper} className="print-paper">
               <div style={styles.reportHeader}>
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
@@ -2595,10 +2781,11 @@ const gridScheduleItems = useMemo(() => {
               )}
             </>
           )}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  )}
+      )}
 
 </div>
   )
@@ -2749,23 +2936,28 @@ const styles = {
     gap: '20px',
   },
   printPageWrap: {
-    maxWidth: '940px',
+    maxWidth: '1200px',
     margin: '0 auto',
-    background: '#f8f7f3',
-    border: '1px solid #e2e8f0',
+    display: 'grid',
+    gap: '16px',
+  },
+  printPreviewStage: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '28px',
+    background: '#f4f6f8',
+    border: '1px solid #d8dee6',
     borderRadius: '18px',
-    padding: '20px 24px 28px',
-    boxShadow: '0 16px 36px rgba(15, 23, 42, 0.08)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
   },
   reportPaper: {
+    width: '8.5in',
+    minHeight: '11in',
     background: '#ffffff',
-    border: '1px solid #dbe2ea',
-    borderRadius: '12px',
-    width: '8in',
-    maxWidth: '100%',
-    margin: '0 auto',
-    padding: '20px 22px 18px',
-    boxShadow: '0 14px 28px rgba(15, 23, 42, 0.06)',
+    border: '1px solid #d8dee6',
+    borderRadius: '8px',
+    padding: '28px 30px 24px',
+    boxShadow: '0 18px 42px rgba(15,23,42,0.10)',
   },
   printReportList: {
     display: 'flex',
@@ -3510,88 +3702,4 @@ printGridDayCell: {
   lineHeight: '1.2',
   minHeight: '54px',
 },
-  mobileViewWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '14px',
-  },
-  mobileViewIntro: {
-    background: 'linear-gradient(135deg, #0f172a 0%, #162338 100%)',
-    color: '#ffffff',
-    borderRadius: '14px',
-    padding: '16px 18px',
-    boxShadow: '0 10px 20px rgba(15,23,42,0.14)',
-  },
-  mobileViewCompany: {
-    fontSize: '12px',
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
-    color: '#f59e0b',
-    fontWeight: '700',
-    marginBottom: '6px',
-  },
-  mobileViewWeek: {
-    fontSize: '18px',
-    fontWeight: '700',
-  },
-  mobileCard: {
-    background: '#ffffff',
-    borderRadius: '14px',
-    padding: '16px',
-    border: '1px solid #e5e7eb',
-    boxShadow: '0 8px 16px rgba(15,23,42,0.06)',
-    borderLeft: '5px solid #dd7a00',
-  },
-  mobileCardTitle: {
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: '10px',
-  },
-  mobileMetaRow: {
-    fontSize: '14px',
-    color: '#1f2937',
-    marginBottom: '5px',
-    lineHeight: '1.45',
-  },
-  mobileNotesBox: {
-    background: '#fff7ed',
-    border: '1px solid #fed7aa',
-    borderRadius: '10px',
-    padding: '10px 12px',
-    marginTop: '10px',
-    fontSize: '14px',
-    lineHeight: '1.45',
-  },
-  mobileSection: {
-    marginTop: '12px',
-  },
-  mobileSectionLabel: {
-    fontSize: '12px',
-    fontWeight: '700',
-    letterSpacing: '1px',
-    color: '#0f172a',
-    textTransform: 'uppercase',
-    marginBottom: '8px',
-  },
-  mobileAssignmentCard: {
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px',
-    padding: '10px 12px',
-    marginBottom: '8px',
-  },
-  mobileAssignmentName: {
-    fontSize: '15px',
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: '4px',
-  },
-  mobileAssignmentDays: {
-    fontSize: '12px',
-    color: '#475569',
-    marginTop: '-2px',
-    marginBottom: '6px',
-  },
-
 }
