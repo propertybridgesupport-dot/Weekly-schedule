@@ -1872,17 +1872,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
                         </button>
                       </div>
                     </div>
-
                     <div style={styles.metaGrid}>
-                      <div>
-                        <strong>PM:</strong> {item.project_managers?.name || '—'}
-                      </div>
-                      <div>
-                        <strong>Superintendent:</strong>{' '}
-                        {item.superintendents?.name || '—'}
-                      </div>
-                      <div>
-                      <div style={styles.metaGrid}>
                       <div>
                         <strong>PM:</strong> {item.project_managers?.name || '—'}
                       </div>
@@ -1895,7 +1885,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
                       </div>
                     </div>
 
-                    {item.notes && (
+                    {item.notes ? (
                       <div
                         style={
                           notesStyle === 'accent'
@@ -1906,7 +1896,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
                         <span style={{ fontWeight: '600' }}>Job Notes: </span>
                         <span>{item.notes}</span>
                       </div>
-                    )}
+                    ) : null}
 
                     <div style={{ marginTop: '14px' }}>
                       <strong>Foreman Assignments</strong>
@@ -1939,7 +1929,6 @@ const [notesStyle, setNotesStyle] = useState('accent')
                     ) : (
                       <p style={styles.text}>No foremen assigned yet.</p>
                     )}
-
                     <div style={{ marginTop: '14px' }}>
                       <strong>Surveyor Assignments</strong>
                     </div>
