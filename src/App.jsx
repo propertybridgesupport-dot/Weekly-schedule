@@ -2119,9 +2119,7 @@ const [reportNotes, setReportNotes] = useState('')
                 </button>
 <div style={{ marginTop: '10px' }} className="no-print">
   <label style={styles.label}>Report Notes (optional)</label>
-  <textarea
-    value={reportNotes}
-    onChange={(e) => setReportNotes(e.target.value)}
+ 
     placeholder="Add any overall notes for this report..."
     style={{
       ...styles.textarea,
@@ -2158,9 +2156,19 @@ const [reportNotes, setReportNotes] = useState('')
                   Email Selected Group
                 </button>
               </div>
-            </div>
+</div>
 
-            <div style={styles.emailNoteBox} className="no-print">
+<div style={styles.printNotesInputWrap} className="no-print">
+  <label style={styles.label}>Report Notes (optional)</label>
+  <textarea
+    value={reportNotes}
+    onChange={(e) => setReportNotes(e.target.value)}
+    placeholder="Add any overall notes for this report..."
+    style={styles.printNotesTextarea}
+  />
+</div>
+
+<div style={styles.emailNoteBox} className="no-print">
               <strong>How this works right now:</strong> click{' '}
               <em>Print / Save PDF</em> first, save the PDF, then click the email
               button to open your email app and attach the PDF.
