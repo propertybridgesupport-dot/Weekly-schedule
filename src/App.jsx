@@ -40,6 +40,8 @@ export default function App() {
 
   const [jobNumber, setJobNumber] = useState('')
   const [jobName, setJobName] = useState('')
+  const [jobStartDate, setJobStartDate] = useState('')
+  const [jobStopDate, setJobStopDate] = useState('')
   const [pmName, setPmName] = useState('')
   const [superintendentName, setSuperintendentName] = useState('')
   const [surveyorName, setSurveyorName] = useState('')
@@ -156,7 +158,9 @@ export default function App() {
         jobs (
           id,
           job_number,
-          job_name
+          job_name,
+          start_date,
+          stop_date
         ),
         project_managers (
           id,
@@ -217,6 +221,8 @@ export default function App() {
     const { error } = await supabase.from('jobs').insert({
       job_number: jobNumber,
       job_name: jobName,
+      start_date: jobStartDate || null,
+      stop_date: jobStopDate || null,
       active: true,
     })
 
@@ -225,6 +231,8 @@ export default function App() {
     } else {
       setJobNumber('')
       setJobName('')
+      setJobStartDate('')
+      setJobStopDate('')
       loadAllData()
     }
   }
@@ -525,6 +533,18 @@ export default function App() {
               onChange={(e) => setJobName(e.target.value)}
               style={styles.input}
             />
+            <input
+              type="date"
+              value={jobStartDate}
+              onChange={(e) => setJobStartDate(e.target.value)}
+              style={styles.input}
+            />
+            <input
+              type="date"
+              value={jobStopDate}
+              onChange={(e) => setJobStopDate(e.target.value)}
+              style={styles.input}
+            />
             <button onClick={addJob} style={styles.button}>
               Add Job
             </button>
@@ -533,6 +553,9 @@ export default function App() {
               {jobs.map((job) => (
                 <div key={job.id} style={styles.listItem}>
                   <strong>{job.job_number}</strong> — {job.job_name}
+                  <div style={styles.smallText}>
+                    Start: {formatDate(job.start_date)} | Stop: {formatDate(job.stop_date)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -875,6 +898,9 @@ export default function App() {
                         <div style={styles.scheduleDates}>
                           {formatDate(item.from_date)} to {formatDate(item.to_date)}
                         </div>
+                        <div style={styles.smallText}>
+                          Job Start: {formatDate(item.jobs?.start_date)} | Job Stop: {formatDate(item.jobs?.stop_date)}
+                        </div>
                       </div>
                     </div>
 
@@ -969,6 +995,12 @@ export default function App() {
 
                     <div style={styles.printLine}>
                       <strong>Dates:</strong> {formatDate(item.from_date)} to {formatDate(item.to_date)}
+                    </div>
+                    <div style={styles.printLine}>
+                      <strong>Job Start:</strong> {formatDate(item.jobs?.start_date)}
+                    </div>
+                    <div style={styles.printLine}>
+                      <strong>Job Stop:</strong> {formatDate(item.jobs?.stop_date)}
                     </div>
                     <div style={styles.printLine}>
                       <strong>Project Manager:</strong> {item.project_managers?.name || '—'}
@@ -1246,6 +1278,11 @@ const styles = {
     borderRadius: '8px',
     border: '1px solid #e5e7eb',
     fontSize: '14px',
+  },
+  smallText: {
+    marginTop: '4px',
+    fontSize: '13px',
+    color: '#6b7280',
   },
   title: {
     margin: 0,
