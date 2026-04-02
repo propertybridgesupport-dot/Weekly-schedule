@@ -1939,9 +1939,13 @@ const [reportNotes, setReportNotes] = useState('')
               </div>
             </div>
 
-            {filteredScheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
-            ) : (
+            {scheduleItems.filter(
+  (item) =>
+    (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
+    (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
+).length === 0 ? (
+  <p style={styles.text}>No jobs with foreman or surveyor assignments yet.</p>
+) : (
               <div style={styles.scheduleList}>
                 {filteredScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
@@ -2084,8 +2088,14 @@ const [reportNotes, setReportNotes] = useState('')
                   </div>
                 ))}
 
-                {scheduleItems.map((item) => (
-                  <React.Fragment key={item.id}>
+          {scheduleItems
+  .filter(
+    (item) =>
+      (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
+      (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
+  )
+  .map((item) => (
+    <React.Fragment key={item.id}>
                     <div style={styles.gridJobCell}>
                       <div style={styles.gridJobTitle}>
                         {item.jobs?.job_number || '—'}
