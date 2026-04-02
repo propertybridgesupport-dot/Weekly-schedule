@@ -2378,8 +2378,11 @@ const gridScheduleItems = useMemo(() => {
           )}
         </div>
       </div>
+    </div>
+  )}
+
 </div>
-      )}            
+  )
 }
 
 function SectionCard({ title, children }) {
