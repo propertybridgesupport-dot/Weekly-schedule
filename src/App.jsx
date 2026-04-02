@@ -3,13 +3,24 @@ import { supabase } from './lib/supabase'
 
 export default function App() {
   const [session, setSession] = useState(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [jobs, setJobs] = useState([])
-  const [jobNumber, setJobNumber] = useState('')
-  const [jobName, setJobName] = useState('')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
+
+  const [jobs, setJobs] = useState([])
+  const [projectManagers, setProjectManagers] = useState([])
+  const [superintendents, setSuperintendents] = useState([])
+  const [surveyors, setSurveyors] = useState([])
+  const [foremen, setForemen] = useState([])
+
+  const [jobNumber, setJobNumber] = useState('')
+  const [jobName, setJobName] = useState('')
+  const [pmName, setPmName] = useState('')
+  const [superintendentName, setSuperintendentName] = useState('')
+  const [surveyorName, setSurveyorName] = useState('')
+  const [foremanName, setForemanName] = useState('')
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -28,7 +39,7 @@ export default function App() {
 
   useEffect(() => {
     if (session) {
-      loadJobs()
+      loadAllData()
     }
   }, [session])
 
@@ -50,25 +61,47 @@ export default function App() {
   async function signOut() {
     await supabase.auth.signOut()
     setJobs([])
+    setProjectManagers([])
+    setSuperintendents([])
+    setSurveyors([])
+    setForemen([])
     setMessage('Signed out.')
   }
 
-  async function loadJobs() {
+  async function loadAllData() {
     setLoading(true)
-    setMessage('Loading jobs from Supabase...')
+    setMessage('Loading master data from Supabase...')
 
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('*')
-      .order('job_number', { ascending: true })
+    const [
+      jobsResult,
+      pmResult,
+      superintendentResult,
+      surveyorResult,
+      foremanResult,
+    ] = await Promise.all([
+      supabase.from('jobs').select('*').order('job_number', { ascending: true }),
+      supabase.from('project_managers').select('*').order('name', { ascending: true }),
+      supabase.from('superintendents').select('*').order('name', { ascending: true }),
+      supabase.from('surveyors').select('*').order('name', { ascending: true }),
+      supabase.from('foremen').select('*').order('name', { ascending: true }),
+    ])
 
-    if (error) {
-      console.error(error)
-      setMessage(`Connection error: ${error.message}`)
-      setJobs([])
+    if (
+      jobsResult.error ||
+      pmResult.error ||
+      superintendentResult.error ||
+      surveyorResult.error ||
+      foremanResult.error
+    ) {
+      console.error(jobsResult.error || pmResult.error || superintendentResult.error || surveyorResult.error || foremanResult.error)
+      setMessage('There was an error loading your data.')
     } else {
-      setJobs(data || [])
-      setMessage('Connected to Supabase successfully.')
+      setJobs(jobsResult.data || [])
+      setProjectManagers(pmResult.data || [])
+      setSuperintendents(superintendentResult.data || [])
+      setSurveyors(surveyorResult.data || [])
+      setForemen(foremanResult.data || [])
+      setMessage('Master data loaded successfully.')
     }
 
     setLoading(false)
@@ -76,7 +109,7 @@ export default function App() {
 
   async function addJob() {
     if (!jobNumber || !jobName) {
-      alert('Enter job number and name')
+      alert('Enter both job number and job name')
       return
     }
 
@@ -91,7 +124,83 @@ export default function App() {
     } else {
       setJobNumber('')
       setJobName('')
-      loadJobs()
+      loadAllData()
+    }
+  }
+
+  async function addProjectManager() {
+    if (!pmName) {
+      alert('Enter a project manager name')
+      return
+    }
+
+    const { error } = await supabase.from('project_managers').insert({
+      name: pmName,
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      setPmName('')
+      loadAllData()
+    }
+  }
+
+  async function addSuperintendent() {
+    if (!superintendentName) {
+      alert('Enter a superintendent name')
+      return
+    }
+
+    const { error } = await supabase.from('superintendents').insert({
+      name: superintendentName,
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      setSuperintendentName('')
+      loadAllData()
+    }
+  }
+
+  async function addSurveyor() {
+    if (!surveyorName) {
+      alert('Enter a surveyor name')
+      return
+    }
+
+    const { error } = await supabase.from('surveyors').insert({
+      name: surveyorName,
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      setSurveyorName('')
+      loadAllData()
+    }
+  }
+
+  async function addForeman() {
+    if (!foremanName) {
+      alert('Enter a foreman name')
+      return
+    }
+
+    const { error } = await supabase.from('foremen').insert({
+      name: foremanName,
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      setForemanName('')
+      loadAllData()
     }
   }
 
@@ -109,31 +218,29 @@ export default function App() {
   if (!session) {
     return (
       <div style={styles.page}>
-        <div style={styles.card}>
+        <div style={styles.loginCard}>
           <h1 style={styles.title}>Weekly Schedule App Login</h1>
           <p style={styles.text}>{message}</p>
 
-          <div style={{ marginTop: '20px' }}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
-            />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={styles.input}
+          />
 
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
-            />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={styles.input}
+          />
 
-            <button onClick={signIn} style={styles.button}>
-              Sign In
-            </button>
-          </div>
+          <button onClick={signIn} style={styles.button}>
+            Sign In
+          </button>
         </div>
       </div>
     )
@@ -141,75 +248,140 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
+      <div style={styles.headerCard}>
         <div style={styles.topBar}>
           <div>
             <h1 style={styles.title}>Weekly Schedule App</h1>
             <p style={styles.text}>{message}</p>
           </div>
 
-          <button onClick={signOut} style={styles.buttonSecondary}>
-            Sign Out
-          </button>
-        </div>
-
-        <button onClick={loadJobs} style={styles.button}>
-          Reload Jobs
-        </button>
-
-        <div style={{ marginTop: '24px' }}>
-          <div style={{ marginTop: '20px' }}>
-            <h2 style={styles.subtitle}>Add Job</h2>
-
-            <input
-              placeholder="Job Number"
-              value={jobNumber}
-              onChange={(e) => setJobNumber(e.target.value)}
-              style={styles.input}
-            />
-
-            <input
-              placeholder="Job Name"
-              value={jobName}
-              onChange={(e) => setJobName(e.target.value)}
-              style={styles.input}
-            />
-
-            <button onClick={addJob} style={styles.button}>
-              Add Job
+          <div style={styles.topBarButtons}>
+            <button onClick={loadAllData} style={styles.buttonSecondary}>
+              Reload Data
+            </button>
+            <button onClick={signOut} style={styles.buttonSecondary}>
+              Sign Out
             </button>
           </div>
-
-          <h2 style={styles.subtitle}>Jobs Table Test</h2>
-
-          {loading ? (
-            <p style={styles.text}>Loading...</p>
-          ) : jobs.length === 0 ? (
-            <p style={styles.text}>
-              No jobs found yet. That is okay if you have not added any.
-            </p>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Job Number</th>
-                  <th style={styles.th}>Job Name</th>
-                  <th style={styles.th}>Active</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((job) => (
-                  <tr key={job.id}>
-                    <td style={styles.td}>{job.job_number}</td>
-                    <td style={styles.td}>{job.job_name}</td>
-                    <td style={styles.td}>{job.active ? 'Yes' : 'No'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
         </div>
       </div>
+
+      <div style={styles.grid}>
+        <SectionCard title="Jobs">
+          <input
+            placeholder="Job Number"
+            value={jobNumber}
+            onChange={(e) => setJobNumber(e.target.value)}
+            style={styles.input}
+          />
+          <input
+            placeholder="Job Name"
+            value={jobName}
+            onChange={(e) => setJobName(e.target.value)}
+            style={styles.input}
+          />
+          <button onClick={addJob} style={styles.button}>
+            Add Job
+          </button>
+
+          <div style={styles.listWrap}>
+            {jobs.map((job) => (
+              <div key={job.id} style={styles.listItem}>
+                <strong>{job.job_number}</strong> — {job.job_name}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Project Managers">
+          <input
+            placeholder="Project Manager Name"
+            value={pmName}
+            onChange={(e) => setPmName(e.target.value)}
+            style={styles.input}
+          />
+          <button onClick={addProjectManager} style={styles.button}>
+            Add Project Manager
+          </button>
+
+          <div style={styles.listWrap}>
+            {projectManagers.map((person) => (
+              <div key={person.id} style={styles.listItem}>
+                {person.name}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Superintendents">
+          <input
+            placeholder="Superintendent Name"
+            value={superintendentName}
+            onChange={(e) => setSuperintendentName(e.target.value)}
+            style={styles.input}
+          />
+          <button onClick={addSuperintendent} style={styles.button}>
+            Add Superintendent
+          </button>
+
+          <div style={styles.listWrap}>
+            {superintendents.map((person) => (
+              <div key={person.id} style={styles.listItem}>
+                {person.name}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Surveyors">
+          <input
+            placeholder="Surveyor Name"
+            value={surveyorName}
+            onChange={(e) => setSurveyorName(e.target.value)}
+            style={styles.input}
+          />
+          <button onClick={addSurveyor} style={styles.button}>
+            Add Surveyor
+          </button>
+
+          <div style={styles.listWrap}>
+            {surveyors.map((person) => (
+              <div key={person.id} style={styles.listItem}>
+                {person.name}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Foremen">
+          <input
+            placeholder="Foreman Name"
+            value={foremanName}
+            onChange={(e) => setForemanName(e.target.value)}
+            style={styles.input}
+          />
+          <button onClick={addForeman} style={styles.button}>
+            Add Foreman
+          </button>
+
+          <div style={styles.listWrap}>
+            {foremen.map((person) => (
+              <div key={person.id} style={styles.listItem}>
+                {person.name}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}
+
+function SectionCard({ title, children }) {
+  return (
+    <div style={styles.sectionCard}>
+      <h2 style={styles.sectionTitle}>{title}</h2>
+      {children}
     </div>
   )
 }
@@ -218,15 +390,36 @@ const styles = {
   page: {
     minHeight: '100vh',
     background: '#f3f4f6',
-    padding: '40px 20px',
+    padding: '30px 20px',
     fontFamily: 'Arial, sans-serif',
   },
-  card: {
-    maxWidth: '900px',
-    margin: '0 auto',
+  headerCard: {
+    maxWidth: '1200px',
+    margin: '0 auto 20px auto',
     background: '#ffffff',
     borderRadius: '16px',
     padding: '24px',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+  },
+  loginCard: {
+    maxWidth: '500px',
+    margin: '60px auto',
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+  },
+  grid: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: '20px',
+  },
+  sectionCard: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '20px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
   topBar: {
@@ -236,21 +429,28 @@ const styles = {
     gap: '16px',
     flexWrap: 'wrap',
   },
+  topBarButtons: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
   title: {
     margin: 0,
-    marginBottom: '10px',
+    marginBottom: '8px',
     fontSize: '32px',
   },
-  subtitle: {
-    marginBottom: '12px',
+  sectionTitle: {
+    marginTop: 0,
+    marginBottom: '16px',
     fontSize: '22px',
   },
   text: {
     fontSize: '16px',
     color: '#374151',
+    margin: 0,
   },
   button: {
-    marginTop: '12px',
+    marginTop: '8px',
     background: '#111827',
     color: '#ffffff',
     border: 'none',
@@ -266,21 +466,6 @@ const styles = {
     padding: '10px 16px',
     cursor: 'pointer',
   },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    marginTop: '12px',
-  },
-  th: {
-    textAlign: 'left',
-    borderBottom: '1px solid #d1d5db',
-    padding: '10px',
-    background: '#f9fafb',
-  },
-  td: {
-    borderBottom: '1px solid #e5e7eb',
-    padding: '10px',
-  },
   input: {
     display: 'block',
     width: '100%',
@@ -288,5 +473,18 @@ const styles = {
     padding: '10px',
     borderRadius: '8px',
     border: '1px solid #ccc',
+    boxSizing: 'border-box',
+  },
+  listWrap: {
+    marginTop: '16px',
+    maxHeight: '260px',
+    overflowY: 'auto',
+    borderTop: '1px solid #e5e7eb',
+    paddingTop: '12px',
+  },
+  listItem: {
+    padding: '10px',
+    borderBottom: '1px solid #f1f5f9',
+    fontSize: '15px',
   },
 }
