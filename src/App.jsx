@@ -1886,11 +1886,18 @@ const [notesStyle, setNotesStyle] = useState('accent')
                       </div>
                     </div>
 
-                    {item.notes && (
-                      <div style={styles.notesBox}>
-                        <strong>Job Notes:</strong> {item.notes}
-                      </div>
-                    )}
+                   {item.notes && (
+  <div
+    style={
+      notesStyle === 'accent'
+        ? styles.printNotesAccent
+        : styles.printNotesBox
+    }
+  >
+    <span style={{ fontWeight: '600' }}>Job Notes: </span>
+    <span>{item.notes}</span>
+  </div>
+)}
 
                     <div style={{ marginTop: '14px' }}>
                       <strong>Foreman Assignments</strong>
