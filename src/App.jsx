@@ -2039,24 +2039,24 @@ export default function App() {
             </div>
 
             <div style={styles.reportPaper}>
-              <div style={styles.reportHeader}>
-                <div style={styles.reportHeaderTop}>
-                  <img
-                    src="/command-logo.png"
-                    alt="Command Industries Logo"
-                    style={styles.reportLogo}
-                  />
-                  <div style={styles.reportTitleBlock}>
-                    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
-                    <div style={styles.reportDate}>
-                      {selectedWeekFrom && selectedWeekTo
-                        ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
-                        : ''}
-                    </div>
-                  </div>
-                </div>
-                <div style={styles.reportDivider} />
-              </div>
+             <div style={styles.reportHeaderRow}>
+  <div>
+    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
+    <div style={styles.reportDate}>
+      {selectedWeekFrom && selectedWeekTo
+        ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
+        : ''}
+    </div>
+  </div>
+
+  <img
+    src="/command-logo.png"
+    alt="Command Industries Logo"
+    style={styles.reportLogo}
+  />
+</div>
+
+<div style={styles.reportDivider} />
 
 {filteredScheduleItems.length === 0 ? (
                 <p style={styles.text}>No schedule items saved yet.</p>
@@ -2795,5 +2795,20 @@ const styles = {
     marginTop: '8px',
     borderBottom: '1px solid #d1d5db',
   },
+  reportHeaderRow: {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '10px',
+},
 
+reportTitle: {
+  fontSize: '20px',
+  fontWeight: '700',
+  letterSpacing: '0.5px',
+},
+reportDate: {
+  fontSize: '13px',
+  marginTop: '2px',
+},
 }
