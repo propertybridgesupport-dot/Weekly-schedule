@@ -1092,6 +1092,21 @@ export default function App() {
 
   return (
     <div style={styles.page}>
+      <style>{`
+        @media print {
+          body {
+            background: #ffffff !important;
+          }
+
+          .no-print {
+            display: none !important;
+          }
+
+          @page {
+            margin: 0.5in;
+          }
+        }
+      `}</style>
       <div style={styles.headerCard} className="no-print">
         <div style={styles.topBar}>
           <div>
@@ -1988,7 +2003,7 @@ export default function App() {
 
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
-          <div style={styles.sectionCard}>
+          <div style={styles.printPageWrap}>
             <div style={styles.assignmentHeader} className="no-print">
               <h2 style={styles.sectionTitle}>Print / PDF View</h2>
               <div style={styles.topBarButtons}>
@@ -2024,95 +2039,93 @@ export default function App() {
               button to open your email app and attach the PDF.
             </div>
 
-            <div style={styles.printHeader}>
-              <h1 style={styles.printTitle}>Weekly Schedule</h1>
-              <p style={styles.printSubtitle}>
-                {selectedWeekFrom && selectedWeekTo
-                  ? `${formatDate(selectedWeekFrom)} to ${formatDate(selectedWeekTo)}`
-                  : 'Select a week on the Weekly Schedule tab'}
-              </p>
-            </div>
-
-            {filteredScheduleItems.length === 0 ? (
-              <p style={styles.text}>
-                {selectedWeekFrom && selectedWeekTo
-                  ? 'No schedule items saved yet for this week.'
-                  : 'Choose a week on the Weekly Schedule tab first.'}
-              </p>
-            ) : (
-              <div style={styles.scheduleList}>
-                {filteredScheduleItems.map((item) => (
-                  <div key={item.id} style={styles.printCompactCard}>
-                    <div style={styles.printCompactJobTitle}>
-                      {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
-                    </div>
-
-                    <div style={styles.printCompactMetaRow}>
-                      <div><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
-                      <div><strong>Superintendent:</strong> {item.superintendents?.name || '—'}</div>
-                      <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
-                    </div>
-
-                    {item.notes && (
-                      <div style={styles.printCompactJobNotes}>
-                        <strong>Job Notes:</strong> {item.notes}
-                      </div>
-                    )}
-
-                    <div style={styles.printCompactSectionLabel}>Foreman Assignments</div>
-
-                    {item.schedule_item_foremen?.length ? (
-                      <div style={styles.printCompactAssignmentTable}>
-                        {item.schedule_item_foremen.map((assignment) => (
-                          <div key={assignment.id} style={styles.printCompactAssignmentRow}>
-                            <div style={styles.printCompactNameCol}>
-                              <strong>{assignment.foremen?.name || '—'}</strong>
-                            </div>
-                            <div style={styles.printCompactInfoCol}>
-                              <div>
-                                <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
-                              </div>
-                              <div>
-                                <strong>Work:</strong> {assignment.work_description || '—'}
-                              </div>
-                            </div>
-                            <div style={styles.printCompactNoteCol}>
-                              <strong>Note:</strong> {assignment.split_note || '—'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={styles.printCompactEmpty}>No foremen assigned</div>
-                    )}
-
-                    <div style={styles.printCompactSectionLabel}>Surveyor Assignments</div>
-
-                    {item.schedule_item_surveyors?.length ? (
-                      <div style={styles.printCompactAssignmentTable}>
-                        {item.schedule_item_surveyors.map((assignment) => (
-                          <div key={assignment.id} style={styles.printCompactAssignmentRow}>
-                            <div style={styles.printCompactNameCol}>
-                              <strong>{assignment.surveyors?.name || '—'}</strong>
-                            </div>
-                            <div style={styles.printCompactInfoCol}>
-                              <div>
-                                <strong>Days:</strong> {formatSurveyorDays(assignment)}
-                              </div>
-                            </div>
-                            <div style={styles.printCompactNoteCol}>
-                              <strong>Note:</strong> {assignment.note || '—'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={styles.printCompactEmpty}>No surveyor assignments</div>
-                    )}
-                  </div>
-                ))}
+            <div style={styles.reportPaper}>
+              <div style={styles.printHeader}>
+                <h1 style={styles.printTitle}>Weekly Schedule</h1>
+                <p style={styles.printSubtitle}>
+                  {selectedWeekFrom && selectedWeekTo
+                    ? `${formatDate(selectedWeekFrom)} to ${formatDate(selectedWeekTo)}`
+                    : 'Select a week on the Weekly Schedule tab'}
+                </p>
               </div>
-            )}
+
+              {filteredScheduleItems.length === 0 ? (
+                <p style={styles.text}>
+                  {selectedWeekFrom && selectedWeekTo
+                    ? 'No schedule items saved yet for this week.'
+                    : 'Choose a week on the Weekly Schedule tab first.'}
+                </p>
+              ) : (
+                <div style={styles.printReportList}>
+                  {filteredScheduleItems.map((item) => (
+                    <div key={item.id} style={styles.printReportCard}>
+                      <div style={styles.printCompactJobTitle}>
+                        {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                      </div>
+
+                      <div style={styles.printPmLine}>
+                        <strong>PM:</strong> {item.project_managers?.name || '—'}
+                      </div>
+
+                      {item.notes && (
+                        <div style={styles.printCompactJobNotes}>
+                          <strong>Job Notes:</strong> {item.notes}
+                        </div>
+                      )}
+
+                      {item.schedule_item_foremen?.length ? (
+                        <>
+                          <div style={styles.printCompactSectionLabel}>Foreman Assignments</div>
+                          <div style={styles.printCompactAssignmentTable}>
+                            {item.schedule_item_foremen.map((assignment) => (
+                              <div key={assignment.id} style={styles.printCompactAssignmentRow}>
+                                <div style={styles.printCompactNameCol}>
+                                  <strong>{assignment.foremen?.name || '—'}</strong>
+                                </div>
+                                <div style={styles.printCompactInfoCol}>
+                                  <div>
+                                    <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                                  </div>
+                                  <div>
+                                    <strong>Work:</strong> {assignment.work_description || '—'}
+                                  </div>
+                                </div>
+                                <div style={styles.printCompactNoteCol}>
+                                  <strong>Note:</strong> {assignment.split_note || '—'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : null}
+
+                      {item.schedule_item_surveyors?.length ? (
+                        <>
+                          <div style={styles.printCompactSectionLabel}>Surveyor Assignments</div>
+                          <div style={styles.printCompactAssignmentTable}>
+                            {item.schedule_item_surveyors.map((assignment) => (
+                              <div key={assignment.id} style={styles.printCompactAssignmentRow}>
+                                <div style={styles.printCompactNameCol}>
+                                  <strong>{assignment.surveyors?.name || '—'}</strong>
+                                </div>
+                                <div style={styles.printCompactInfoCol}>
+                                  <div>
+                                    <strong>Days:</strong> {formatSurveyorDays(assignment)}
+                                  </div>
+                                </div>
+                                <div style={styles.printCompactNoteCol}>
+                                  <strong>Note:</strong> {assignment.note || '—'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2228,6 +2241,31 @@ const styles = {
     margin: '0 auto',
     display: 'grid',
     gap: '20px',
+  },
+  printPageWrap: {
+    maxWidth: '1100px',
+    margin: '0 auto',
+  },
+  reportPaper: {
+    background: '#ffffff',
+    border: '1px solid #d1d5db',
+    borderRadius: '16px',
+    padding: '28px',
+    boxShadow: '0 10px 24px rgba(0,0,0,0.06)',
+  },
+  printReportList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  printReportCard: {
+    borderBottom: '1px solid #d1d5db',
+    paddingBottom: '16px',
+    pageBreakInside: 'avoid',
+  },
+  printPmLine: {
+    marginTop: '8px',
+    fontSize: '14px',
   },
   sectionCard: {
     background: '#ffffff',
