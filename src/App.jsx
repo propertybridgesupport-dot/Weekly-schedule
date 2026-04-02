@@ -2117,7 +2117,18 @@ export default function App() {
                 <button onClick={() => window.print()} style={styles.button}>
                   Print / Save PDF
                 </button>
-
+<div style={{ marginTop: '10px' }} className="no-print">
+  <label style={styles.label}>Report Notes (optional)</label>
+  <textarea
+    value={reportNotes}
+    onChange={(e) => setReportNotes(e.target.value)}
+    placeholder="Add any overall notes for this report..."
+    style={{
+      ...styles.textarea,
+      minHeight: '60px',
+    }}
+  />
+</div>
                 <select
                   value={notesStyle}
                   onChange={(e) => setNotesStyle(e.target.value)}
@@ -2246,6 +2257,26 @@ export default function App() {
                                   </div>
                                 </div>
                               ))}
+                              {reportNotes && (
+  <div style={{ marginTop: '20px', pageBreakInside: 'avoid' }}>
+    <div style={styles.printSectionHeader}>Report Notes</div>
+
+    <div
+      style={
+        notesStyle === 'accent'
+          ? styles.printNotesAccent
+          : styles.printNotesBox
+      }
+    >
+      <div>{reportNotes}</div>
+
+      <div style={styles.reportNotesLine} />
+      <div style={styles.reportNotesLine} />
+      <div style={styles.reportNotesLine} />
+      <div style={styles.reportNotesLine} />
+    </div>
+  </div>
+)}
                             </div>
                           </>
                         ) : null}
@@ -3042,5 +3073,15 @@ const styles = {
     marginTop: '9px',
     borderBottom: '1px solid #c7cdd4',
   },
-
+  printSectionHeader: {
+  fontWeight: '600',
+  fontSize: '13px',
+  marginBottom: '6px',
+  marginTop: '10px',
+},
+reportNotesLine: {
+  borderBottom: '1px solid #e5e7eb',
+  marginTop: '6px',
+  height: '10px',
+},
 }
