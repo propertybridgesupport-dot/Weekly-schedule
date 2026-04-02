@@ -40,8 +40,7 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
-  const [activeTab, setActiveTab] = useState('master')
-
+  const [activeTab, setActiveTab] = useState('weekly')
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
   const [superintendents, setSuperintendents] = useState([])
@@ -1085,44 +1084,44 @@ export default function App() {
             <p style={styles.text}>{message}</p>
           </div>
 
-          <div style={styles.topBarButtons}>
-            <button
-              onClick={() => setActiveTab('master')}
-              style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
-            >
-              Master Data
-            </button>
-            <button
-              onClick={() => setActiveTab('schedule')}
-              style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
-            >
-              Schedule Entry
-            </button>
-            <button
-              onClick={() => setActiveTab('weekly')}
-              style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
-            >
-              Weekly Schedule
-            </button>
-            <button
-              onClick={() => setActiveTab('grid')}
-              style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
-            >
-              Weekly Grid
-            </button>
-            <button
-              onClick={() => setActiveTab('print')}
-              style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
-            >
-              Print / PDF
-            </button>
-            <button onClick={loadAllData} style={styles.buttonSecondary}>
-              Reload Data
-            </button>
-            <button onClick={signOut} style={styles.buttonSecondary}>
-              Sign Out
-            </button>
-          </div>
+<div style={styles.topBarButtons}>
+  <button
+    onClick={() => setActiveTab('weekly')}
+    style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
+  >
+    Weekly Schedule
+  </button>
+  <button
+    onClick={() => setActiveTab('grid')}
+    style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
+  >
+    Weekly Grid
+  </button>
+  <button
+    onClick={() => setActiveTab('print')}
+    style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
+  >
+    Print / PDF
+  </button>
+  <button
+    onClick={() => setActiveTab('master')}
+    style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
+  >
+    Master Data
+  </button>
+  <button
+    onClick={() => setActiveTab('schedule')}
+    style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
+  >
+    Schedule Entry
+  </button>
+  <button onClick={loadAllData} style={styles.buttonSecondary}>
+    Reload Data
+  </button>
+  <button onClick={signOut} style={styles.buttonSecondary}>
+    Sign Out
+  </button>
+</div>
         </div>
       </div>
 
@@ -2463,23 +2462,24 @@ const styles = {
     padding: '10px 16px',
     cursor: 'pointer',
   },
-  buttonDanger: {
-    background: '#b91c1c',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '10px',
-    padding: '8px 14px',
-    cursor: 'pointer',
-  },
-  smallButton: {
-    background: '#ffffff',
-    color: '#111827',
-    border: '1px solid #d1d5db',
-    borderRadius: '8px',
-    padding: '6px 10px',
-    cursor: 'pointer',
-    fontSize: '12px',
-  },
+buttonDanger: {
+  background: '#c9732f',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '10px',
+  padding: '8px 14px',
+  cursor: 'pointer',
+},
+
+smallDangerButton: {
+  background: '#c9732f',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '8px',
+  padding: '6px 10px',
+  cursor: 'pointer',
+  fontSize: '12px',
+},
   smallDangerButton: {
     background: '#b91c1c',
     color: '#ffffff',
