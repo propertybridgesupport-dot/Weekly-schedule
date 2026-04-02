@@ -2815,17 +2815,15 @@ const styles = {
     lineHeight: 1.35,
   },
   printNotesAccent: {
-    borderLeft: '3px solid #f2a531',
-    backgroundColor: '#fff8eb',
-    padding: '4px 8px',
-    marginTop: '4px',
-    marginBottom: '8px',
-    marginLeft: '10px',
-    marginRight: '10px',
-    fontSize: '12px',
-    lineHeight: 1.3,
-    color: '#111827',
-  },
+  borderLeft: '3px solid #f59e0b', // keep your bar
+  backgroundColor: '#fffdf7',      // MUCH lighter, almost white
+  padding: '4px 8px',
+  marginTop: '4px',
+  marginLeft: '10px',
+  marginRight: '10px',
+  fontSize: '12px',
+  lineHeight: '1.3',
+},
   printNotesBox: {
     backgroundColor: '#fff8eb',
     border: '1px solid #f6cd8a',
