@@ -2,15 +2,56 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 export default function App() {
+  const [session, setSession] = useState(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [jobs, setJobs] = useState([])
   const [jobNumber, setJobNumber] = useState('')
   const [jobName, setJobName] = useState('')
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('Testing Supabase connection...')
+  const [message, setMessage] = useState('Checking login...')
 
   useEffect(() => {
-    loadJobs()
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session || null)
+      setLoading(false)
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (session) {
+      loadJobs()
+    }
+  }, [session])
+
+  async function signIn() {
+    setMessage('Signing in...')
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setMessage(error.message)
+    } else {
+      setMessage('Signed in successfully.')
+    }
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut()
+    setJobs([])
+    setMessage('Signed out.')
+  }
 
   async function loadJobs() {
     setLoading(true)
@@ -54,11 +95,63 @@ export default function App() {
     }
   }
 
+  if (loading && !session) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <h1 style={styles.title}>Weekly Schedule App</h1>
+          <p style={styles.text}>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <h1 style={styles.title}>Weekly Schedule App Login</h1>
+          <p style={styles.text}>{message}</p>
+
+          <div style={{ marginTop: '20px' }}>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={styles.input}
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={styles.input}
+            />
+
+            <button onClick={signIn} style={styles.button}>
+              Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Weekly Schedule App</h1>
-        <p style={styles.text}>{message}</p>
+        <div style={styles.topBar}>
+          <div>
+            <h1 style={styles.title}>Weekly Schedule App</h1>
+            <p style={styles.text}>{message}</p>
+          </div>
+
+          <button onClick={signOut} style={styles.buttonSecondary}>
+            Sign Out
+          </button>
+        </div>
 
         <button onClick={loadJobs} style={styles.button}>
           Reload Jobs
@@ -136,6 +229,13 @@ const styles = {
     padding: '24px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
+  topBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '16px',
+    flexWrap: 'wrap',
+  },
   title: {
     margin: 0,
     marginBottom: '10px',
@@ -154,6 +254,14 @@ const styles = {
     background: '#111827',
     color: '#ffffff',
     border: 'none',
+    borderRadius: '10px',
+    padding: '10px 16px',
+    cursor: 'pointer',
+  },
+  buttonSecondary: {
+    background: '#ffffff',
+    color: '#111827',
+    border: '1px solid #d1d5db',
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
