@@ -179,8 +179,7 @@ export default function App() {
       supabase.from('foremen').select('*').order('name', { ascending: true }),
       supabase
         .from('email_groups')
-        .select(
-          `
+        .select(`
           *,
           email_group_recipients (
             id,
@@ -188,8 +187,7 @@ export default function App() {
             email,
             active
           )
-        `
-        )
+        `)
         .order('name', { ascending: true }),
     ])
 
@@ -231,8 +229,7 @@ export default function App() {
   async function loadScheduleItems() {
     const { data, error } = await supabase
       .from('schedule_items')
-      .select(
-        `
+      .select(`
         *,
         jobs (
           id,
@@ -279,8 +276,7 @@ export default function App() {
             name
           )
         )
-      `
-      )
+      `)
       .order('from_date', { ascending: true })
 
     if (error) {
@@ -993,6 +989,49 @@ export default function App() {
     )
 
     window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
+  }
+
+  function renderDayContents(item, dayKey) {
+    const surveyorMatches =
+      item.schedule_item_surveyors?.filter((assignment) => assignment[dayKey]) || []
+
+    const foremanMatches =
+      item.schedule_item_foremen?.filter((assignment) =>
+        assignmentCoversDay(assignment, dayKey, item.from_date)
+      ) || []
+
+    const hasAnything = foremanMatches.length || surveyorMatches.length
+
+    if (!hasAnything) {
+      return <div style={styles.gridEmptyText}>—</div>
+    }
+
+    return (
+      <div style={styles.gridChipStack}>
+        {foremanMatches.map((assignment) => (
+          <div key={`f-${assignment.id}`} style={styles.gridForemanChip}>
+            <div style={styles.gridChipTitle}>
+              {assignment.foremen?.name || 'Foreman'}
+            </div>
+            <div style={styles.gridChipText}>
+              {assignment.work_description || 'No work note'}
+            </div>
+            {assignment.split_note ? (
+              <div style={styles.gridChipSubText}>{assignment.split_note}</div>
+            ) : null}
+          </div>
+        ))}
+
+        {surveyorMatches.map((assignment) => (
+          <div key={`s-${assignment.id}`} style={styles.gridSurveyorChip}>
+            <div style={styles.gridChipTitle}>
+              {assignment.surveyors?.name || 'Surveyor'}
+            </div>
+            <div style={styles.gridChipText}>{assignment.note || 'No note'}</div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   if (loading && !session) {
@@ -1888,7 +1927,6 @@ export default function App() {
       )}
 
       {activeTab === 'grid' && (
-           {activeTab === 'grid' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader}>
@@ -2061,191 +2099,8 @@ export default function App() {
           </div>
         </div>
       )}
-      {activeTab === 'print' && (
-        <div style={styles.singleColumnWrap}>
-          <div style={styles.sectionCard}>
-            <div style={styles.assignmentHeader} className="no-print">
-              <h2 style={styles.sectionTitle}>Print / PDF View</h2>
-              <div style={styles.topBarButtons}>
-                <button onClick={() => window.print()} style={styles.button}>
-                  Print / Save PDF
-                </button>
-
-                <select
-                  value={selectedEmailGroupId}
-                  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
-                  style={styles.jobPrefixSelect}
-                >
-                  <option value="">Select Email Group</option>
-                  {emailGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={() => emailSchedule(selectedEmailGroup)}
-                  style={styles.buttonSecondary}
-                >
-                  Email Selected Group
-                </button>
-              </div>
-            </div>
-
-            <div style={styles.emailNoteBox} className="no-print">
-              <strong>How this works right now:</strong> click{' '}
-              <em>Print / Save PDF</em> first, save the PDF, then click the email
-              button to open your email app and attach the PDF.
-            </div>
-
-            <div style={styles.printHeader}>
-              <h1 style={styles.printTitle}>Weekly Schedule</h1>
-              <p style={styles.printSubtitle}>
-                Printable version of saved schedule items
-              </p>
-            </div>
-
-            {scheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
-            ) : (
-              <div style={styles.scheduleList}>
-                {scheduleItems.map((item) => (
-                  <div key={item.id} style={styles.printCard}>
-                    <div style={styles.printJobTitle}>
-                      {item.jobs?.job_number || '—'} —{' '}
-                      {item.jobs?.job_name || 'No Job Name'}
-                    </div>
-
-                    <div style={styles.printLine}>
-                      <strong>Dates:</strong> {formatDate(item.from_date)} to{' '}
-                      {formatDate(item.to_date)}
-                    </div>
-                    <div style={styles.printLine}>
-                      <strong>Job Start:</strong>{' '}
-                      {formatDate(item.jobs?.start_date)}
-                    </div>
-                    <div style={styles.printLine}>
-                      <strong>Job Stop:</strong> {formatDate(item.jobs?.stop_date)}
-                    </div>
-                    <div style={styles.printLine}>
-                      <strong>Project Manager:</strong>{' '}
-                      {item.project_managers?.name || '—'}
-                    </div>
-                    <div style={styles.printLine}>
-                      <strong>Superintendent:</strong>{' '}
-                      {item.superintendents?.name || '—'}
-                    </div>
-                    <div style={styles.printLine}>
-                      <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
-                    </div>
-
-                    {item.notes && (
-                      <div style={styles.printNotes}>
-                        <strong>Job Notes:</strong> {item.notes}
-                      </div>
-                    )}
-
-                    <div style={styles.printForemanTitle}>Foreman Assignments</div>
-
-                    {item.schedule_item_foremen?.length ? (
-                      item.schedule_item_foremen.map((assignment) => (
-                        <div key={assignment.id} style={styles.printForemanCard}>
-                          <div style={styles.printLine}>
-                            <strong>Foreman:</strong>{' '}
-                            {assignment.foremen?.name || '—'}
-                          </div>
-                          <div style={styles.printLine}>
-                            <strong>Dates:</strong>{' '}
-                            {formatDate(assignment.assignment_from_date)} to{' '}
-                            {formatDate(assignment.assignment_to_date)}
-                          </div>
-                          <div style={styles.printLine}>
-                            <strong>Work:</strong>{' '}
-                            {assignment.work_description || '—'}
-                          </div>
-                          <div style={styles.printLine}>
-                            <strong>Split Note:</strong>{' '}
-                            {assignment.split_note || '—'}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.printLine}>No foremen assigned yet.</div>
-                    )}
-
-                    <div style={styles.printForemanTitle}>Surveyor Assignments</div>
-
-                    {item.schedule_item_surveyors?.length ? (
-                      item.schedule_item_surveyors.map((assignment) => (
-                        <div key={assignment.id} style={styles.printForemanCard}>
-                          <div style={styles.printLine}>
-                            <strong>Surveyor:</strong>{' '}
-                            {assignment.surveyors?.name || '—'}
-                          </div>
-                          <div style={styles.printLine}>
-                            <strong>Days:</strong> {formatSurveyorDays(assignment)}
-                          </div>
-                          <div style={styles.printLine}>
-                            <strong>Note:</strong> {assignment.note || '—'}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.printLine}>No surveyor assignments yet.</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
-
-  function renderDayContents(item, dayKey) {
-    const surveyorMatches =
-      item.schedule_item_surveyors?.filter((assignment) => assignment[dayKey]) || []
-
-    const foremanMatches =
-      item.schedule_item_foremen?.filter((assignment) =>
-        assignmentCoversDay(assignment, dayKey, item.from_date)
-      ) || []
-
-    const hasAnything = foremanMatches.length || surveyorMatches.length
-
-    if (!hasAnything) {
-      return <div style={styles.gridEmptyText}>—</div>
-    }
-
-    return (
-      <div style={styles.gridChipStack}>
-        {foremanMatches.map((assignment) => (
-          <div key={`f-${assignment.id}`} style={styles.gridForemanChip}>
-            <div style={styles.gridChipTitle}>
-              {assignment.foremen?.name || 'Foreman'}
-            </div>
-            <div style={styles.gridChipText}>
-              {assignment.work_description || 'No work note'}
-            </div>
-            {assignment.split_note ? (
-              <div style={styles.gridChipSubText}>{assignment.split_note}</div>
-            ) : null}
-          </div>
-        ))}
-
-        {surveyorMatches.map((assignment) => (
-          <div key={`s-${assignment.id}`} style={styles.gridSurveyorChip}>
-            <div style={styles.gridChipTitle}>
-              {assignment.surveyors?.name || 'Surveyor'}
-            </div>
-            <div style={styles.gridChipText}>{assignment.note || 'No note'}</div>
-          </div>
-        ))}
-      </div>
-    )
-  }
 }
 
 function SectionCard({ title, children }) {
@@ -2314,80 +2169,6 @@ function assignmentCoversDay(assignment, dayKey, weekFromDate) {
 }
 
 const styles = {
-    printCompactCard: {
-    border: '1px solid #d1d5db',
-    borderRadius: '10px',
-    padding: '14px',
-    marginBottom: '14px',
-    background: '#ffffff',
-    pageBreakInside: 'avoid',
-  },
-  printCompactJobTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: '6px',
-  },
-  printCompactDates: {
-    fontSize: '13px',
-    color: '#374151',
-    marginBottom: '8px',
-  },
-  printCompactMetaRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '10px',
-    fontSize: '13px',
-    color: '#111827',
-    marginBottom: '8px',
-    padding: '8px 10px',
-    background: '#f9fafb',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-  },
-  printCompactJobNotes: {
-    fontSize: '13px',
-    color: '#111827',
-    marginBottom: '10px',
-  },
-  printCompactSectionLabel: {
-    fontWeight: 'bold',
-    fontSize: '13px',
-    color: '#111827',
-    marginTop: '10px',
-    marginBottom: '6px',
-  },
-  printCompactAssignmentTable: {
-    display: 'grid',
-    gap: '6px',
-  },
-  printCompactAssignmentRow: {
-    display: 'grid',
-    gridTemplateColumns: '180px 1fr 1fr',
-    gap: '10px',
-    alignItems: 'start',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    padding: '8px',
-    fontSize: '12px',
-    color: '#111827',
-    background: '#ffffff',
-  },
-  printCompactNameCol: {
-    fontSize: '12px',
-  },
-  printCompactInfoCol: {
-    display: 'grid',
-    gap: '4px',
-  },
-  printCompactNoteCol: {
-    fontSize: '12px',
-  },
-  printCompactEmpty: {
-    fontSize: '12px',
-    color: '#6b7280',
-    marginBottom: '4px',
-  },
   page: {
     minHeight: '100vh',
     background: '#f3f4f6',
@@ -2839,5 +2620,79 @@ const styles = {
   gridEmptyText: {
     fontSize: '13px',
     color: '#9ca3af',
+  },
+  printCompactCard: {
+    border: '1px solid #d1d5db',
+    borderRadius: '10px',
+    padding: '14px',
+    marginBottom: '14px',
+    background: '#ffffff',
+    pageBreakInside: 'avoid',
+  },
+  printCompactJobTitle: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: '6px',
+  },
+  printCompactDates: {
+    fontSize: '13px',
+    color: '#374151',
+    marginBottom: '8px',
+  },
+  printCompactMetaRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: '10px',
+    fontSize: '13px',
+    color: '#111827',
+    marginBottom: '8px',
+    padding: '8px 10px',
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+  },
+  printCompactJobNotes: {
+    fontSize: '13px',
+    color: '#111827',
+    marginBottom: '10px',
+  },
+  printCompactSectionLabel: {
+    fontWeight: 'bold',
+    fontSize: '13px',
+    color: '#111827',
+    marginTop: '10px',
+    marginBottom: '6px',
+  },
+  printCompactAssignmentTable: {
+    display: 'grid',
+    gap: '6px',
+  },
+  printCompactAssignmentRow: {
+    display: 'grid',
+    gridTemplateColumns: '180px 1fr 1fr',
+    gap: '10px',
+    alignItems: 'start',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '8px',
+    fontSize: '12px',
+    color: '#111827',
+    background: '#ffffff',
+  },
+  printCompactNameCol: {
+    fontSize: '12px',
+  },
+  printCompactInfoCol: {
+    display: 'grid',
+    gap: '4px',
+  },
+  printCompactNoteCol: {
+    fontSize: '12px',
+  },
+  printCompactEmpty: {
+    fontSize: '12px',
+    color: '#6b7280',
+    marginBottom: '4px',
   },
 }
