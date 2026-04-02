@@ -1196,12 +1196,14 @@ const gridScheduleItems = useMemo(() => {
       width: 100% !important;
       max-width: 7.9in !important;
       margin: 0 auto !important;
-      transform: scale(0.95);
-      transform-origin: top center;
+      transform: none !important;
+      box-shadow: none !important;
+      border: none !important;
     }
 
     .print-report-list {
       gap: 0 !important;
+      padding-top: 8px !important;
     }
 
     .print-report-card {
@@ -1942,15 +1944,11 @@ const gridScheduleItems = useMemo(() => {
               </div>
             </div>
 
-            {scheduleItems.filter(
-  (item) =>
-    (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
-    (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
-).length === 0 ? (
-  <p style={styles.text}>No jobs with foreman or surveyor assignments yet.</p>
-) : (
+            {filteredScheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet.</p>
+            ) : (
               <div style={styles.scheduleList}>
-                {gridScheduleItems.map((item) => (
+                {filteredScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
@@ -2095,13 +2093,7 @@ const gridScheduleItems = useMemo(() => {
                   </div>
                 ))}
 
-          {scheduleItems
-  .filter(
-    (item) =>
-      (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
-      (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
-  )
-  .map((item) => (
+          {gridScheduleItems.map((item) => (
     <React.Fragment key={item.id}>
                     <div style={styles.gridJobCell}>
                       <div style={styles.gridJobTitle}>
@@ -2135,6 +2127,15 @@ const gridScheduleItems = useMemo(() => {
     <button onClick={() => window.print()} style={styles.button}>
       Print / Save PDF
     </button>
+
+    <select
+      value={printLayout}
+      onChange={(e) => setPrintLayout(e.target.value)}
+      style={styles.jobPrefixSelect}
+    >
+      <option value="report">Report Layout</option>
+      <option value="grid">Weekly Grid Layout</option>
+    </select>
 
     <select
       value={notesStyle}
@@ -2187,7 +2188,7 @@ const gridScheduleItems = useMemo(() => {
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
                   <div style={styles.reportTitleBlock}>
-                    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
+                    <div style={styles.reportTitle}>{printLayout === 'grid' ? 'WEEKLY GRID' : 'WEEKLY SCHEDULE'}</div>
                     <div style={styles.reportDate}>
                       {selectedWeekFrom && selectedWeekTo
                         ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
@@ -2536,17 +2537,17 @@ const styles = {
     background: '#ffffff',
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
-    padding: '18px 18px 14px',
+    padding: '14px 16px 12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.035)',
   },
   printReportList: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0',
-    paddingTop: '22px',
+    paddingTop: '8px',
   },
   printReportCard: {
-    paddingTop: '2px',
+    paddingTop: '0',
     paddingBottom: '8px',
     marginBottom: '0',
     pageBreakInside: 'avoid',
@@ -2617,7 +2618,7 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
     flexWrap: 'wrap',
-    marginBottom: '14px',
+    marginBottom: '8px',
   },
   bottomButtons: {
     display: 'flex',
@@ -2628,7 +2629,7 @@ const styles = {
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '14px',
+    gap: '12px',
   },
   metaGrid: {
     display: 'grid',
@@ -3091,7 +3092,7 @@ const styles = {
   jobDivider: {
     borderTop: '1px solid #cfd6de',
     marginTop: '12px',
-    marginBottom: '10px',
+    marginBottom: '8px',
   },
   reportHeader: {
     marginBottom: '14px',
@@ -3135,7 +3136,7 @@ const styles = {
     marginTop: '4px',
   },
   reportDivider: {
-    marginTop: '9px',
+    marginTop: '6px',
     borderBottom: '1px solid #c7cdd4',
   },
   printSectionHeader: {
