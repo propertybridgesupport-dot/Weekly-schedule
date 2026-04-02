@@ -1888,7 +1888,52 @@ export default function App() {
       )}
 
       {activeTab === 'grid' && (
-         {activeTab === 'print' && (
+           {activeTab === 'grid' && (
+        <div style={styles.singleColumnWrap}>
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <h2 style={styles.sectionTitle}>Weekly Grid View</h2>
+              <button onClick={loadAllData} style={styles.buttonSecondary}>
+                Refresh Grid
+              </button>
+            </div>
+
+            {scheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet.</p>
+            ) : (
+              <div style={styles.gridBoard}>
+                <div style={styles.gridHeaderCell}>Job</div>
+                {WEEKDAY_KEYS.map((dayKey) => (
+                  <div key={dayKey} style={styles.gridHeaderCell}>
+                    {WEEKDAY_LABELS[dayKey]}
+                  </div>
+                ))}
+
+                {scheduleItems.map((item) => (
+                  <React.Fragment key={item.id}>
+                    <div style={styles.gridJobCell}>
+                      <div style={styles.gridJobTitle}>
+                        {item.jobs?.job_number || '—'}
+                      </div>
+                      <div style={styles.gridJobSubTitle}>
+                        {item.jobs?.job_name || 'No Job Name'}
+                      </div>
+                    </div>
+
+                    {WEEKDAY_KEYS.map((dayKey) => (
+                      <div key={`${item.id}-${dayKey}`} style={styles.gridDayCell}>
+                        {renderDayContents(item, dayKey)}
+                      </div>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader} className="no-print">
