@@ -2009,27 +2009,95 @@ export default function App() {
         </div>
       )}
 
-      {activeTab === 'print' && (
-        <div style={styles.singleColumnWrap}>
-          <div style={styles.printPageWrap}>
-            <div style={styles.assignmentHeader} className="no-print">
-              <h2 style={styles.sectionTitle}>Print / PDF View</h2>
-              <div style={styles.topBarButtons}>
-                <button onClick={() => window.print()} style={styles.button}>
-                  Print / Save PDF
-                </button>
+      // IMPORTANT: This is your updated PRINT SECTION to paste into your App.jsx
+// Replace your existing {activeTab === 'print' && (...)} section with this
 
-                <select
-                  value={selectedEmailGroupId}
-                  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
-                  style={styles.jobPrefixSelect}
-                >
-                  <option value="">Select Email Group</option>
-                  {emailGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
+{activeTab === 'print' && (
+  <div style={styles.singleColumnWrap}>
+    <div style={styles.sectionCard}>
+
+      <div style={styles.reportHeader}>
+        <img
+          src="/command-logo.png"
+          alt="Command Industries Logo"
+          style={styles.reportLogo}
+        />
+
+        <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
+
+        <div style={styles.reportDate}>
+          {selectedWeekFrom && selectedWeekTo
+            ? `Week of ${formatDate(selectedWeekFrom)} – ${formatDate(selectedWeekTo)}`
+            : ''}
+        </div>
+
+        <div style={styles.reportDivider} />
+      </div>
+
+      <div style={styles.printReportList}>
+        {filteredScheduleItems.map((item) => {
+          const hasForeman = item.schedule_item_foremen?.length > 0
+          const hasSurveyor = item.schedule_item_surveyors?.length > 0
+
+          return (
+            <div key={item.id} style={styles.printReportCard}>
+              <div style={styles.printCompactJobTitle}>
+                {item.jobs?.job_number} — {item.jobs?.job_name}
+              </div>
+
+              <div style={styles.printPmLine}>
+                <strong>PM:</strong> {item.project_managers?.name || '—'}
+              </div>
+
+              {item.notes && (
+                <div style={styles.printCompactJobNotes}>
+                  <strong>Job Notes:</strong> {item.notes}
+                </div>
+              )}
+
+              {hasForeman && (
+                <>
+                  <div style={styles.printCompactSectionLabel}>Foreman</div>
+
+                  <div style={styles.printCompactAssignmentTable}>
+                    {item.schedule_item_foremen.map((a) => (
+                      <div key={a.id} style={styles.printCompactAssignmentRow}>
+                        <div>{a.foremen?.name}</div>
+                        <div>
+                          {formatDate(a.assignment_from_date)} – {formatDate(a.assignment_to_date)}
+                        </div>
+                        <div>{a.work_description || '—'}</div>
+                        <div>{a.split_note || '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {hasSurveyor && (
+                <>
+                  <div style={styles.printCompactSectionLabel}>Surveyor</div>
+
+                  <div style={styles.printCompactAssignmentTable}>
+                    {item.schedule_item_surveyors.map((a) => (
+                      <div key={a.id} style={styles.printCompactAssignmentRow}>
+                        <div>{a.surveyors?.name}</div>
+                        <div>{formatSurveyorDays(a)}</div>
+                        <div>{a.note || '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+    </div>
+  </div>
+)}
+
                 </select>
 
                 <button
@@ -2740,4 +2808,52 @@ const styles = {
     color: '#6b7280',
     marginBottom: '4px',
   },
+    reportHeader: {
+  textAlign: 'center',
+  marginBottom: '12px',
+},
+
+reportLogo: {
+  height: '55px',
+  marginBottom: '6px',
+},
+
+reportTitle: {
+  fontSize: '18px',
+  fontWeight: 'bold',
+  letterSpacing: '1px',
+},
+
+reportDate: {
+  fontSize: '12px',
+  color: '#374151',
+  marginTop: '2px',
+},
+
+reportDivider: {
+  marginTop: '8px',
+  borderBottom: '1px solid #d1d5db',
+},
+
+printReportList: {
+  display: 'grid',
+  gap: '8px',
+},
+
+printReportCard: {
+  borderBottom: '1px solid #d1d5db',
+  paddingBottom: '6px',
+},
+
+printPmLine: {
+  fontSize: '12px',
+  marginBottom: '4px',
+},
+printCompactAssignmentRow: {
+  display: 'grid',
+  gridTemplateColumns: '140px 120px 1fr 1fr',
+  gap: '8px',
+  fontSize: '11px',
+  padding: '3px 0',
+},
 }
