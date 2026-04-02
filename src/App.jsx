@@ -38,7 +38,8 @@ export default function App() {
   const [foremen, setForemen] = useState([])
   const [scheduleItems, setScheduleItems] = useState([])
 
-  const [jobNumber, setJobNumber] = useState('')
+  const [jobPrefix, setJobPrefix] = useState('CC')
+  const [jobNumberPart2, setJobNumberPart2] = useState('')
   const [jobName, setJobName] = useState('')
   const [jobStartDate, setJobStartDate] = useState('')
   const [jobStopDate, setJobStopDate] = useState('')
@@ -212,14 +213,28 @@ export default function App() {
     setLoading(false)
   }
 
+  function buildJobNumber() {
+    const prefix = jobPrefix.trim().toUpperCase()
+    const part2 = jobNumberPart2.trim()
+    if (!prefix || !part2) return ''
+    return `${prefix} - ${part2}`
+  }
+
   async function addJob() {
-    if (!jobNumber || !jobName) {
-      alert('Enter both job number and job name')
+    const finalJobNumber = buildJobNumber()
+
+    if (!finalJobNumber || !jobName) {
+      alert('Enter job prefix, job number, and job name')
+      return
+    }
+
+    if (!/^\d+$/.test(jobNumberPart2.trim())) {
+      alert('The second part of the job number must be numbers only')
       return
     }
 
     const { error } = await supabase.from('jobs').insert({
-      job_number: jobNumber,
+      job_number: finalJobNumber,
       job_name: jobName,
       start_date: jobStartDate || null,
       stop_date: jobStopDate || null,
@@ -229,7 +244,8 @@ export default function App() {
     if (error) {
       alert(error.message)
     } else {
-      setJobNumber('')
+      setJobPrefix('CC')
+      setJobNumberPart2('')
       setJobName('')
       setJobStartDate('')
       setJobStopDate('')
@@ -521,30 +537,55 @@ export default function App() {
       {activeTab === 'master' && (
         <div style={styles.grid}>
           <SectionCard title="Jobs">
-            <input
-              placeholder="Job Number"
-              value={jobNumber}
-              onChange={(e) => setJobNumber(e.target.value)}
-              style={styles.input}
-            />
+            <label style={styles.label}>Job Number</label>
+            <div style={styles.jobNumberRow}>
+              <select
+                value={jobPrefix}
+                onChange={(e) => setJobPrefix(e.target.value)}
+                style={styles.jobPrefixSelect}
+              >
+                <option value="CC">CC</option>
+                <option value="CCI">CCI</option>
+              </select>
+
+              <div style={styles.jobDash}>-</div>
+
+              <input
+                placeholder="123"
+                value={jobNumberPart2}
+                onChange={(e) => setJobNumberPart2(e.target.value.replace(/\D/g, ''))}
+                style={styles.jobNumberInput}
+              />
+            </div>
+
+            <div style={styles.smallText}>
+              Full Job Number: {buildJobNumber() || '—'}
+            </div>
+
+            <label style={styles.label}>Job Name</label>
             <input
               placeholder="Job Name"
               value={jobName}
               onChange={(e) => setJobName(e.target.value)}
               style={styles.input}
             />
+
+            <label style={styles.label}>Start Date</label>
             <input
               type="date"
               value={jobStartDate}
               onChange={(e) => setJobStartDate(e.target.value)}
               style={styles.input}
             />
+
+            <label style={styles.label}>Stop Date</label>
             <input
               type="date"
               value={jobStopDate}
               onChange={(e) => setJobStopDate(e.target.value)}
               style={styles.input}
             />
+
             <button onClick={addJob} style={styles.button}>
               Add Job
             </button>
@@ -1283,6 +1324,32 @@ const styles = {
     marginTop: '4px',
     fontSize: '13px',
     color: '#6b7280',
+  },
+  jobNumberRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '10px',
+  },
+  jobPrefixSelect: {
+    width: '120px',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #ccc',
+    background: '#ffffff',
+    boxSizing: 'border-box',
+  },
+  jobDash: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  jobNumberInput: {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #ccc',
+    boxSizing: 'border-box',
   },
   title: {
     margin: 0,
