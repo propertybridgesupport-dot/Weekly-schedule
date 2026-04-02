@@ -1050,7 +1050,7 @@ export default function App() {
 
   if (loading && !session) {
     return (
-      <div style={styles.page}>
+      <div style={styles.page} className="print-root">
         <div style={styles.card}>
           <h1 style={styles.title}>Weekly Schedule App</h1>
           <p style={styles.text}>Loading...</p>
@@ -1093,17 +1093,25 @@ export default function App() {
   return (
     <div style={styles.page}>
       <style>{`
+        @page {
+          margin: 0.35in;
+        }
+
         @media print {
           body {
             background: #ffffff !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
 
           .no-print {
             display: none !important;
           }
 
-          @page {
-            margin: 0.5in;
+          .print-root {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
           }
         }
       `}</style>
@@ -2040,16 +2048,7 @@ export default function App() {
             </div>
 
             <div style={styles.reportPaper}>
-              <div style={styles.printHeader}>
-                <h1 style={styles.printTitle}>Weekly Schedule</h1>
-                <p style={styles.printSubtitle}>
-                  {selectedWeekFrom && selectedWeekTo
-                    ? `${formatDate(selectedWeekFrom)} to ${formatDate(selectedWeekTo)}`
-                    : 'Select a week on the Weekly Schedule tab'}
-                </p>
-              </div>
-
-              {filteredScheduleItems.length === 0 ? (
+{filteredScheduleItems.length === 0 ? (
                 <p style={styles.text}>
                   {selectedWeekFrom && selectedWeekTo
                     ? 'No schedule items saved yet for this week.'
@@ -2394,21 +2393,6 @@ const styles = {
     gap: '10px',
     marginBottom: '8px',
   },
-  printHeader: {
-    borderBottom: '2px solid #111827',
-    paddingBottom: '12px',
-    marginBottom: '20px',
-  },
-  printTitle: {
-    margin: 0,
-    fontSize: '30px',
-    color: '#111827',
-  },
-  printSubtitle: {
-    margin: '6px 0 0 0',
-    color: '#4b5563',
-    fontSize: '14px',
-  },
   printJobTitle: {
     fontSize: '20px',
     fontWeight: 'bold',
@@ -2691,10 +2675,10 @@ const styles = {
     pageBreakInside: 'avoid',
   },
   printCompactJobTitle: {
-    fontSize: '18px',
+    fontSize: '15px',
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: '6px',
+    marginBottom: '3px',
   },
   printCompactDates: {
     fontSize: '13px',
@@ -2742,11 +2726,11 @@ const styles = {
     background: '#ffffff',
   },
   printCompactNameCol: {
-    fontSize: '12px',
+    fontSize: '11px',
   },
   printCompactInfoCol: {
     display: 'grid',
-    gap: '4px',
+    gap: '2px',
   },
   printCompactNoteCol: {
     fontSize: '12px',
