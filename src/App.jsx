@@ -202,7 +202,20 @@ const [reportNotes, setReportNotes] = useState('')
   const filteredScheduleItems = useMemo(() => {
     return scheduleItems
   }, [scheduleItems])
+const gridScheduleItems = useMemo(() => {
+  return scheduleItems.filter((item) => {
+    const matchesWeek =
+      !selectedWeekFrom ||
+      !selectedWeekTo ||
+      (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
 
+    const hasAssignments =
+      (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
+      (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
+
+    return matchesWeek && hasAssignments
+  })
+}, [scheduleItems, selectedWeekFrom, selectedWeekTo])
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
@@ -1156,62 +1169,52 @@ const [reportNotes, setReportNotes] = useState('')
 
   return (
     <div style={styles.page}>
-      <style>{`
-        @page {
-          size: portrait;
-          margin: 0.18in;
-        }
+<style>{`
+  @page {
+    size: portrait;
+    margin: 0.18in;
+  }
 
-        @media print {
-          html, body {
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
+  @media print {
+    html, body {
+      background: #ffffff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
 
-          .no-print {
-            display: none !important;
-          }
+    .no-print {
+      display: none !important;
+    }
 
-          .print-root {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-          }
+    .print-root {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+    }
 
-          .print-page-wrap {
-            max-width: 100% !important;
-            margin: 0 !important;
-          }
+    .print-paper {
+      width: 100% !important;
+      max-width: 7.9in !important;
+      margin: 0 auto !important;
+      transform: scale(0.95);
+      transform-origin: top center;
+    }
 
-          .print-paper {
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-          }
+    .print-report-list {
+      gap: 0 !important;
+    }
 
-          .print-report-list {
-            gap: 0 !important;
-            padding-top: 16px !important;
-          }
+    .print-report-card {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
 
-          .print-report-card {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-            padding-top: 0 !important;
-            padding-bottom: 8px !important;
-            margin-bottom: 0 !important;
-          }
-
-          .print-job-divider {
-            border-top: 1px solid #cfd6de !important;
-            margin: 12px 0 10px !important;
-            break-after: auto !important;
-          }
-        }
-      `}</style>
+    .print-job-divider {
+      margin-top: 8px !important;
+      margin-bottom: 8px !important;
+    }
+  }
+`}</style>
       <div style={styles.headerCard} className="no-print">
         <div style={styles.topBar}>
           <div>
@@ -1947,7 +1950,7 @@ const [reportNotes, setReportNotes] = useState('')
   <p style={styles.text}>No jobs with foreman or surveyor assignments yet.</p>
 ) : (
               <div style={styles.scheduleList}>
-                {filteredScheduleItems.map((item) => (
+                {gridScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
@@ -2077,9 +2080,13 @@ const [reportNotes, setReportNotes] = useState('')
               </button>
             </div>
 
-            {scheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
-            ) : (
+{gridScheduleItems.length === 0 ? (
+  <p style={styles.text}>
+    {selectedWeekFrom && selectedWeekTo
+      ? 'No jobs with foreman or surveyor assignments for this week.'
+      : 'Choose a week to view the weekly grid.'}
+  </p>
+) : (
               <div style={styles.gridBoard}>
                 <div style={styles.gridHeaderCell}>Job</div>
                 {WEEKDAY_KEYS.map((dayKey) => (
