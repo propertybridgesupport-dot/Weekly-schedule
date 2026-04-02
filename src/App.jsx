@@ -133,7 +133,7 @@ const [reportNotes, setReportNotes] = useState('')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-
+const [printLayout, setPrintLayout] = useState('report')
   const [editingScheduleItemId, setEditingScheduleItemId] = useState(null)
 
   const [scheduleForm, setScheduleForm] = useState({
@@ -2202,12 +2202,13 @@ const gridScheduleItems = useMemo(() => {
                 </div>
                 <div style={styles.reportDivider} />
               </div>
-
-{filteredScheduleItems.length === 0 ? (
-                <p style={styles.text}>No schedule items saved yet.</p>
-              ) : (
-                <div style={styles.printReportList} className="print-report-list">
-                  {filteredScheduleItems.map((item, index) => (
+{printLayout === 'report' ? (
+  <>
+    {filteredScheduleItems.length === 0 ? (
+      <p style={styles.text}>No schedule items saved yet.</p>
+    ) : (
+      <div style={styles.printReportList} className="print-report-list">
+        {filteredScheduleItems.map((item, index) => (
                     <React.Fragment key={item.id}>
                       <div style={styles.printReportCard} className="print-report-card">
                         <div style={styles.printCompactJobTitle}>
@@ -2329,13 +2330,60 @@ const gridScheduleItems = useMemo(() => {
       <div style={styles.reportNotesLine} />
     </div>
   </div>
-)}
-            </div>
-          </div>
+              )}
+            </>
+          ) : (
+            <>
+              ...grid...
+            </>
+          )}
+            </>
+          ) : (
+            <>
+              {gridScheduleItems.length === 0 ? (
+                <p style={styles.text}>
+                  {selectedWeekFrom && selectedWeekTo
+                    ? 'No jobs with foreman or surveyor assignments for this week.'
+                    : 'Choose a week to view the weekly grid.'}
+                </p>
+              ) : (
+                <div style={styles.printGridWrap}>
+                  <div style={styles.printGridBoard}>
+                    <div style={styles.printGridHeaderCell}>Job</div>
+                    {WEEKDAY_KEYS.map((dayKey) => (
+                      <div key={dayKey} style={styles.printGridHeaderCell}>
+                        {WEEKDAY_LABELS[dayKey]}
+                      </div>
+                    ))}
+
+                    {gridScheduleItems.map((item) => (
+                      <React.Fragment key={item.id}>
+                        <div style={styles.printGridJobCell}>
+                          <div style={styles.printGridJobTitle}>
+                            {item.jobs?.job_number || '—'}
+                          </div>
+                          <div style={styles.printGridJobSubTitle}>
+                            {item.jobs?.job_name || 'No Job Name'}
+                          </div>
+                        </div>
+
+                        {WEEKDAY_KEYS.map((dayKey) => (
+                          <div
+                            key={`${item.id}-${dayKey}`}
+                            style={styles.printGridDayCell}
+                          >
+                            {renderDayContents(item, dayKey)}
+                          </div>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
-    </div>
-  )
+      )}            
 }
 
 function SectionCard({ title, children }) {
@@ -3117,5 +3165,51 @@ printNotesTextarea: {
   lineHeight: '1.4',
   resize: 'vertical',
   boxSizing: 'border-box',
+},
+    printGridWrap: {
+  marginTop: '14px',
+},
+
+printGridBoard: {
+  display: 'grid',
+  gridTemplateColumns: '1.5fr repeat(5, 1fr)',
+  border: '1px solid #d1d5db',
+  borderBottom: 'none',
+},
+
+printGridHeaderCell: {
+  borderBottom: '1px solid #d1d5db',
+  borderRight: '1px solid #d1d5db',
+  padding: '6px',
+  fontWeight: '700',
+  fontSize: '11px',
+  backgroundColor: '#f8fafc',
+},
+
+printGridJobCell: {
+  borderBottom: '1px solid #d1d5db',
+  borderRight: '1px solid #d1d5db',
+  padding: '6px',
+  fontSize: '10px',
+  lineHeight: '1.25',
+},
+
+printGridJobTitle: {
+  fontWeight: '700',
+  fontSize: '10px',
+},
+
+printGridJobSubTitle: {
+  fontSize: '9px',
+  marginTop: '2px',
+},
+
+printGridDayCell: {
+  borderBottom: '1px solid #d1d5db',
+  borderRight: '1px solid #d1d5db',
+  padding: '4px',
+  fontSize: '9px',
+  lineHeight: '1.2',
+  minHeight: '54px',
 },
 }
