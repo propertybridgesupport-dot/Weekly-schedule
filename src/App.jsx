@@ -1609,17 +1609,28 @@ const gridScheduleItems = useMemo(() => {
       box-shadow: none !important;
       border-radius: 0 !important;
       transform-origin: top center;
-      padding: ${'${printLayout === 'grid' ? '0.14in 0.16in 0.12in' : '0.2in 0.22in 0.16in'}'} !important;
+      padding: ${printLayout === 'grid' ? '0.14in 0.16in 0.12in' : '0.14in 0.18in 0.12in'} !important;
     }
 
     .print-report-list {
       display: block !important;
-      padding-top: 10px !important;
+      padding-top: 2px !important;
     }
 
     .print-report-card {
       page-break-inside: avoid !important;
       break-inside: avoid !important;
+    }
+
+    .print-report-card:first-child {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+
+    .report-header-print-fix {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      margin-bottom: 8px !important;
     }
 
     .print-job-divider {
@@ -1638,9 +1649,9 @@ const gridScheduleItems = useMemo(() => {
     }
 
     .print-grid-mode .print-grid-board {
-      transform: scale(0.93);
+      transform: scale(0.88);
       transform-origin: top left;
-      width: 107.5%;
+      width: 113.5%;
     }
   }
 `}</style>
@@ -2771,7 +2782,7 @@ const gridScheduleItems = useMemo(() => {
 </div>
             <div style={styles.printPreviewStage} className="print-preview-stage">
               <div style={printLayout === 'grid' ? styles.reportPaperGrid : styles.reportPaper} className="print-paper">
-              <div style={styles.reportHeader}>
+              <div style={styles.reportHeader} className="report-header-print-fix">
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
                   <div style={styles.reportTitleBlock}>
