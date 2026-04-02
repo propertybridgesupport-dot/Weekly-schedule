@@ -2116,35 +2116,41 @@ const [reportNotes, setReportNotes] = useState('')
               <div style={styles.topBarButtons}>
                 <button onClick={() => window.print()} style={styles.button}>
                   Print / Save PDF
-                </button>
-<div style={{ marginTop: '10px' }} className="no-print">
-  <label style={styles.label}>Report Notes (optional)</label>
- 
-    placeholder="Add any overall notes for this report..."
-    style={{
-      ...styles.textarea,
-      minHeight: '60px',
-    }}
-  />
-</div>
-                <select
-                  value={notesStyle}
-                  onChange={(e) => setNotesStyle(e.target.value)}
-                  style={styles.jobPrefixSelect}
-                >
-                  <option value="accent">Accent Style</option>
-                  <option value="box">Box Style</option>
-                </select>
+<button
+  onClick={() => window.print()}
+  style={styles.button}
+>
+  Print / Save PDF
+</button>
 
-                <select
-                  value={selectedEmailGroupId}
-                  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
-                  style={styles.jobPrefixSelect}
-                >
-                  <option value="">Select Email Group</option>
-                  {emailGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
+<select
+  value={notesStyle}
+  onChange={(e) => setNotesStyle(e.target.value)}
+  style={styles.jobPrefixSelect}
+>
+  <option value="accent">Accent Style</option>
+  <option value="box">Box Style</option>
+</select>
+
+<select
+  value={selectedEmailGroupId}
+  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
+  style={styles.jobPrefixSelect}
+>
+  <option value="">Select Email Group</option>
+  {emailGroups.map((group) => (
+    <option key={group.id} value={group.id}>
+      {group.name}
+    </option>
+  ))}
+</select>
+
+<button
+  onClick={() => emailSchedule(selectedEmailGroup)}
+  style={styles.buttonSecondary}
+>
+  Email Selected Group
+</button>
                     </option>
                   ))}
                 </select>
