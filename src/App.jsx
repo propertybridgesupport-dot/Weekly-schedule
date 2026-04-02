@@ -40,7 +40,7 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
-  const [activeTab, setActiveTab] = useState('master')
+  const [activeTab, setActiveTab] = useState('weekly')
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -50,6 +50,9 @@ export default function App() {
   const [scheduleItems, setScheduleItems] = useState([])
   const [emailGroups, setEmailGroups] = useState([])
   const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
+
+  const [selectedWeekFrom, setSelectedWeekFrom] = useState('')
+  const [selectedWeekTo, setSelectedWeekTo] = useState('')
 
   const [jobPrefix, setJobPrefix] = useState('CC')
   const [jobNumberPart2, setJobNumberPart2] = useState('')
@@ -126,6 +129,15 @@ export default function App() {
       return aNum - bNum
     })
   }, [jobs])
+
+  const filteredScheduleItems = useMemo(() => {
+    if (!selectedWeekFrom || !selectedWeekTo) return scheduleItems
+
+    return scheduleItems.filter(
+      (item) =>
+        item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo
+    )
+  }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
 
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
@@ -752,6 +764,8 @@ export default function App() {
 
   function editScheduleItem(item) {
     setEditingScheduleItemId(item.id)
+    setSelectedWeekFrom(item.from_date || '')
+    setSelectedWeekTo(item.to_date || '')
     setScheduleForm({
       from_date: item.from_date || '',
       to_date: item.to_date || '',
@@ -820,8 +834,8 @@ export default function App() {
       return
     }
 
-    if (!scheduleForm.from_date || !scheduleForm.to_date) {
-      alert('Please enter both from date and to date')
+    if (!selectedWeekFrom || !selectedWeekTo) {
+      alert('Please choose the week first on the Weekly Schedule tab')
       return
     }
 
@@ -830,8 +844,8 @@ export default function App() {
     )
 
     const payload = {
-      from_date: scheduleForm.from_date,
-      to_date: scheduleForm.to_date,
+      from_date: selectedWeekFrom,
+      to_date: selectedWeekTo,
       job_id: scheduleForm.job_id,
       project_manager_id: scheduleForm.project_manager_id || null,
       superintendent_id: scheduleForm.superintendent_id || null,
@@ -1087,18 +1101,6 @@ export default function App() {
 
           <div style={styles.topBarButtons}>
             <button
-              onClick={() => setActiveTab('master')}
-              style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
-            >
-              Master Data
-            </button>
-            <button
-              onClick={() => setActiveTab('schedule')}
-              style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
-            >
-              Schedule Entry
-            </button>
-            <button
               onClick={() => setActiveTab('weekly')}
               style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
             >
@@ -1115,6 +1117,18 @@ export default function App() {
               style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
             >
               Print / PDF
+            </button>
+            <button
+              onClick={() => setActiveTab('master')}
+              style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
+            >
+              Master Data
+            </button>
+            <button
+              onClick={() => setActiveTab('schedule')}
+              style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
+            >
+              Schedule Entry
             </button>
             <button onClick={loadAllData} style={styles.buttonSecondary}>
               Reload Data
@@ -1485,28 +1499,6 @@ export default function App() {
 
             <div style={styles.formGrid}>
               <div>
-                <label style={styles.label}>From Date</label>
-                <input
-                  type="date"
-                  value={scheduleForm.from_date}
-                  onChange={(e) =>
-                    updateScheduleForm('from_date', e.target.value)
-                  }
-                  style={styles.input}
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>To Date</label>
-                <input
-                  type="date"
-                  value={scheduleForm.to_date}
-                  onChange={(e) => updateScheduleForm('to_date', e.target.value)}
-                  style={styles.input}
-                />
-              </div>
-
-              <div>
                 <label style={styles.label}>Job</label>
                 <select
                   value={scheduleForm.job_id}
@@ -1805,20 +1797,43 @@ export default function App() {
               </button>
             </div>
 
-            {scheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
+            <div style={styles.weekSelectorRow}>
+              <div>
+                <label style={styles.label}>Week Of</label>
+                <input
+                  type="date"
+                  value={selectedWeekFrom}
+                  onChange={(e) => setSelectedWeekFrom(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
+              <div>
+                <label style={styles.label}>To</label>
+                <input
+                  type="date"
+                  value={selectedWeekTo}
+                  onChange={(e) => setSelectedWeekTo(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            {filteredScheduleItems.length === 0 ? (
+              <p style={styles.text}>
+                {selectedWeekFrom && selectedWeekTo
+                  ? 'No schedule items saved yet for this week.'
+                  : 'Choose a week to view the schedule.'}
+              </p>
             ) : (
               <div style={styles.scheduleList}>
-                {scheduleItems.map((item) => (
+                {filteredScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
                         <div style={styles.scheduleJobTitle}>
                           {item.jobs?.job_number || '—'} —{' '}
                           {item.jobs?.job_name || 'No Job Name'}
-                        </div>
-                        <div style={styles.scheduleDates}>
-                          {formatDate(item.from_date)} to {formatDate(item.to_date)}
                         </div>
                         <div style={styles.smallText}>
                           Job Start: {formatDate(item.jobs?.start_date)} | Job Stop:{' '}
@@ -2012,22 +2027,24 @@ export default function App() {
             <div style={styles.printHeader}>
               <h1 style={styles.printTitle}>Weekly Schedule</h1>
               <p style={styles.printSubtitle}>
-                Printable condensed version of saved schedule items
+                {selectedWeekFrom && selectedWeekTo
+                  ? `${formatDate(selectedWeekFrom)} to ${formatDate(selectedWeekTo)}`
+                  : 'Select a week on the Weekly Schedule tab'}
               </p>
             </div>
 
-            {scheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
+            {filteredScheduleItems.length === 0 ? (
+              <p style={styles.text}>
+                {selectedWeekFrom && selectedWeekTo
+                  ? 'No schedule items saved yet for this week.'
+                  : 'Choose a week on the Weekly Schedule tab first.'}
+              </p>
             ) : (
               <div style={styles.scheduleList}>
-                {scheduleItems.map((item) => (
+                {filteredScheduleItems.map((item) => (
                   <div key={item.id} style={styles.printCompactCard}>
                     <div style={styles.printCompactJobTitle}>
                       {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
-                    </div>
-
-                    <div style={styles.printCompactDates}>
-                      <strong>Week:</strong> {formatDate(item.from_date)} to {formatDate(item.to_date)}
                     </div>
 
                     <div style={styles.printCompactMetaRow}>
@@ -2293,6 +2310,12 @@ const styles = {
     marginTop: '12px',
     marginBottom: '12px',
   },
+  weekSelectorRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '14px',
+    marginBottom: '18px',
+  },
   scheduleList: {
     display: 'grid',
     gap: '16px',
@@ -2464,7 +2487,7 @@ const styles = {
     cursor: 'pointer',
   },
   buttonDanger: {
-    background: '#b91c1c',
+    background: '#c9732f',
     color: '#ffffff',
     border: 'none',
     borderRadius: '10px',
@@ -2481,7 +2504,7 @@ const styles = {
     fontSize: '12px',
   },
   smallDangerButton: {
-    background: '#b91c1c',
+    background: '#c9732f',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
