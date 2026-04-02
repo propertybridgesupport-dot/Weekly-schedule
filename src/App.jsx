@@ -37,8 +37,6 @@ const WEEKDAY_LABELS = {
 }
 
 export default function App() {
-const [notesStyle, setNotesStyle] = useState('accent') 
-// 'accent' or 'box'
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
@@ -55,6 +53,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
 
   const [selectedWeekFrom, setSelectedWeekFrom] = useState('')
   const [selectedWeekTo, setSelectedWeekTo] = useState('')
+  const [notesStyle, setNotesStyle] = useState('accent')
 
   const [jobPrefix, setJobPrefix] = useState('CC')
   const [jobNumberPart2, setJobNumberPart2] = useState('')
@@ -1872,6 +1871,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
                         </button>
                       </div>
                     </div>
+
                     <div style={styles.metaGrid}>
                       <div>
                         <strong>PM:</strong> {item.project_managers?.name || '—'}
@@ -1885,18 +1885,11 @@ const [notesStyle, setNotesStyle] = useState('accent')
                       </div>
                     </div>
 
-                    {item.notes ? (
-                      <div
-                        style={
-                          notesStyle === 'accent'
-                            ? styles.printNotesAccent
-                            : styles.printNotesBox
-                        }
-                      >
-                        <span style={{ fontWeight: '600' }}>Job Notes: </span>
-                        <span>{item.notes}</span>
+                    {item.notes && (
+                      <div style={styles.notesBox}>
+                        <strong>Job Notes:</strong> {item.notes}
                       </div>
-                    ) : null}
+                    )}
 
                     <div style={{ marginTop: '14px' }}>
                       <strong>Foreman Assignments</strong>
@@ -1929,6 +1922,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
                     ) : (
                       <p style={styles.text}>No foremen assigned yet.</p>
                     )}
+
                     <div style={{ marginTop: '14px' }}>
                       <strong>Surveyor Assignments</strong>
                     </div>
@@ -2016,14 +2010,16 @@ const [notesStyle, setNotesStyle] = useState('accent')
                 <button onClick={() => window.print()} style={styles.button}>
                   Print / Save PDF
                 </button>
-<select
-  value={notesStyle}
-  onChange={(e) => setNotesStyle(e.target.value)}
-  style={styles.jobPrefixSelect}
->
-  <option value="accent">Accent Style</option>
-  <option value="box">Box Style</option>
-</select>
+
+                <select
+                  value={notesStyle}
+                  onChange={(e) => setNotesStyle(e.target.value)}
+                  style={styles.jobPrefixSelect}
+                >
+                  <option value="accent">Accent Style</option>
+                  <option value="box">Box Style</option>
+                </select>
+
                 <select
                   value={selectedEmailGroupId}
                   onChange={(e) => setSelectedEmailGroupId(e.target.value)}
@@ -2090,18 +2086,18 @@ const [notesStyle, setNotesStyle] = useState('accent')
                           <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
                         </div>
 
-                        {item.notes && (
-                        <<div
-  style={{
-    ...(notesStyle === 'accent'
-      ? styles.printNotesAccent
-      : styles.printNotesBox),
-  }}
->
-  <span style={{ fontWeight: '600' }}>Job Notes: </span>
-  <span>{item.notes}</span>
-</div>
-                        )}
+                        {item.notes ? (
+                          <div
+                            style={
+                              notesStyle === 'accent'
+                                ? styles.printNotesAccent
+                                : styles.printNotesBox
+                            }
+                          >
+                            <span style={{ fontWeight: '600' }}>Job Notes: </span>
+                            <span>{item.notes}</span>
+                          </div>
+                        ) : null}
 
                         {item.schedule_item_foremen?.length ? (
                           <>
@@ -2748,6 +2744,31 @@ const styles = {
     marginBottom: '8px',
     lineHeight: 1.35,
   },
+  printNotesAccent: {
+    borderLeft: '3px solid #f2a531',
+    backgroundColor: '#fff8eb',
+    padding: '4px 8px',
+    marginTop: '4px',
+    marginBottom: '8px',
+    marginLeft: '10px',
+    marginRight: '10px',
+    fontSize: '12px',
+    lineHeight: 1.3,
+    color: '#111827',
+  },
+  printNotesBox: {
+    backgroundColor: '#fff8eb',
+    border: '1px solid #f6cd8a',
+    borderRadius: '6px',
+    padding: '4px 8px',
+    marginTop: '4px',
+    marginBottom: '8px',
+    marginLeft: '10px',
+    marginRight: '10px',
+    fontSize: '12px',
+    lineHeight: 1.3,
+    color: '#111827',
+  },
   printCompactSectionLabel: {
     fontWeight: 'bold',
     fontSize: '12px',
@@ -2832,26 +2853,5 @@ const styles = {
     marginTop: '8px',
     borderBottom: '1px solid #9ca3af',
   },
-  printNotesAccent: {
-  borderLeft: '3px solid #f59e0b', // softer orange
-  backgroundColor: '#fffbeb',      // very light warm tint
-  padding: '4px 8px',
-  marginTop: '4px',
-  marginLeft: '10px',
-  marginRight: '10px',
-  fontSize: '12px',
-  lineHeight: '1.3',
-},
 
-printNotesBox: {
-  backgroundColor: '#fffbeb',
-  border: '1px solid #fde68a', // light warm border
-  borderRadius: '6px',
-  padding: '4px 8px',
-  marginTop: '4px',
-  marginLeft: '10px',
-  marginRight: '10px',
-  fontSize: '12px',
-  lineHeight: '1.3',
-},
 }
