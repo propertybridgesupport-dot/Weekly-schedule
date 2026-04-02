@@ -447,7 +447,7 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.headerCard}>
+      <div style={styles.headerCard} className="no-print">
         <div style={styles.topBar}>
           <div>
             <h1 style={styles.title}>Weekly Schedule App</h1>
@@ -472,6 +472,12 @@ export default function App() {
               style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
             >
               Weekly Schedule
+            </button>
+            <button
+              onClick={() => setActiveTab('print')}
+              style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
+            >
+              Print / PDF
             </button>
             <button onClick={loadAllData} style={styles.buttonSecondary}>
               Reload Data
@@ -894,6 +900,82 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {activeTab === 'print' && (
+        <div style={styles.singleColumnWrap}>
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader} className="no-print">
+              <h2 style={styles.sectionTitle}>Print / PDF View</h2>
+              <button onClick={() => window.print()} style={styles.button}>
+                Print / Save PDF
+              </button>
+            </div>
+
+            <div style={styles.printHeader}>
+              <h1 style={styles.printTitle}>Weekly Schedule</h1>
+              <p style={styles.printSubtitle}>
+                Printable version of saved schedule items
+              </p>
+            </div>
+
+            {scheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet.</p>
+            ) : (
+              <div style={styles.scheduleList}>
+                {scheduleItems.map((item) => (
+                  <div key={item.id} style={styles.printCard}>
+                    <div style={styles.printJobTitle}>
+                      {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                    </div>
+
+                    <div style={styles.printLine}>
+                      <strong>Dates:</strong> {formatDate(item.from_date)} to {formatDate(item.to_date)}
+                    </div>
+                    <div style={styles.printLine}>
+                      <strong>Project Manager:</strong> {item.project_managers?.name || '—'}
+                    </div>
+                    <div style={styles.printLine}>
+                      <strong>Superintendent:</strong> {item.superintendents?.name || '—'}
+                    </div>
+                    <div style={styles.printLine}>
+                      <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
+                    </div>
+
+                    {item.notes && (
+                      <div style={styles.printNotes}>
+                        <strong>Job Notes:</strong> {item.notes}
+                      </div>
+                    )}
+
+                    <div style={styles.printForemanTitle}>Foreman Assignments</div>
+
+                    {item.schedule_item_foremen?.length ? (
+                      item.schedule_item_foremen.map((assignment) => (
+                        <div key={assignment.id} style={styles.printForemanCard}>
+                          <div style={styles.printLine}>
+                            <strong>Foreman:</strong> {assignment.foremen?.name || '—'}
+                          </div>
+                          <div style={styles.printLine}>
+                            <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                          </div>
+                          <div style={styles.printLine}>
+                            <strong>Work:</strong> {assignment.work_description || '—'}
+                          </div>
+                          <div style={styles.printLine}>
+                            <strong>Split Note:</strong> {assignment.split_note || '—'}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.printLine}>No foremen assigned yet.</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -989,6 +1071,21 @@ const styles = {
     marginBottom: '10px',
     background: '#ffffff',
   },
+  printCard: {
+    border: '1px solid #d1d5db',
+    borderRadius: '12px',
+    padding: '18px',
+    marginBottom: '18px',
+    background: '#ffffff',
+    pageBreakInside: 'avoid',
+  },
+  printForemanCard: {
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '12px',
+    marginTop: '10px',
+    background: '#f9fafb',
+  },
   topBar: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -1062,6 +1159,45 @@ const styles = {
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
     padding: '12px',
+  },
+  printHeader: {
+    borderBottom: '2px solid #111827',
+    paddingBottom: '12px',
+    marginBottom: '20px',
+  },
+  printTitle: {
+    margin: 0,
+    fontSize: '30px',
+    color: '#111827',
+  },
+  printSubtitle: {
+    margin: '6px 0 0 0',
+    color: '#4b5563',
+    fontSize: '14px',
+  },
+  printJobTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    marginBottom: '10px',
+    color: '#111827',
+  },
+  printForemanTitle: {
+    marginTop: '14px',
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  printLine: {
+    marginTop: '6px',
+    fontSize: '14px',
+    color: '#111827',
+  },
+  printNotes: {
+    marginTop: '12px',
+    padding: '10px',
+    background: '#f9fafb',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb',
+    fontSize: '14px',
   },
   title: {
     margin: 0,
