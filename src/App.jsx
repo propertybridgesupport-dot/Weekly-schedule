@@ -1175,6 +1175,16 @@ const gridScheduleItems = useMemo(() => {
     margin: 0.18in;
   }
 
+  .nav-button {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  }
+
+  .nav-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+    border-color: #dd7a00 !important;
+  }
+
   @media print {
     html, body {
       background: #ffffff !important;
@@ -1196,7 +1206,6 @@ const gridScheduleItems = useMemo(() => {
       width: 100% !important;
       max-width: 7.9in !important;
       margin: 0 auto !important;
-      transform: scale(0.95);
       transform-origin: top center;
     }
 
@@ -1217,48 +1226,66 @@ const gridScheduleItems = useMemo(() => {
 `}</style>
       <div style={styles.headerCard} className="no-print">
         <div style={styles.topBar}>
-          <div>
-            <h1 style={{ ...styles.title, color: '#ffffff' }}>Weekly Schedule App</h1>
-            <p style={{ ...styles.text, color: '#fde7c2' }}>
-              Command Construction Industries Scheduling System
-            </p>
+          <div style={styles.headerTopRow}>
+            <div style={styles.headerTextBlock}>
+              <h1 style={styles.title}>Weekly Schedule App</h1>
+              <p style={styles.headerSubtitle}>Command Construction Industries Scheduling System</p>
+            </div>
+
+            <div style={styles.headerBrandRight}>
+              <img
+                src="/command-logo.png"
+                alt="Command Construction Industries Logo"
+                style={styles.headerLogo}
+              />
+              <div style={styles.headerQuote}>
+                “The road to success is always under construction.”
+              </div>
+            </div>
           </div>
+
+          <div style={styles.headerDivider} />
 
           <div style={styles.topBarButtons}>
             <button
+              className="nav-button"
               onClick={() => setActiveTab('weekly')}
               style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
             >
               Weekly Schedule
             </button>
             <button
+              className="nav-button"
               onClick={() => setActiveTab('grid')}
               style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
             >
               Weekly Grid
             </button>
             <button
+              className="nav-button"
               onClick={() => setActiveTab('print')}
               style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
             >
               Print / PDF
             </button>
             <button
+              className="nav-button"
               onClick={() => setActiveTab('master')}
               style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
             >
               Master Data
             </button>
             <button
+              className="nav-button"
               onClick={() => setActiveTab('schedule')}
               style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
             >
               Schedule Entry
             </button>
-            <button onClick={loadAllData} style={styles.buttonSecondary}>
+            <button className="nav-button" onClick={loadAllData} style={styles.buttonSecondary}>
               Reload Data
             </button>
-            <button onClick={signOut} style={styles.buttonSecondary}>
+            <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
               Sign Out
             </button>
           </div>
@@ -1944,15 +1971,11 @@ const gridScheduleItems = useMemo(() => {
               </div>
             </div>
 
-            {scheduleItems.filter(
-  (item) =>
-    (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
-    (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
-).length === 0 ? (
-  <p style={styles.text}>No jobs with foreman or surveyor assignments yet.</p>
-) : (
+            {filteredScheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet.</p>
+            ) : (
               <div style={styles.scheduleList}>
-                {gridScheduleItems.map((item) => (
+                {filteredScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
@@ -2492,18 +2515,18 @@ function assignmentCoversDay(assignment, dayKey, weekFromDate) {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: 'linear-gradient(180deg, #fff8ef 0%, #f7f4ee 100%)',
+    background: 'linear-gradient(180deg, #fbf7f0 0%, #f2ede4 100%)',
     padding: '30px 20px',
     fontFamily: 'Arial, sans-serif',
   },
   headerCard: {
     maxWidth: '1200px',
     margin: '0 auto 20px auto',
-    background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-    borderRadius: '14px',
-    padding: '24px',
-    borderTop: '4px solid #d97706',
-    boxShadow: '0 12px 30px rgba(17,24,39,0.22)',
+    background: 'linear-gradient(135deg, #0f172a 0%, #162338 58%, #1d2d43 100%)',
+    borderRadius: '16px',
+    padding: '24px 28px',
+    borderTop: '4px solid #dd7a00',
+    boxShadow: '0 16px 34px rgba(15,23,42,0.24)',
   },
   card: {
     maxWidth: '900px',
@@ -2566,7 +2589,8 @@ const styles = {
     background: '#fffdf8',
     borderRadius: '14px',
     padding: '20px',
-    borderTop: '4px solid #d97706',
+    borderTop: '4px solid #dd7a00',
+    borderLeft: '1px solid #ead7c2',
     boxShadow: '0 8px 20px rgba(15,23,42,0.08)',
   },
   assignmentCard: {
@@ -2600,16 +2624,55 @@ const styles = {
     pageBreakInside: 'avoid',
   },
   topBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    display: 'grid',
     gap: '16px',
-    flexWrap: 'wrap',
   },
   topBarButtons: {
     display: 'flex',
     gap: '10px',
     flexWrap: 'wrap',
+  },
+  headerTopRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '18px',
+    flexWrap: 'wrap',
+  },
+  headerTextBlock: {
+    minWidth: '280px',
+  },
+  headerSubtitle: {
+    margin: 0,
+    color: '#f7dfb5',
+    fontSize: '15px',
+    fontWeight: '600',
+  },
+  headerBrandRight: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    textAlign: 'right',
+    gap: '8px',
+    marginLeft: 'auto',
+  },
+  headerLogo: {
+    width: '240px',
+    maxWidth: '100%',
+    objectFit: 'contain',
+  },
+  headerQuote: {
+    maxWidth: '320px',
+    color: '#f8e7c7',
+    fontSize: '15px',
+    lineHeight: '1.35',
+    fontStyle: 'italic',
+    fontFamily: 'Georgia, Times New Roman, serif',
+  },
+  headerDivider: {
+    borderTop: '1px solid rgba(247, 223, 181, 0.28)',
+    marginTop: '2px',
+    paddingTop: '2px',
   },
   assignmentHeader: {
     display: 'flex',
@@ -2761,7 +2824,7 @@ const styles = {
     margin: 0,
     marginBottom: '8px',
     fontSize: '32px',
-    color: '#111827',
+    color: '#ffffff',
   },
   sectionTitle: {
     marginTop: 0,
@@ -2792,17 +2855,17 @@ const styles = {
   },
   button: {
     marginTop: '8px',
-    background: '#d97706',
+    background: '#dd7a00',
     color: '#ffffff',
-    border: 'none',
+    border: '1px solid #dd7a00',
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
-    boxShadow: '0 6px 16px rgba(217,119,6,0.22)',
+    boxShadow: '0 8px 18px rgba(221,122,0,0.22)',
   },
   buttonSecondary: {
-    background: '#ffffff',
-    color: '#111827',
+    background: '#fffdf8',
+    color: '#0f172a',
     border: '1px solid #d7c4ab',
     borderRadius: '10px',
     padding: '10px 16px',
@@ -2902,9 +2965,9 @@ const styles = {
     overflowX: 'auto',
   },
   gridHeaderCell: {
-    background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1b2b40 100%)',
     color: '#ffffff',
-    borderTop: '3px solid #d97706',
+    borderTop: '3px solid #dd7a00',
     borderRadius: '10px',
     padding: '12px',
     fontWeight: 'bold',
@@ -3195,7 +3258,7 @@ printGridHeaderCell: {
   padding: '6px',
   fontWeight: '700',
   fontSize: '11px',
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#f7f1e7',
 },
 
 printGridJobCell: {
