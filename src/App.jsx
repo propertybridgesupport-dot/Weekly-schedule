@@ -846,7 +846,7 @@ export default function App() {
                           {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
                         </div>
                         <div style={styles.scheduleDates}>
-                          {item.from_date} to {item.to_date}
+                          {formatDate(item.from_date)} to {formatDate(item.to_date)}
                         </div>
                       </div>
                     </div>
@@ -873,7 +873,7 @@ export default function App() {
                           <div key={assignment.id} style={styles.foremanViewCard}>
                             <div><strong>Foreman:</strong> {assignment.foremen?.name || '—'}</div>
                             <div>
-                              <strong>Dates:</strong> {assignment.assignment_from_date || '—'} to {assignment.assignment_to_date || '—'}
+                              <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
                             </div>
                             <div>
                               <strong>Work:</strong> {assignment.work_description || '—'}
@@ -905,6 +905,17 @@ function SectionCard({ title, children }) {
       {children}
     </div>
   )
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+
+  const date = new Date(`${value}T00:00:00`)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const yy = String(date.getFullYear()).slice(-2)
+
+  return `${mm}/${dd}/${yy}`
 }
 
 const styles = {
