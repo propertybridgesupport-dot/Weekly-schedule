@@ -815,10 +815,11 @@ export default function App() {
           <SectionCard title="Jobs">
             <label style={styles.label}>Job Number</label>
             <div style={styles.jobNumberRow}>
-              <select value={jobPrefix} onChange={(e) => setJobPrefix(e.target.value)} style={styles.jobPrefixSelect}>
-                <option value="CC">CC</option>
-                <option value="CCI">CCI</option>
-              </select>
+             <select value={jobPrefix} onChange={(e) => setJobPrefix(e.target.value)} style={styles.jobPrefixSelect}>
+  <option value="CC">CC</option>
+  <option value="CCI">CCI</option>
+  <option value="CCIS">CCIS</option>
+</select>
 
               <div style={styles.jobDash}>-</div>
 
