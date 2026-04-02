@@ -184,6 +184,31 @@ const [printLayout, setPrintLayout] = useState('report')
     }
   }, [selectedWeekFrom, selectedWeekTo])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const view = params.get('view')
+      const from = params.get('from')
+      const to = params.get('to')
+
+      if (view === 'mobile') {
+        setActiveTab('mobile')
+      }
+
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(from || '') &&
+        /^\d{4}-\d{2}-\d{2}$/.test(to || '')
+      ) {
+        setSelectedWeekFrom(from)
+        setSelectedWeekTo(to)
+      }
+    } catch (error) {
+      console.error('Could not read shareable mobile view params.', error)
+    }
+  }, [])
+
   function applyWeekFromAnyDate(value) {
     if (!value) return
     const nextRange = getMondaySundayRange(new Date(`${value}T00:00:00`))
@@ -202,6 +227,17 @@ const [printLayout, setPrintLayout] = useState('report')
   const filteredScheduleItems = useMemo(() => {
     return scheduleItems
   }, [scheduleItems])
+
+  const currentWeekScheduleItems = useMemo(() => {
+    return scheduleItems.filter((item) => {
+      return (
+        !selectedWeekFrom ||
+        !selectedWeekTo ||
+        (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
+      )
+    })
+  }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
+
 const gridScheduleItems = useMemo(() => {
   return scheduleItems.filter((item) => {
     const matchesWeek =
@@ -218,6 +254,35 @@ const gridScheduleItems = useMemo(() => {
 }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
+
+  function getMobileViewUrl() {
+    if (typeof window === 'undefined') return ''
+
+    const url = new URL(window.location.href)
+    url.searchParams.set('view', 'mobile')
+    url.searchParams.set('from', selectedWeekFrom)
+    url.searchParams.set('to', selectedWeekTo)
+    return url.toString()
+  }
+
+  function openMobileView() {
+    const url = getMobileViewUrl()
+    if (!url) return
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function copyMobileViewLink() {
+    const url = getMobileViewUrl()
+    if (!url) return
+
+    try {
+      await navigator.clipboard.writeText(url)
+      setMessage('Mobile view link copied.')
+    } catch (error) {
+      console.error(error)
+      window.prompt('Copy this mobile view link:', url)
+    }
+  }
 
   async function signIn() {
     setMessage('Signing in...')
@@ -1190,27 +1255,35 @@ const gridScheduleItems = useMemo(() => {
       background: #ffffff !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
     .no-print {
       display: none !important;
     }
 
-    .print-root {
+    .print-root, .print-page-wrap, .page {
       margin: 0 !important;
       padding: 0 !important;
       background: #ffffff !important;
+      box-shadow: none !important;
+      border: none !important;
     }
 
     .print-paper {
-      width: 100% !important;
-      max-width: 7.9in !important;
+      width: 7.8in !important;
+      max-width: 7.8in !important;
       margin: 0 auto !important;
-      transform-origin: top center;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: #ffffff !important;
     }
 
     .print-report-list {
       gap: 0 !important;
+      padding-top: 10px !important;
     }
 
     .print-report-card {
@@ -1260,6 +1333,13 @@ const gridScheduleItems = useMemo(() => {
               style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
             >
               Weekly Grid
+            </button>
+            <button
+              className="nav-button"
+              onClick={() => setActiveTab('mobile')}
+              style={activeTab === 'mobile' ? styles.button : styles.buttonSecondary}
+            >
+              Mobile View
             </button>
             <button
               className="nav-button"
@@ -2144,6 +2224,101 @@ const gridScheduleItems = useMemo(() => {
         </div>
       )}
 
+      {activeTab === 'mobile' && (
+        <div style={styles.singleColumnWrap}>
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <div>
+                <h2 style={styles.sectionTitle}>Mobile Share View</h2>
+                <div style={styles.smallText}>
+                  Optimized for easy viewing on a phone.
+                </div>
+              </div>
+              <div style={styles.topBarButtons} className="no-print">
+                <button onClick={openMobileView} style={styles.buttonSecondary}>
+                  Open Shareable View
+                </button>
+                <button onClick={copyMobileViewLink} style={styles.buttonSecondary}>
+                  Copy Mobile Link
+                </button>
+              </div>
+            </div>
+
+            {currentWeekScheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet for this week.</p>
+            ) : (
+              <div style={styles.mobileViewWrap}>
+                <div style={styles.mobileViewIntro}>
+                  <div style={styles.mobileViewCompany}>Command Construction Industries</div>
+                  <div style={styles.mobileViewWeek}>
+                    {selectedWeekFrom && selectedWeekTo
+                      ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
+                      : 'Current Weekly Schedule'}
+                  </div>
+                </div>
+
+                {currentWeekScheduleItems.map((item) => (
+                  <div key={item.id} style={styles.mobileCard}>
+                    <div style={styles.mobileCardTitle}>
+                      {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                    </div>
+
+                    <div style={styles.mobileMetaRow}><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
+                    <div style={styles.mobileMetaRow}><strong>Super:</strong> {item.superintendents?.name || '—'}</div>
+                    <div style={styles.mobileMetaRow}><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
+
+                    {item.notes ? (
+                      <div style={styles.mobileNotesBox}>
+                        <strong>Job Notes:</strong> {item.notes}
+                      </div>
+                    ) : null}
+
+                    {item.schedule_item_foremen?.length ? (
+                      <div style={styles.mobileSection}>
+                        <div style={styles.mobileSectionLabel}>Foreman Assignments</div>
+                        {item.schedule_item_foremen.map((assignment) => (
+                          <div key={assignment.id} style={styles.mobileAssignmentCard}>
+                            <div style={styles.mobileAssignmentName}>{assignment.foremen?.name || '—'}</div>
+                            <div style={styles.mobileMetaRow}>
+                              <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                            </div>
+                            <div style={styles.mobileAssignmentDays}>
+                              {formatAssignmentWeekdays(
+                                assignment.assignment_from_date,
+                                assignment.assignment_to_date
+                              )}
+                            </div>
+                            <div style={styles.mobileMetaRow}><strong>Work:</strong> {assignment.work_description || '—'}</div>
+                            {assignment.split_note ? (
+                              <div style={styles.mobileMetaRow}><strong>Note:</strong> {assignment.split_note}</div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {item.schedule_item_surveyors?.length ? (
+                      <div style={styles.mobileSection}>
+                        <div style={styles.mobileSectionLabel}>Surveyor Assignments</div>
+                        {item.schedule_item_surveyors.map((assignment) => (
+                          <div key={assignment.id} style={styles.mobileAssignmentCard}>
+                            <div style={styles.mobileAssignmentName}>{assignment.surveyors?.name || '—'}</div>
+                            <div style={styles.mobileMetaRow}><strong>Days:</strong> {formatSurveyorDays(assignment)}</div>
+                            {assignment.note ? (
+                              <div style={styles.mobileMetaRow}><strong>Note:</strong> {assignment.note}</div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.printPageWrap} className="print-page-wrap">
@@ -2191,6 +2366,14 @@ const gridScheduleItems = useMemo(() => {
       style={styles.buttonSecondary}
     >
       Email Selected Group
+    </button>
+
+    <button onClick={openMobileView} style={styles.buttonSecondary}>
+      Open Mobile View
+    </button>
+
+    <button onClick={copyMobileViewLink} style={styles.buttonSecondary}>
+      Copy Mobile Link
     </button>
   </div>
 </div>
@@ -2566,15 +2749,23 @@ const styles = {
     gap: '20px',
   },
   printPageWrap: {
-    maxWidth: '1100px',
+    maxWidth: '940px',
     margin: '0 auto',
+    background: '#f8f7f3',
+    border: '1px solid #e2e8f0',
+    borderRadius: '18px',
+    padding: '20px 24px 28px',
+    boxShadow: '0 16px 36px rgba(15, 23, 42, 0.08)',
   },
   reportPaper: {
     background: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '10px',
-    padding: '18px 18px 14px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.035)',
+    border: '1px solid #dbe2ea',
+    borderRadius: '12px',
+    width: '8in',
+    maxWidth: '100%',
+    margin: '0 auto',
+    padding: '20px 22px 18px',
+    boxShadow: '0 14px 28px rgba(15, 23, 42, 0.06)',
   },
   printReportList: {
     display: 'flex',
@@ -3319,4 +3510,88 @@ printGridDayCell: {
   lineHeight: '1.2',
   minHeight: '54px',
 },
+  mobileViewWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  mobileViewIntro: {
+    background: 'linear-gradient(135deg, #0f172a 0%, #162338 100%)',
+    color: '#ffffff',
+    borderRadius: '14px',
+    padding: '16px 18px',
+    boxShadow: '0 10px 20px rgba(15,23,42,0.14)',
+  },
+  mobileViewCompany: {
+    fontSize: '12px',
+    letterSpacing: '1px',
+    textTransform: 'uppercase',
+    color: '#f59e0b',
+    fontWeight: '700',
+    marginBottom: '6px',
+  },
+  mobileViewWeek: {
+    fontSize: '18px',
+    fontWeight: '700',
+  },
+  mobileCard: {
+    background: '#ffffff',
+    borderRadius: '14px',
+    padding: '16px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 8px 16px rgba(15,23,42,0.06)',
+    borderLeft: '5px solid #dd7a00',
+  },
+  mobileCardTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '10px',
+  },
+  mobileMetaRow: {
+    fontSize: '14px',
+    color: '#1f2937',
+    marginBottom: '5px',
+    lineHeight: '1.45',
+  },
+  mobileNotesBox: {
+    background: '#fff7ed',
+    border: '1px solid #fed7aa',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    marginTop: '10px',
+    fontSize: '14px',
+    lineHeight: '1.45',
+  },
+  mobileSection: {
+    marginTop: '12px',
+  },
+  mobileSectionLabel: {
+    fontSize: '12px',
+    fontWeight: '700',
+    letterSpacing: '1px',
+    color: '#0f172a',
+    textTransform: 'uppercase',
+    marginBottom: '8px',
+  },
+  mobileAssignmentCard: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    marginBottom: '8px',
+  },
+  mobileAssignmentName: {
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '4px',
+  },
+  mobileAssignmentDays: {
+    fontSize: '12px',
+    color: '#475569',
+    marginTop: '-2px',
+    marginBottom: '6px',
+  },
+
 }
