@@ -1159,7 +1159,7 @@ export default function App() {
       <style>{`
         @page {
           size: portrait;
-          margin: 0.22in;
+          margin: 0.18in;
         }
 
         @media print {
@@ -1194,20 +1194,21 @@ export default function App() {
 
           .print-report-list {
             gap: 0 !important;
+            padding-top: 16px !important;
           }
 
           .print-report-card {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-            border-bottom: 1px solid #d1d5db !important;
             padding-top: 0 !important;
-            padding-bottom: 12px !important;
-            margin-bottom: 12px !important;
+            padding-bottom: 8px !important;
+            margin-bottom: 0 !important;
           }
 
-          .print-report-card:last-child {
-            border-bottom: none !important;
-            margin-bottom: 0 !important;
+          .print-job-divider {
+            border-top: 1px solid #cfd6de !important;
+            margin: 12px 0 10px !important;
+            break-after: auto !important;
           }
         }
       `}</style>
@@ -2173,18 +2174,28 @@ export default function App() {
                 <p style={styles.text}>No schedule items saved yet.</p>
               ) : (
                 <div style={styles.printReportList} className="print-report-list">
-                  {filteredScheduleItems.map((item) => (
-                    <div key={item.id} style={styles.printReportCard} className="print-report-card">
-                      <div style={styles.printCompactJobTitle}>
-                        {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
-                      </div>
-
-                      <div style={styles.printIndentedBlock}>
-                        <div style={styles.printCompactMetaRow}>
-                          <div><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
-                          <div><strong>Superintendent:</strong> {item.superintendents?.name || '—'}</div>
-                          <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
+                  {filteredScheduleItems.map((item, index) => (
+                    <React.Fragment key={item.id}>
+                      <div style={styles.printReportCard} className="print-report-card">
+                        <div style={styles.printCompactJobTitle}>
+                          {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
                         </div>
+
+                        <div style={styles.printIndentedBlock}>
+                          <div style={styles.printCompactMetaRow}>
+                            <div style={styles.printMetaItem}>
+                              <span style={styles.printMetaLabel}>PM:</span>
+                              <span>{item.project_managers?.name || '—'}</span>
+                            </div>
+                            <div style={styles.printMetaItem}>
+                              <span style={styles.printMetaLabel}>Super:</span>
+                              <span>{item.superintendents?.name || '—'}</span>
+                            </div>
+                            <div style={styles.printMetaItem}>
+                              <span style={styles.printMetaLabel}>Surveyor:</span>
+                              <span>{item.surveyors?.name || '—'}</span>
+                            </div>
+                          </div>
 
                         {item.notes ? (
                           <div
@@ -2249,8 +2260,12 @@ export default function App() {
                             </div>
                           </>
                         ) : null}
+                        </div>
                       </div>
-                    </div>
+                      {index !== filteredScheduleItems.length - 1 ? (
+                        <div style={styles.jobDivider} className="print-job-divider" />
+                      ) : null}
+                    </React.Fragment>
                   ))}
                 </div>
               )}
@@ -2389,19 +2404,21 @@ const styles = {
     background: '#ffffff',
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
-    padding: '26px 24px 22px',
-    boxShadow: '0 3px 10px rgba(0,0,0,0.04)',
+    padding: '18px 18px 14px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.035)',
   },
   printReportList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
-    paddingTop: '8px',
+    gap: '0',
+    paddingTop: '18px',
   },
   printReportCard: {
-    borderBottom: '1px solid #d1d5db',
-    paddingBottom: '14px',
+    paddingTop: '2px',
+    paddingBottom: '8px',
+    marginBottom: '0',
     pageBreakInside: 'avoid',
+    breakInside: 'avoid',
   },
   printPmLine: {
     marginTop: '10px',
@@ -2822,7 +2839,8 @@ const styles = {
     marginBottom: '4px',
   },
   printIndentedBlock: {
-    marginLeft: '18px',
+    marginLeft: '16px',
+    marginRight: '4px',
   },
   printCompactDates: {
     fontSize: '13px',
@@ -2832,8 +2850,8 @@ const styles = {
   printCompactMetaRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '8px',
-    fontSize: '12px',
+    gap: '10px',
+    fontSize: '11.5px',
     color: '#111827',
     marginBottom: '6px',
     padding: '6px 8px',
@@ -2848,11 +2866,11 @@ const styles = {
     lineHeight: 1.35,
   },
   printNotesAccent: {
-    borderLeft: '2px solid #f2a531',
-    backgroundColor: '#fffdf8',
+    borderLeft: '1.5px solid #f2a531',
+    backgroundColor: '#fffefb',
     padding: '4px 8px',
     marginTop: '4px',
-    marginBottom: '8px',
+    marginBottom: '7px',
     marginLeft: '10px',
     marginRight: '10px',
     fontSize: '12px',
@@ -2860,12 +2878,12 @@ const styles = {
     color: '#111827',
   },
   printNotesBox: {
-    backgroundColor: '#fffdf8',
-    border: '1px solid #f3dfbe',
+    backgroundColor: '#fffefb',
+    border: '1px solid #f6e7cf',
     borderRadius: '6px',
     padding: '4px 8px',
     marginTop: '4px',
-    marginBottom: '8px',
+    marginBottom: '7px',
     marginLeft: '10px',
     marginRight: '10px',
     fontSize: '12px',
@@ -2874,29 +2892,31 @@ const styles = {
   },
   printCompactSectionLabel: {
     fontWeight: 'bold',
-    fontSize: '12px',
-    color: '#111827',
+    fontSize: '11px',
+    color: '#374151',
     marginTop: '8px',
     marginBottom: '4px',
     textTransform: 'uppercase',
-    letterSpacing: '0.3px',
+    letterSpacing: '0.45px',
+    paddingBottom: '2px',
+    borderBottom: '1px solid #e5e7eb',
   },
   printCompactAssignmentTable: {
     display: 'grid',
-    gap: '4px',
+    gap: '3px',
   },
   printCompactAssignmentRow: {
     display: 'grid',
-    gridTemplateColumns: '145px minmax(0, 1.4fr) minmax(0, 1fr)',
+    gridTemplateColumns: '138px minmax(0, 1.35fr) minmax(0, 1fr)',
     gap: '8px',
     alignItems: 'start',
     border: '1px solid #e5e7eb',
     borderRadius: '6px',
-    padding: '6px 8px',
-    fontSize: '11px',
+    padding: '5px 7px',
+    fontSize: '10.8px',
     color: '#111827',
     background: '#ffffff',
-    lineHeight: 1.3,
+    lineHeight: 1.28,
   },
   printCompactNameCol: {
     fontSize: '11px',
@@ -2913,12 +2933,27 @@ const styles = {
     color: '#6b7280',
     marginBottom: '4px',
   },
+  printMetaItem: {
+    display: 'grid',
+    gridTemplateColumns: '56px minmax(0, 1fr)',
+    gap: '4px',
+    alignItems: 'start',
+  },
+  printMetaLabel: {
+    fontWeight: 'bold',
+    whiteSpace: 'nowrap',
+  },
+  jobDivider: {
+    borderTop: '1px solid #cfd6de',
+    marginTop: '12px',
+    marginBottom: '10px',
+  },
   reportHeader: {
-    marginBottom: '22px',
+    marginBottom: '12px',
   },
   reportHeaderTopBorder: {
     borderTop: '1px solid #9ca3af',
-    marginBottom: '18px',
+    marginBottom: '14px',
   },
   reportHeaderTop: {
     display: 'flex',
@@ -2953,7 +2988,7 @@ const styles = {
     marginTop: '3px',
   },
   reportDivider: {
-    marginTop: '8px',
+    marginTop: '10px',
     borderBottom: '1px solid #9ca3af',
   },
 
