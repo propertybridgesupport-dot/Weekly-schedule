@@ -1463,7 +1463,7 @@ const gridScheduleItems = useMemo(() => {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderReadonlyScheduleCards(gridScheduleItems, { compact: true })}
+          {renderReadonlyScheduleCards(filteredScheduleItems, { compact: true })}
         </div>
       </div>
     )
@@ -2637,7 +2637,7 @@ const gridScheduleItems = useMemo(() => {
                   <div style={styles.mobileReadonlyDivider} />
                 </div>
 
-                {renderReadonlyScheduleCards(gridScheduleItems, { compact: true })}
+                {renderReadonlyScheduleCards(filteredScheduleItems, { compact: true })}
               </div>
             </div>
           </div>
