@@ -12,6 +12,19 @@ function emptyForemanAssignment() {
   }
 }
 
+const GREG_AND_CHRISTIAN = [
+  'greg@example.com',
+  'christian@example.com',
+]
+
+const ALL_RECIPIENTS = [
+  'greg@example.com',
+  'christian@example.com',
+  'pm@example.com',
+  'super@example.com',
+  'survey@example.com',
+]
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -401,6 +414,14 @@ export default function App() {
     resetScheduleForm()
     await loadAllData()
     setActiveTab('weekly')
+  }
+
+  function emailSchedule(recipients) {
+    const subject = encodeURIComponent('Weekly Schedule PDF')
+    const body = encodeURIComponent(
+      'Please find the weekly schedule attached. Use the Print / PDF button in the app first to save the PDF, then attach it to this email.'
+    )
+    window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
   }
 
   if (loading && !session) {
@@ -906,9 +927,27 @@ export default function App() {
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader} className="no-print">
               <h2 style={styles.sectionTitle}>Print / PDF View</h2>
-              <button onClick={() => window.print()} style={styles.button}>
-                Print / Save PDF
-              </button>
+              <div style={styles.topBarButtons}>
+                <button onClick={() => window.print()} style={styles.button}>
+                  Print / Save PDF
+                </button>
+                <button
+                  onClick={() => emailSchedule(GREG_AND_CHRISTIAN)}
+                  style={styles.buttonSecondary}
+                >
+                  Email Greg + Christian
+                </button>
+                <button
+                  onClick={() => emailSchedule(ALL_RECIPIENTS)}
+                  style={styles.buttonSecondary}
+                >
+                  Email All
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.emailNoteBox} className="no-print">
+              <strong>How this works right now:</strong> click <em>Print / Save PDF</em> first, save the PDF, then click one of the email buttons to open your email app and attach the PDF.
             </div>
 
             <div style={styles.printHeader}>
@@ -1159,6 +1198,15 @@ const styles = {
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
     padding: '12px',
+  },
+  emailNoteBox: {
+    marginBottom: '16px',
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '12px',
+    fontSize: '14px',
+    color: '#374151',
   },
   printHeader: {
     borderBottom: '2px solid #111827',
