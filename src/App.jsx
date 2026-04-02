@@ -2334,12 +2334,6 @@ const gridScheduleItems = useMemo(() => {
             </>
           ) : (
             <>
-              ...grid...
-            </>
-          )}
-            </>
-          ) : (
-            <>
               {gridScheduleItems.length === 0 ? (
                 <p style={styles.text}>
                   {selectedWeekFrom && selectedWeekTo
@@ -2383,6 +2377,8 @@ const gridScheduleItems = useMemo(() => {
             </>
           )}
         </div>
+      </div>
+</div>
       )}            
 }
 
