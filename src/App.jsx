@@ -1882,13 +1882,19 @@ const [notesStyle, setNotesStyle] = useState('accent')
                         {item.superintendents?.name || '—'}
                       </div>
                       <div>
+                      <div style={styles.metaGrid}>
+                      <div>
+                        <strong>PM:</strong> {item.project_managers?.name || '—'}
+                      </div>
+                      <div>
+                        <strong>Superintendent:</strong>{' '}
+                        {item.superintendents?.name || '—'}
+                      </div>
+                      <div>
                         <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
                       </div>
                     </div>
 
-<div style={{ marginTop: '14px' }}>
-  <strong>Foreman Assignments</strong>
-</div>
                     {item.notes && (
                       <div
                         style={
@@ -1901,10 +1907,15 @@ const [notesStyle, setNotesStyle] = useState('accent')
                         <span>{item.notes}</span>
                       </div>
                     )}
-{item.schedule_item_foremen?.length ? (
-  <div style={{ marginTop: '10px' }}>
-    {item.schedule_item_foremen.map((assignment) => (
-      <div key={assignment.id} style={styles.foremanViewCard}>
+
+                    <div style={{ marginTop: '14px' }}>
+                      <strong>Foreman Assignments</strong>
+                    </div>
+
+                    {item.schedule_item_foremen?.length ? (
+                      <div style={{ marginTop: '10px' }}>
+                        {item.schedule_item_foremen.map((assignment) => (
+                          <div key={assignment.id} style={styles.foremanViewCard}>
                             <div>
                               <strong>Foreman:</strong>{' '}
                               {assignment.foremen?.name || '—'}
