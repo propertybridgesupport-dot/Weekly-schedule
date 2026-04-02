@@ -2112,12 +2112,14 @@ export default function App() {
                                     <div>
                                       <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
                                     </div>
-                                    <div>
-                                      <strong>Work:</strong> {assignment.work_description || '—'}
-                                    </div>
+                                    {assignment.split_note ? (
+                                      <div>
+                                        <strong>Note:</strong> {assignment.split_note}
+                                      </div>
+                                    ) : null}
                                   </div>
                                   <div style={styles.printCompactNoteCol}>
-                                    <strong>Note:</strong> {assignment.split_note || '—'}
+                                    <strong>Work:</strong> {assignment.work_description || '—'}
                                   </div>
                                 </div>
                               ))}
