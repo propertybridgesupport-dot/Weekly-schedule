@@ -2290,9 +2290,11 @@ const [reportNotes, setReportNotes] = useState('')
                         <div style={styles.jobDivider} className="print-job-divider" />
                       ) : null}
                     </React.Fragment>
-                  ))}
-                </div>
-                            {reportNotes && (
+                                 ))}
+              </div>
+            )}
+
+            {reportNotes && (
   <div style={{ marginTop: '20px', pageBreakInside: 'avoid' }}>
     <div style={styles.printSectionHeader}>Report Notes</div>
 
