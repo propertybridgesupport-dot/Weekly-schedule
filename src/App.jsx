@@ -2086,17 +2086,15 @@ const [notesStyle, setNotesStyle] = useState('accent')
                         </div>
 
                         {item.notes && (
-                        <div
+                        <<div
   style={{
     ...(notesStyle === 'accent'
       ? styles.printNotesAccent
       : styles.printNotesBox),
   }}
 >
-  <div style={{ fontWeight: '600', marginBottom: '1px', fontSize: '12px' }}>
-  Job Notes
-</div>
-  <div>{item.notes}</div>
+  <span style={{ fontWeight: '600' }}>Job Notes: </span>
+  <span>{item.notes}</span>
 </div>
                         )}
 
@@ -2830,8 +2828,8 @@ const styles = {
     borderBottom: '1px solid #9ca3af',
   },
   printNotesAccent: {
-  borderLeft: '4px solid #f97316',
-  backgroundColor: '#fffaf5',
+  borderLeft: '3px solid #f59e0b', // softer orange
+  backgroundColor: '#fffbeb',      // very light warm tint
   padding: '4px 8px',
   marginTop: '4px',
   marginLeft: '10px',
@@ -2841,8 +2839,8 @@ const styles = {
 },
 
 printNotesBox: {
-  backgroundColor: '#fff7ed',
-  border: '1px solid #fed7aa',
+  backgroundColor: '#fffbeb',
+  border: '1px solid #fde68a', // light warm border
   borderRadius: '6px',
   padding: '4px 8px',
   marginTop: '4px',
