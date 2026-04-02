@@ -2148,7 +2148,6 @@ const [reportNotes, setReportNotes] = useState('')
                     </option>
                   ))}
                 </select>
-
                 <button
                   onClick={() => emailSchedule(selectedEmailGroup)}
                   style={styles.buttonSecondary}
@@ -2156,19 +2155,19 @@ const [reportNotes, setReportNotes] = useState('')
                   Email Selected Group
                 </button>
               </div>
-</div>
+            </div>
 
-<div style={styles.printNotesInputWrap} className="no-print">
-  <label style={styles.label}>Report Notes (optional)</label>
-  <textarea
-    value={reportNotes}
-    onChange={(e) => setReportNotes(e.target.value)}
-    placeholder="Add any overall notes for this report..."
-    style={styles.printNotesTextarea}
-  />
-</div>
+            <div style={styles.printNotesInputWrap} className="no-print">
+              <label style={styles.label}>Report Notes (optional)</label>
+              <textarea
+                value={reportNotes}
+                onChange={(e) => setReportNotes(e.target.value)}
+                placeholder="Add any overall notes for this report..."
+                style={styles.printNotesTextarea}
+              />
+            </div>
 
-<div style={styles.emailNoteBox} className="no-print">
+            <div style={styles.emailNoteBox} className="no-print">
               <strong>How this works right now:</strong> click{' '}
               <em>Print / Save PDF</em> first, save the PDF, then click the email
               button to open your email app and attach the PDF.
@@ -3093,5 +3092,21 @@ reportNotesLine: {
   borderBottom: '1px solid #e5e7eb',
   marginTop: '6px',
   height: '10px',
+},
+  printNotesInputWrap: {
+  marginTop: '14px',
+  marginBottom: '14px',
+  maxWidth: '760px',
+},
+printNotesTextarea: {
+  width: '100%',
+  minHeight: '110px',
+  padding: '12px',
+  borderRadius: '10px',
+  border: '1px solid #d1d5db',
+  fontSize: '15px',
+  lineHeight: '1.4',
+  resize: 'vertical',
+  boxSizing: 'border-box',
 },
 }
