@@ -1886,23 +1886,21 @@ const [notesStyle, setNotesStyle] = useState('accent')
                       </div>
                     </div>
 
-    {item.notes && (
-  <div
-    style={
-      notesStyle === 'accent'
-        ? styles.printNotesAccent
-        : styles.printNotesBox
-    }
-  >
-    <span style={{ fontWeight: '600' }}>Job Notes: </span>
-    <span>{item.notes}</span>
-  </div>
-)}
-
 <div style={{ marginTop: '14px' }}>
   <strong>Foreman Assignments</strong>
 </div>
-
+                    {item.notes && (
+                      <div
+                        style={
+                          notesStyle === 'accent'
+                            ? styles.printNotesAccent
+                            : styles.printNotesBox
+                        }
+                      >
+                        <span style={{ fontWeight: '600' }}>Job Notes: </span>
+                        <span>{item.notes}</span>
+                      </div>
+                    )}
 {item.schedule_item_foremen?.length ? (
   <div style={{ marginTop: '10px' }}>
     {item.schedule_item_foremen.map((assignment) => (
