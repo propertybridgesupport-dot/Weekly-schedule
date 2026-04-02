@@ -2093,9 +2093,9 @@ const [notesStyle, setNotesStyle] = useState('accent')
       : styles.printNotesBox),
   }}
 >
-  <div style={{ fontWeight: '600', marginBottom: '2px' }}>
-    Job Notes
-  </div>
+  <div style={{ fontWeight: '600', marginBottom: '1px', fontSize: '12px' }}>
+  Job Notes
+</div>
   <div>{item.notes}</div>
 </div>
                         )}
@@ -2832,14 +2832,23 @@ const styles = {
   printNotesAccent: {
   borderLeft: '4px solid #f97316',
   backgroundColor: '#fffaf5',
-  padding: '6px 8px',
-  marginTop: '6px',
+  padding: '4px 8px',
+  marginTop: '4px',
+  marginLeft: '10px',
+  marginRight: '10px',
+  fontSize: '12px',
+  lineHeight: '1.3',
 },
+
 printNotesBox: {
   backgroundColor: '#fff7ed',
   border: '1px solid #fed7aa',
   borderRadius: '6px',
-  padding: '6px 8px',
-  marginTop: '6px',
+  padding: '4px 8px',
+  marginTop: '4px',
+  marginLeft: '10px',
+  marginRight: '10px',
+  fontSize: '12px',
+  lineHeight: '1.3',
 },
 }
