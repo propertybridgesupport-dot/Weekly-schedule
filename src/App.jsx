@@ -37,6 +37,8 @@ const WEEKDAY_LABELS = {
 }
 
 export default function App() {
+const [notesStyle, setNotesStyle] = useState('accent') 
+// 'accent' or 'box'
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
@@ -2009,7 +2011,14 @@ export default function App() {
                 <button onClick={() => window.print()} style={styles.button}>
                   Print / Save PDF
                 </button>
-
+<select
+  value={notesStyle}
+  onChange={(e) => setNotesStyle(e.target.value)}
+  style={styles.jobPrefixSelect}
+>
+  <option value="accent">Accent Style</option>
+  <option value="box">Box Style</option>
+</select>
                 <select
                   value={selectedEmailGroupId}
                   onChange={(e) => setSelectedEmailGroupId(e.target.value)}
@@ -2077,9 +2086,18 @@ export default function App() {
                         </div>
 
                         {item.notes && (
-                          <div style={styles.printCompactJobNotes}>
-                            <strong>Job Notes:</strong> {item.notes}
-                          </div>
+                        <div
+  style={{
+    ...(notesStyle === 'accent'
+      ? styles.printNotesAccent
+      : styles.printNotesBox),
+  }}
+>
+  <div style={{ fontWeight: '600', marginBottom: '2px' }}>
+    Job Notes
+  </div>
+  <div>{item.notes}</div>
+</div>
                         )}
 
                         {item.schedule_item_foremen?.length ? (
@@ -2811,5 +2829,17 @@ const styles = {
     marginTop: '8px',
     borderBottom: '1px solid #9ca3af',
   },
-
+  printNotesAccent: {
+  borderLeft: '4px solid #f97316',
+  backgroundColor: '#fffaf5',
+  padding: '6px 8px',
+  marginTop: '6px',
+},
+printNotesBox: {
+  backgroundColor: '#fff7ed',
+  border: '1px solid #fed7aa',
+  borderRadius: '6px',
+  padding: '6px 8px',
+  marginTop: '6px',
+},
 }
