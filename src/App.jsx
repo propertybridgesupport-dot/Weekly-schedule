@@ -1886,7 +1886,7 @@ const [notesStyle, setNotesStyle] = useState('accent')
                       </div>
                     </div>
 
-                   {item.notes && (
+    {item.notes && (
   <div
     style={
       notesStyle === 'accent'
@@ -1899,14 +1899,14 @@ const [notesStyle, setNotesStyle] = useState('accent')
   </div>
 )}
 
-                    <div style={{ marginTop: '14px' }}>
-                      <strong>Foreman Assignments</strong>
-                    </div>
+<div style={{ marginTop: '14px' }}>
+  <strong>Foreman Assignments</strong>
+</div>
 
-                    {item.schedule_item_foremen?.length ? (
-                      <div style={{ marginTop: '10px' }}>
-                        {item.schedule_item_foremen.map((assignment) => (
-                          <div key={assignment.id} style={styles.foremanViewCard}>
+{item.schedule_item_foremen?.length ? (
+  <div style={{ marginTop: '10px' }}>
+    {item.schedule_item_foremen.map((assignment) => (
+      <div key={assignment.id} style={styles.foremanViewCard}>
                             <div>
                               <strong>Foreman:</strong>{' '}
                               {assignment.foremen?.name || '—'}
