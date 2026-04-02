@@ -2257,26 +2257,7 @@ const [reportNotes, setReportNotes] = useState('')
                                   </div>
                                 </div>
                               ))}
-                              {reportNotes && (
-  <div style={{ marginTop: '20px', pageBreakInside: 'avoid' }}>
-    <div style={styles.printSectionHeader}>Report Notes</div>
-
-    <div
-      style={
-        notesStyle === 'accent'
-          ? styles.printNotesAccent
-          : styles.printNotesBox
-      }
-    >
-      <div>{reportNotes}</div>
-
-      <div style={styles.reportNotesLine} />
-      <div style={styles.reportNotesLine} />
-      <div style={styles.reportNotesLine} />
-      <div style={styles.reportNotesLine} />
-    </div>
-  </div>
-)}
+  
                             </div>
                           </>
                         ) : null}
@@ -2311,7 +2292,26 @@ const [reportNotes, setReportNotes] = useState('')
                     </React.Fragment>
                   ))}
                 </div>
-              )}
+                            {reportNotes && (
+  <div style={{ marginTop: '20px', pageBreakInside: 'avoid' }}>
+    <div style={styles.printSectionHeader}>Report Notes</div>
+
+    <div
+      style={
+        notesStyle === 'accent'
+          ? styles.printNotesAccent
+          : styles.printNotesBox
+      }
+    >
+      <div>{reportNotes}</div>
+
+      <div style={styles.reportNotesLine} />
+      <div style={styles.reportNotesLine} />
+      <div style={styles.reportNotesLine} />
+      <div style={styles.reportNotesLine} />
+    </div>
+  </div>
+)}
             </div>
           </div>
         </div>
