@@ -102,7 +102,7 @@ export default function App() {
   const [scheduleItems, setScheduleItems] = useState([])
   const [emailGroups, setEmailGroups] = useState([])
   const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
-
+const [reportNotes, setReportNotes] = useState('')
   const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
   const [notesStyle, setNotesStyle] = useState('accent')
