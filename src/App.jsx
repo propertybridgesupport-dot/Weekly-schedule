@@ -1196,8 +1196,10 @@ const gridScheduleItems = useMemo(() => {
       width: 100% !important;
       max-width: 7.9in !important;
       margin: 0 auto !important;
-      transform: scale(0.95);
-      transform-origin: top center;
+    }
+
+    .print-page-wrap {
+      page-break-before: auto !important;
     }
 
     .print-report-list {
@@ -2091,14 +2093,8 @@ const gridScheduleItems = useMemo(() => {
                   </div>
                 ))}
 
-          {scheduleItems
-  .filter(
-    (item) =>
-      (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
-      (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
-  )
-  .map((item) => (
-    <React.Fragment key={item.id}>
+                {gridScheduleItems.map((item) => (
+                  <React.Fragment key={item.id}>
                     <div style={styles.gridJobCell}>
                       <div style={styles.gridJobTitle}>
                         {item.jobs?.job_number || '—'}
@@ -2192,6 +2188,7 @@ const gridScheduleItems = useMemo(() => {
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
                   <div style={styles.reportTitleBlock}>
+                    <div style={styles.reportEyebrow}>Command Construction Industries</div>
                     <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
                     <div style={styles.reportDate}>
                       {selectedWeekFrom && selectedWeekTo
@@ -2199,11 +2196,16 @@ const gridScheduleItems = useMemo(() => {
                         : ''}
                     </div>
                   </div>
-                  <img
-                    src="/command-logo.png"
-                    alt="Command Industries Logo"
-                    style={styles.reportLogo}
-                  />
+                  <div style={styles.reportBrandBlock}>
+                    <img
+                      src="/command-logo.png"
+                      alt="Command Construction Industries Logo"
+                      style={styles.reportLogo}
+                    />
+                    <div style={styles.reportQuote}>
+                      “The road to success is always under construction.”
+                    </div>
+                  </div>
                 </div>
                 <div style={styles.reportDivider} />
               </div>
@@ -3107,7 +3109,7 @@ const styles = {
   },
   reportHeaderTop: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: '14px',
     minHeight: '50px',
@@ -3120,12 +3122,36 @@ const styles = {
     flex: 1,
     paddingTop: '1px',
   },
+  reportEyebrow: {
+    fontSize: '10px',
+    fontWeight: '700',
+    letterSpacing: '1.2px',
+    textTransform: 'uppercase',
+    color: '#c25b12',
+    marginBottom: '4px',
+  },
+  reportBrandBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '6px',
+    flexShrink: 0,
+  },
   reportLogo: {
     height: '44px',
     width: '148px',
     objectFit: 'contain',
     objectPosition: 'right center',
     flexShrink: 0,
+  },
+  reportQuote: {
+    maxWidth: '230px',
+    fontSize: '11px',
+    lineHeight: 1.3,
+    textAlign: 'right',
+    color: '#6b7280',
+    fontStyle: 'italic',
+    fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif',
   },
   reportTitle: {
     fontSize: '20px',
@@ -3172,30 +3198,35 @@ printNotesTextarea: {
 },
     printGridWrap: {
   marginTop: '14px',
+  pageBreakInside: 'avoid',
+  breakInside: 'avoid',
 },
 
 printGridBoard: {
   display: 'grid',
-  gridTemplateColumns: '1.5fr repeat(5, 1fr)',
+  gridTemplateColumns: '1.35fr repeat(5, minmax(0, 1fr))',
   border: '1px solid #d1d5db',
   borderBottom: 'none',
+  pageBreakInside: 'avoid',
+  breakInside: 'avoid',
 },
 
 printGridHeaderCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '6px',
+  padding: '5px',
   fontWeight: '700',
-  fontSize: '11px',
+  fontSize: '10px',
   backgroundColor: '#f8fafc',
 },
 
 printGridJobCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '6px',
-  fontSize: '10px',
-  lineHeight: '1.25',
+  padding: '5px',
+  fontSize: '9.5px',
+  lineHeight: '1.2',
+  backgroundColor: '#ffffff',
 },
 
 printGridJobTitle: {
@@ -3211,9 +3242,10 @@ printGridJobSubTitle: {
 printGridDayCell: {
   borderBottom: '1px solid #d1d5db',
   borderRight: '1px solid #d1d5db',
-  padding: '4px',
-  fontSize: '9px',
-  lineHeight: '1.2',
-  minHeight: '54px',
+  padding: '3px',
+  fontSize: '8.5px',
+  lineHeight: '1.15',
+  minHeight: '46px',
+  backgroundColor: '#ffffff',
 },
 }
