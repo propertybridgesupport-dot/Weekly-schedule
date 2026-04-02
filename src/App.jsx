@@ -2040,16 +2040,20 @@ export default function App() {
 
             <div style={styles.reportPaper}>
               <div style={styles.reportHeader}>
-                <img
-                  src="/command-logo.png"
-                  alt="Command Industries Logo"
-                  style={styles.reportLogo}
-                />
-                <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
-                <div style={styles.reportDate}>
-                  {selectedWeekFrom && selectedWeekTo
-                    ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
-                    : ''}
+                <div style={styles.reportHeaderTop}>
+                  <img
+                    src="/command-logo.png"
+                    alt="Command Industries Logo"
+                    style={styles.reportLogo}
+                  />
+                  <div style={styles.reportTitleBlock}>
+                    <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
+                    <div style={styles.reportDate}>
+                      {selectedWeekFrom && selectedWeekTo
+                        ? `Week of ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
+                        : ''}
+                    </div>
+                  </div>
                 </div>
                 <div style={styles.reportDivider} />
               </div>
@@ -2753,24 +2757,39 @@ const styles = {
     marginBottom: '4px',
   },
   reportHeader: {
-    textAlign: 'center',
     marginBottom: '12px',
   },
+  reportHeaderTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: '18px',
+  },
+  reportTitleBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    flex: 1,
+  },
   reportLogo: {
-    height: '55px',
-    marginBottom: '6px',
+    height: '58px',
+    width: '180px',
     objectFit: 'contain',
+    objectPosition: 'left center',
+    flexShrink: 0,
   },
   reportTitle: {
-    fontSize: '18px',
+    fontSize: '22px',
     fontWeight: 'bold',
     letterSpacing: '1px',
     color: '#111827',
+    lineHeight: 1.1,
   },
   reportDate: {
-    fontSize: '12px',
+    fontSize: '13px',
     color: '#374151',
-    marginTop: '2px',
+    marginTop: '4px',
   },
   reportDivider: {
     marginTop: '8px',
