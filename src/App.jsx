@@ -23,6 +23,7 @@ export default function App() {
   const [superintendents, setSuperintendents] = useState([])
   const [surveyors, setSurveyors] = useState([])
   const [foremen, setForemen] = useState([])
+  const [scheduleItems, setScheduleItems] = useState([])
 
   const [jobNumber, setJobNumber] = useState('')
   const [jobName, setJobName] = useState('')
@@ -91,13 +92,11 @@ export default function App() {
     setSuperintendents([])
     setSurveyors([])
     setForemen([])
+    setScheduleItems([])
     setMessage('Signed out.')
   }
 
-  async function loadAllData() {
-    setLoading(true)
-    setMessage('Loading master data from Supabase...')
-
+  async function loadMasterData() {
     const [
       jobsResult,
       pmResult,
@@ -126,14 +125,71 @@ export default function App() {
           surveyorResult.error ||
           foremanResult.error
       )
-      setMessage('There was an error loading your data.')
-    } else {
-      setJobs(jobsResult.data || [])
-      setProjectManagers(pmResult.data || [])
-      setSuperintendents(superintendentResult.data || [])
-      setSurveyors(surveyorResult.data || [])
-      setForemen(foremanResult.data || [])
-      setMessage('Master data loaded successfully.')
+      throw new Error('There was an error loading master data.')
+    }
+
+    setJobs(jobsResult.data || [])
+    setProjectManagers(pmResult.data || [])
+    setSuperintendents(superintendentResult.data || [])
+    setSurveyors(surveyorResult.data || [])
+    setForemen(foremanResult.data || [])
+  }
+
+  async function loadScheduleItems() {
+    const { data, error } = await supabase
+      .from('schedule_items')
+      .select(`
+        *,
+        jobs (
+          id,
+          job_number,
+          job_name
+        ),
+        project_managers (
+          id,
+          name
+        ),
+        superintendents (
+          id,
+          name
+        ),
+        surveyors (
+          id,
+          name
+        ),
+        schedule_item_foremen (
+          id,
+          foreman_id,
+          assignment_from_date,
+          assignment_to_date,
+          work_description,
+          split_note,
+          foremen (
+            id,
+            name
+          )
+        )
+      `)
+      .order('from_date', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw new Error(error.message)
+    }
+
+    setScheduleItems(data || [])
+  }
+
+  async function loadAllData() {
+    setLoading(true)
+    setMessage('Loading data from Supabase...')
+
+    try {
+      await Promise.all([loadMasterData(), loadScheduleItems()])
+      setMessage('Data loaded successfully.')
+    } catch (err) {
+      console.error(err)
+      setMessage(err.message || 'There was an error loading your data.')
     }
 
     setLoading(false)
@@ -343,7 +399,8 @@ export default function App() {
 
     setMessage('Schedule item saved successfully.')
     resetScheduleForm()
-    setActiveTab('schedule')
+    await loadAllData()
+    setActiveTab('weekly')
   }
 
   if (loading && !session) {
@@ -409,6 +466,12 @@ export default function App() {
               style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
             >
               Schedule Entry
+            </button>
+            <button
+              onClick={() => setActiveTab('weekly')}
+              style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
+            >
+              Weekly Schedule
             </button>
             <button onClick={loadAllData} style={styles.buttonSecondary}>
               Reload Data
@@ -760,6 +823,77 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {activeTab === 'weekly' && (
+        <div style={styles.singleColumnWrap}>
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <h2 style={styles.sectionTitle}>Weekly Schedule View</h2>
+              <button onClick={loadAllData} style={styles.buttonSecondary}>
+                Refresh Schedule
+              </button>
+            </div>
+
+            {scheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet.</p>
+            ) : (
+              <div style={styles.scheduleList}>
+                {scheduleItems.map((item) => (
+                  <div key={item.id} style={styles.scheduleCard}>
+                    <div style={styles.scheduleHeader}>
+                      <div>
+                        <div style={styles.scheduleJobTitle}>
+                          {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                        </div>
+                        <div style={styles.scheduleDates}>
+                          {item.from_date} to {item.to_date}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.metaGrid}>
+                      <div><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
+                      <div><strong>Superintendent:</strong> {item.superintendents?.name || '—'}</div>
+                      <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
+                    </div>
+
+                    {item.notes && (
+                      <div style={styles.notesBox}>
+                        <strong>Job Notes:</strong> {item.notes}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '14px' }}>
+                      <strong>Foreman Assignments</strong>
+                    </div>
+
+                    {item.schedule_item_foremen?.length ? (
+                      <div style={{ marginTop: '10px' }}>
+                        {item.schedule_item_foremen.map((assignment) => (
+                          <div key={assignment.id} style={styles.foremanViewCard}>
+                            <div><strong>Foreman:</strong> {assignment.foremen?.name || '—'}</div>
+                            <div>
+                              <strong>Dates:</strong> {assignment.assignment_from_date || '—'} to {assignment.assignment_to_date || '—'}
+                            </div>
+                            <div>
+                              <strong>Work:</strong> {assignment.work_description || '—'}
+                            </div>
+                            <div>
+                              <strong>Split Note:</strong> {assignment.split_note || '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={styles.text}>No foremen assigned yet.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -830,6 +964,20 @@ const styles = {
     marginBottom: '16px',
     background: '#fafafa',
   },
+  scheduleCard: {
+    border: '1px solid #e5e7eb',
+    borderRadius: '14px',
+    padding: '16px',
+    marginBottom: '16px',
+    background: '#fafafa',
+  },
+  foremanViewCard: {
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '12px',
+    marginBottom: '10px',
+    background: '#ffffff',
+  },
   topBar: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -868,6 +1016,41 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
     gap: '14px',
+  },
+  metaGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '10px',
+    marginTop: '12px',
+    marginBottom: '12px',
+  },
+  scheduleList: {
+    display: 'grid',
+    gap: '16px',
+  },
+  scheduleHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  scheduleJobTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  scheduleDates: {
+    marginTop: '4px',
+    color: '#4b5563',
+    fontSize: '14px',
+  },
+  notesBox: {
+    marginTop: '12px',
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '12px',
   },
   title: {
     margin: 0,
