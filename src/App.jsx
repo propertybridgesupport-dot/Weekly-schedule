@@ -298,16 +298,11 @@ const [printLayout, setPrintLayout] = useState('report')
   }, [scheduleItems])
 const gridScheduleItems = useMemo(() => {
   return scheduleItems.filter((item) => {
-    const matchesWeek =
+    return (
       !selectedWeekFrom ||
       !selectedWeekTo ||
       (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
-
-    const hasAssignments =
-      (item.schedule_item_foremen && item.schedule_item_foremen.length > 0) ||
-      (item.schedule_item_surveyors && item.schedule_item_surveyors.length > 0)
-
-    return matchesWeek && hasAssignments
+    )
   })
 }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
   const selectedEmailGroup =
@@ -1349,7 +1344,7 @@ const gridScheduleItems = useMemo(() => {
     return (
       <div style={compact ? styles.mobileReadonlyListCompact : styles.mobileReadonlyList}>
         {items.length === 0 ? (
-          <div style={styles.mobileEmptyCard}>No jobs with foreman or surveyor assignments for this week.</div>
+          <div style={styles.mobileEmptyCard}>No jobs found for this week.</div>
         ) : (
           items.map((item) => (
             <div key={item.id} style={styles.mobileReadonlyCard}>
@@ -2546,7 +2541,7 @@ const gridScheduleItems = useMemo(() => {
 {gridScheduleItems.length === 0 ? (
   <p style={styles.text}>
     {selectedWeekFrom && selectedWeekTo
-      ? 'No jobs with foreman or surveyor assignments for this week.'
+      ? 'No jobs found for this week.'
       : 'Choose a week to view the weekly grid.'}
   </p>
 ) : (
@@ -2944,7 +2939,7 @@ const gridScheduleItems = useMemo(() => {
               {gridScheduleItems.length === 0 ? (
                 <p style={styles.text}>
                   {selectedWeekFrom && selectedWeekTo
-                    ? 'No jobs with foreman or surveyor assignments for this week.'
+                    ? 'No jobs found for this week.'
                     : 'Choose a week to view the weekly grid.'}
                 </p>
               ) : (
