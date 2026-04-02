@@ -2215,6 +2215,9 @@ const gridScheduleItems = useMemo(() => {
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
                   <div style={styles.reportTitleBlock}>
+                    <div style={styles.reportCompanyName}>
+                      Command Construction Industries
+                    </div>
                     <div style={styles.reportTitle}>WEEKLY SCHEDULE</div>
                     <div style={styles.reportDate}>
                       {selectedWeekFrom && selectedWeekTo
@@ -2222,11 +2225,16 @@ const gridScheduleItems = useMemo(() => {
                         : ''}
                     </div>
                   </div>
-                  <img
-                    src="/command-logo.png"
-                    alt="Command Industries Logo"
-                    style={styles.reportLogo}
-                  />
+                  <div style={styles.reportBrandRight}>
+                    <img
+                      src="/command-logo.png"
+                      alt="Command Industries Logo"
+                      style={styles.reportLogo}
+                    />
+                    <div style={styles.reportHeaderQuote}>
+                      “The road to success is always under construction.”
+                    </div>
+                  </div>
                 </div>
                 <div style={styles.reportDivider} />
               </div>
@@ -3191,12 +3199,36 @@ const styles = {
     flex: 1,
     paddingTop: '1px',
   },
+  reportCompanyName: {
+    fontSize: '11px',
+    fontWeight: '700',
+    letterSpacing: '0.8px',
+    textTransform: 'uppercase',
+    color: '#b45309',
+    marginBottom: '3px',
+  },
+  reportBrandRight: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    textAlign: 'right',
+    gap: '4px',
+    flexShrink: 0,
+  },
   reportLogo: {
     height: '44px',
     width: '148px',
     objectFit: 'contain',
     objectPosition: 'right center',
     flexShrink: 0,
+  },
+  reportHeaderQuote: {
+    maxWidth: '220px',
+    fontSize: '10.5px',
+    lineHeight: '1.25',
+    fontStyle: 'italic',
+    fontFamily: 'Georgia, Times New Roman, serif',
+    color: '#7c2d12',
   },
   reportTitle: {
     fontSize: '20px',
