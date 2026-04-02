@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 function emptyForemanAssignment() {
   return {
     localId: crypto.randomUUID(),
+    id: null,
     foreman_id: '',
     assignment_from_date: '',
     assignment_to_date: '',
@@ -59,6 +60,8 @@ export default function App() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
+  const [editingScheduleItemId, setEditingScheduleItemId] = useState(null)
 
   const [scheduleForm, setScheduleForm] = useState({
     from_date: '',
@@ -564,6 +567,7 @@ export default function App() {
   }
 
   function resetScheduleForm() {
+    setEditingScheduleItemId(null)
     setScheduleForm({
       from_date: '',
       to_date: '',
@@ -574,6 +578,52 @@ export default function App() {
       notes: '',
     })
     setForemanAssignments([emptyForemanAssignment()])
+  }
+
+  function editScheduleItem(item) {
+    setEditingScheduleItemId(item.id)
+    setScheduleForm({
+      from_date: item.from_date || '',
+      to_date: item.to_date || '',
+      job_id: item.job_id || '',
+      project_manager_id: item.project_manager_id || '',
+      superintendent_id: item.superintendent_id || '',
+      surveyor_id: item.surveyor_id || '',
+      notes: item.notes || '',
+    })
+
+    if (item.schedule_item_foremen?.length) {
+      setForemanAssignments(
+        item.schedule_item_foremen.map((assignment) => ({
+          localId: crypto.randomUUID(),
+          id: assignment.id,
+          foreman_id: assignment.foreman_id || '',
+          assignment_from_date: assignment.assignment_from_date || '',
+          assignment_to_date: assignment.assignment_to_date || '',
+          work_description: assignment.work_description || '',
+          split_note: assignment.split_note || '',
+        }))
+      )
+    } else {
+      setForemanAssignments([emptyForemanAssignment()])
+    }
+
+    setActiveTab('schedule')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function deleteScheduleItem(id) {
+    const confirmed = window.confirm('Delete this schedule item?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('schedule_items').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (editingScheduleItemId === id) resetScheduleForm()
+      loadAllData()
+    }
   }
 
   async function saveScheduleItem() {
@@ -587,27 +637,57 @@ export default function App() {
       return
     }
 
-    setMessage('Saving schedule item...')
+    setMessage(editingScheduleItemId ? 'Updating schedule item...' : 'Saving schedule item...')
 
-    const { data: scheduleItem, error: scheduleError } = await supabase
-      .from('schedule_items')
-      .insert({
-        from_date: scheduleForm.from_date,
-        to_date: scheduleForm.to_date,
-        job_id: scheduleForm.job_id,
-        project_manager_id: scheduleForm.project_manager_id || null,
-        superintendent_id: scheduleForm.superintendent_id || null,
-        surveyor_id: scheduleForm.surveyor_id || null,
-        notes: scheduleForm.notes || null,
-      })
-      .select()
-      .single()
+    const payload = {
+      from_date: scheduleForm.from_date,
+      to_date: scheduleForm.to_date,
+      job_id: scheduleForm.job_id,
+      project_manager_id: scheduleForm.project_manager_id || null,
+      superintendent_id: scheduleForm.superintendent_id || null,
+      surveyor_id: scheduleForm.surveyor_id || null,
+      notes: scheduleForm.notes || null,
+    }
+
+    let scheduleItem
+    let scheduleError
+
+    if (editingScheduleItemId) {
+      const result = await supabase
+        .from('schedule_items')
+        .update(payload)
+        .eq('id', editingScheduleItemId)
+        .select()
+        .single()
+      scheduleItem = result.data
+      scheduleError = result.error
+    } else {
+      const result = await supabase
+        .from('schedule_items')
+        .insert(payload)
+        .select()
+        .single()
+      scheduleItem = result.data
+      scheduleError = result.error
+    }
 
     if (scheduleError) {
       console.error(scheduleError)
       alert(scheduleError.message)
       setMessage('Error saving schedule item.')
       return
+    }
+
+    if (editingScheduleItemId) {
+      const { error: deleteAssignmentsError } = await supabase
+        .from('schedule_item_foremen')
+        .delete()
+        .eq('schedule_item_id', editingScheduleItemId)
+
+      if (deleteAssignmentsError) {
+        alert(deleteAssignmentsError.message)
+        return
+      }
     }
 
     const cleanedAssignments = foremanAssignments.filter((item) => {
@@ -642,7 +722,7 @@ export default function App() {
       }
     }
 
-    setMessage('Schedule item saved successfully.')
+    setMessage(editingScheduleItemId ? 'Schedule item updated successfully.' : 'Schedule item saved successfully.')
     resetScheduleForm()
     await loadAllData()
     setActiveTab('weekly')
@@ -708,28 +788,16 @@ export default function App() {
           </div>
 
           <div style={styles.topBarButtons}>
-            <button
-              onClick={() => setActiveTab('master')}
-              style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
-            >
+            <button onClick={() => setActiveTab('master')} style={activeTab === 'master' ? styles.button : styles.buttonSecondary}>
               Master Data
             </button>
-            <button
-              onClick={() => setActiveTab('schedule')}
-              style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
-            >
+            <button onClick={() => setActiveTab('schedule')} style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}>
               Schedule Entry
             </button>
-            <button
-              onClick={() => setActiveTab('weekly')}
-              style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
-            >
+            <button onClick={() => setActiveTab('weekly')} style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}>
               Weekly Schedule
             </button>
-            <button
-              onClick={() => setActiveTab('print')}
-              style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
-            >
+            <button onClick={() => setActiveTab('print')} style={activeTab === 'print' ? styles.button : styles.buttonSecondary}>
               Print / PDF
             </button>
             <button onClick={loadAllData} style={styles.buttonSecondary}>
@@ -747,11 +815,7 @@ export default function App() {
           <SectionCard title="Jobs">
             <label style={styles.label}>Job Number</label>
             <div style={styles.jobNumberRow}>
-              <select
-                value={jobPrefix}
-                onChange={(e) => setJobPrefix(e.target.value)}
-                style={styles.jobPrefixSelect}
-              >
+              <select value={jobPrefix} onChange={(e) => setJobPrefix(e.target.value)} style={styles.jobPrefixSelect}>
                 <option value="CC">CC</option>
                 <option value="CCI">CCI</option>
               </select>
@@ -815,12 +879,8 @@ export default function App() {
                     </div>
                   </div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editJob(job)} style={styles.smallButton}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteJob(job.id)} style={styles.smallDangerButton}>
-                      Delete
-                    </button>
+                    <button onClick={() => editJob(job)} style={styles.smallButton}>Edit</button>
+                    <button onClick={() => deleteJob(job.id)} style={styles.smallDangerButton}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -839,9 +899,7 @@ export default function App() {
                 {editingPmId ? 'Update Project Manager' : 'Add Project Manager'}
               </button>
               {editingPmId && (
-                <button onClick={resetPmForm} style={styles.buttonSecondary}>
-                  Cancel Edit
-                </button>
+                <button onClick={resetPmForm} style={styles.buttonSecondary}>Cancel Edit</button>
               )}
             </div>
 
@@ -850,12 +908,8 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editProjectManager(person)} style={styles.smallButton}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteProjectManager(person.id)} style={styles.smallDangerButton}>
-                      Delete
-                    </button>
+                    <button onClick={() => editProjectManager(person)} style={styles.smallButton}>Edit</button>
+                    <button onClick={() => deleteProjectManager(person.id)} style={styles.smallDangerButton}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -874,9 +928,7 @@ export default function App() {
                 {editingSuperintendentId ? 'Update Superintendent' : 'Add Superintendent'}
               </button>
               {editingSuperintendentId && (
-                <button onClick={resetSuperintendentForm} style={styles.buttonSecondary}>
-                  Cancel Edit
-                </button>
+                <button onClick={resetSuperintendentForm} style={styles.buttonSecondary}>Cancel Edit</button>
               )}
             </div>
 
@@ -885,12 +937,8 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editSuperintendent(person)} style={styles.smallButton}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteSuperintendent(person.id)} style={styles.smallDangerButton}>
-                      Delete
-                    </button>
+                    <button onClick={() => editSuperintendent(person)} style={styles.smallButton}>Edit</button>
+                    <button onClick={() => deleteSuperintendent(person.id)} style={styles.smallDangerButton}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -909,9 +957,7 @@ export default function App() {
                 {editingSurveyorId ? 'Update Surveyor' : 'Add Surveyor'}
               </button>
               {editingSurveyorId && (
-                <button onClick={resetSurveyorForm} style={styles.buttonSecondary}>
-                  Cancel Edit
-                </button>
+                <button onClick={resetSurveyorForm} style={styles.buttonSecondary}>Cancel Edit</button>
               )}
             </div>
 
@@ -920,12 +966,8 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editSurveyor(person)} style={styles.smallButton}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteSurveyor(person.id)} style={styles.smallDangerButton}>
-                      Delete
-                    </button>
+                    <button onClick={() => editSurveyor(person)} style={styles.smallButton}>Edit</button>
+                    <button onClick={() => deleteSurveyor(person.id)} style={styles.smallDangerButton}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -944,9 +986,7 @@ export default function App() {
                 {editingForemanId ? 'Update Foreman' : 'Add Foreman'}
               </button>
               {editingForemanId && (
-                <button onClick={resetForemanForm} style={styles.buttonSecondary}>
-                  Cancel Edit
-                </button>
+                <button onClick={resetForemanForm} style={styles.buttonSecondary}>Cancel Edit</button>
               )}
             </div>
 
@@ -955,12 +995,8 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editForeman(person)} style={styles.smallButton}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteForeman(person.id)} style={styles.smallDangerButton}>
-                      Delete
-                    </button>
+                    <button onClick={() => editForeman(person)} style={styles.smallButton}>Edit</button>
+                    <button onClick={() => deleteForeman(person.id)} style={styles.smallDangerButton}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -972,7 +1008,9 @@ export default function App() {
       {activeTab === 'schedule' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
-            <h2 style={styles.sectionTitle}>Schedule Entry</h2>
+            <h2 style={styles.sectionTitle}>
+              {editingScheduleItemId ? 'Edit Schedule Entry' : 'Schedule Entry'}
+            </h2>
 
             <div style={styles.formGrid}>
               <div>
@@ -1015,9 +1053,7 @@ export default function App() {
                 <label style={styles.label}>Project Manager (optional)</label>
                 <select
                   value={scheduleForm.project_manager_id}
-                  onChange={(e) =>
-                    updateScheduleForm('project_manager_id', e.target.value)
-                  }
+                  onChange={(e) => updateScheduleForm('project_manager_id', e.target.value)}
                   style={styles.select}
                 >
                   <option value="">None</option>
@@ -1033,9 +1069,7 @@ export default function App() {
                 <label style={styles.label}>Superintendent (optional)</label>
                 <select
                   value={scheduleForm.superintendent_id}
-                  onChange={(e) =>
-                    updateScheduleForm('superintendent_id', e.target.value)
-                  }
+                  onChange={(e) => updateScheduleForm('superintendent_id', e.target.value)}
                   style={styles.select}
                 >
                   <option value="">None</option>
@@ -1051,9 +1085,7 @@ export default function App() {
                 <label style={styles.label}>Surveyor (optional)</label>
                 <select
                   value={scheduleForm.surveyor_id}
-                  onChange={(e) =>
-                    updateScheduleForm('surveyor_id', e.target.value)
-                  }
+                  onChange={(e) => updateScheduleForm('surveyor_id', e.target.value)}
                   style={styles.select}
                 >
                   <option value="">None</option>
@@ -1103,11 +1135,7 @@ export default function App() {
                     <select
                       value={assignment.foreman_id}
                       onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'foreman_id',
-                          e.target.value
-                        )
+                        updateForemanAssignment(assignment.localId, 'foreman_id', e.target.value)
                       }
                       style={styles.select}
                     >
@@ -1126,11 +1154,7 @@ export default function App() {
                       type="date"
                       value={assignment.assignment_from_date}
                       onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'assignment_from_date',
-                          e.target.value
-                        )
+                        updateForemanAssignment(assignment.localId, 'assignment_from_date', e.target.value)
                       }
                       style={styles.input}
                     />
@@ -1142,11 +1166,7 @@ export default function App() {
                       type="date"
                       value={assignment.assignment_to_date}
                       onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'assignment_to_date',
-                          e.target.value
-                        )
+                        updateForemanAssignment(assignment.localId, 'assignment_to_date', e.target.value)
                       }
                       style={styles.input}
                     />
@@ -1158,11 +1178,7 @@ export default function App() {
                       type="text"
                       value={assignment.split_note}
                       onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'split_note',
-                          e.target.value
-                        )
+                        updateForemanAssignment(assignment.localId, 'split_note', e.target.value)
                       }
                       style={styles.input}
                       placeholder="Half week here, then another job..."
@@ -1175,11 +1191,7 @@ export default function App() {
                   <textarea
                     value={assignment.work_description}
                     onChange={(e) =>
-                      updateForemanAssignment(
-                        assignment.localId,
-                        'work_description',
-                        e.target.value
-                      )
+                      updateForemanAssignment(assignment.localId, 'work_description', e.target.value)
                     }
                     style={styles.textarea}
                     placeholder="What is this foreman doing on this job?"
@@ -1190,7 +1202,7 @@ export default function App() {
 
             <div style={styles.bottomButtons}>
               <button onClick={saveScheduleItem} style={styles.button}>
-                Save Schedule Item
+                {editingScheduleItemId ? 'Update Schedule Item' : 'Save Schedule Item'}
               </button>
               <button onClick={resetScheduleForm} style={styles.buttonSecondary}>
                 Clear Form
@@ -1227,6 +1239,15 @@ export default function App() {
                         <div style={styles.smallText}>
                           Job Start: {formatDate(item.jobs?.start_date)} | Job Stop: {formatDate(item.jobs?.stop_date)}
                         </div>
+                      </div>
+
+                      <div style={styles.itemButtonRow}>
+                        <button onClick={() => editScheduleItem(item)} style={styles.smallButton}>
+                          Edit
+                        </button>
+                        <button onClick={() => deleteScheduleItem(item.id)} style={styles.smallDangerButton}>
+                          Delete
+                        </button>
                       </div>
                     </div>
 
@@ -1283,16 +1304,10 @@ export default function App() {
                 <button onClick={() => window.print()} style={styles.button}>
                   Print / Save PDF
                 </button>
-                <button
-                  onClick={() => emailSchedule(GREG_AND_CHRISTIAN)}
-                  style={styles.buttonSecondary}
-                >
+                <button onClick={() => emailSchedule(GREG_AND_CHRISTIAN)} style={styles.buttonSecondary}>
                   Email Greg + Christian
                 </button>
-                <button
-                  onClick={() => emailSchedule(ALL_RECIPIENTS)}
-                  style={styles.buttonSecondary}
-                >
+                <button onClick={() => emailSchedule(ALL_RECIPIENTS)} style={styles.buttonSecondary}>
                   Email All
                 </button>
               </div>
