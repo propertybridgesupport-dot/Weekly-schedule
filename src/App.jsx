@@ -2469,6 +2469,7 @@ buttonDanger: {
   borderRadius: '10px',
   padding: '8px 14px',
   cursor: 'pointer',
+  transition: '0.2s',
 },
 
 smallDangerButton: {
@@ -2479,9 +2480,10 @@ smallDangerButton: {
   padding: '6px 10px',
   cursor: 'pointer',
   fontSize: '12px',
+  transition: '0.2s',
 },
   smallDangerButton: {
-    background: '#b91c1c',
+    background: '#c9732f',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
