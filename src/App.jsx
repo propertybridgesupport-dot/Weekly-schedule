@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 function emptyForemanAssignment() {
@@ -43,10 +43,19 @@ export default function App() {
   const [jobName, setJobName] = useState('')
   const [jobStartDate, setJobStartDate] = useState('')
   const [jobStopDate, setJobStopDate] = useState('')
+  const [editingJobId, setEditingJobId] = useState(null)
+
   const [pmName, setPmName] = useState('')
+  const [editingPmId, setEditingPmId] = useState(null)
+
   const [superintendentName, setSuperintendentName] = useState('')
+  const [editingSuperintendentId, setEditingSuperintendentId] = useState(null)
+
   const [surveyorName, setSurveyorName] = useState('')
+  const [editingSurveyorId, setEditingSurveyorId] = useState(null)
+
   const [foremanName, setForemanName] = useState('')
+  const [editingForemanId, setEditingForemanId] = useState(null)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -86,6 +95,14 @@ export default function App() {
     }
   }, [session])
 
+  const sortedJobs = useMemo(() => {
+    return [...jobs].sort((a, b) => {
+      const aNum = extractJobNumberValue(a.job_number)
+      const bNum = extractJobNumberValue(b.job_number)
+      return aNum - bNum
+    })
+  }, [jobs])
+
   async function signIn() {
     setMessage('Signing in...')
 
@@ -120,7 +137,7 @@ export default function App() {
       surveyorResult,
       foremanResult,
     ] = await Promise.all([
-      supabase.from('jobs').select('*').order('job_number', { ascending: true }),
+      supabase.from('jobs').select('*'),
       supabase.from('project_managers').select('*').order('name', { ascending: true }),
       supabase.from('superintendents').select('*').order('name', { ascending: true }),
       supabase.from('surveyors').select('*').order('name', { ascending: true }),
@@ -195,7 +212,13 @@ export default function App() {
       throw new Error(error.message)
     }
 
-    setScheduleItems(data || [])
+    const sorted = (data || []).sort((a, b) => {
+      const aNum = extractJobNumberValue(a.jobs?.job_number)
+      const bNum = extractJobNumberValue(b.jobs?.job_number)
+      return aNum - bNum
+    })
+
+    setScheduleItems(sorted)
   }
 
   async function loadAllData() {
@@ -220,7 +243,25 @@ export default function App() {
     return `${prefix} - ${part2}`
   }
 
-  async function addJob() {
+  function parseJobNumber(jobNumber) {
+    if (!jobNumber) return { prefix: 'CC', number: '' }
+    const parts = jobNumber.split('-').map((x) => x.trim())
+    return {
+      prefix: parts[0] || 'CC',
+      number: parts[1] || '',
+    }
+  }
+
+  function resetJobForm() {
+    setJobPrefix('CC')
+    setJobNumberPart2('')
+    setJobName('')
+    setJobStartDate('')
+    setJobStopDate('')
+    setEditingJobId(null)
+  }
+
+  async function saveJob() {
     const finalJobNumber = buildJobNumber()
 
     if (!finalJobNumber || !jobName) {
@@ -233,98 +274,265 @@ export default function App() {
       return
     }
 
-    const { error } = await supabase.from('jobs').insert({
+    const payload = {
       job_number: finalJobNumber,
       job_name: jobName,
       start_date: jobStartDate || null,
       stop_date: jobStopDate || null,
       active: true,
-    })
+    }
+
+    let error
+
+    if (editingJobId) {
+      const result = await supabase.from('jobs').update(payload).eq('id', editingJobId)
+      error = result.error
+    } else {
+      const result = await supabase.from('jobs').insert(payload)
+      error = result.error
+    }
 
     if (error) {
       alert(error.message)
     } else {
-      setJobPrefix('CC')
-      setJobNumberPart2('')
-      setJobName('')
-      setJobStartDate('')
-      setJobStopDate('')
+      resetJobForm()
       loadAllData()
     }
   }
 
-  async function addProjectManager() {
+  function editJob(job) {
+    const parsed = parseJobNumber(job.job_number)
+    setJobPrefix(parsed.prefix)
+    setJobNumberPart2(parsed.number)
+    setJobName(job.job_name || '')
+    setJobStartDate(job.start_date || '')
+    setJobStopDate(job.stop_date || '')
+    setEditingJobId(job.id)
+    setActiveTab('master')
+  }
+
+  async function deleteJob(id) {
+    const confirmed = window.confirm('Delete this job?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('jobs').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (editingJobId === id) resetJobForm()
+      loadAllData()
+    }
+  }
+
+  function resetPmForm() {
+    setPmName('')
+    setEditingPmId(null)
+  }
+
+  async function saveProjectManager() {
     if (!pmName) {
       alert('Enter a project manager name')
       return
     }
 
-    const { error } = await supabase.from('project_managers').insert({
-      name: pmName,
-      active: true,
-    })
+    let error
+
+    if (editingPmId) {
+      const result = await supabase
+        .from('project_managers')
+        .update({ name: pmName, active: true })
+        .eq('id', editingPmId)
+      error = result.error
+    } else {
+      const result = await supabase
+        .from('project_managers')
+        .insert({ name: pmName, active: true })
+      error = result.error
+    }
 
     if (error) {
       alert(error.message)
     } else {
-      setPmName('')
+      resetPmForm()
       loadAllData()
     }
   }
 
-  async function addSuperintendent() {
+  function editProjectManager(person) {
+    setPmName(person.name || '')
+    setEditingPmId(person.id)
+  }
+
+  async function deleteProjectManager(id) {
+    const confirmed = window.confirm('Delete this project manager?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('project_managers').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (editingPmId === id) resetPmForm()
+      loadAllData()
+    }
+  }
+
+  function resetSuperintendentForm() {
+    setSuperintendentName('')
+    setEditingSuperintendentId(null)
+  }
+
+  async function saveSuperintendent() {
     if (!superintendentName) {
       alert('Enter a superintendent name')
       return
     }
 
-    const { error } = await supabase.from('superintendents').insert({
-      name: superintendentName,
-      active: true,
-    })
+    let error
+
+    if (editingSuperintendentId) {
+      const result = await supabase
+        .from('superintendents')
+        .update({ name: superintendentName, active: true })
+        .eq('id', editingSuperintendentId)
+      error = result.error
+    } else {
+      const result = await supabase
+        .from('superintendents')
+        .insert({ name: superintendentName, active: true })
+      error = result.error
+    }
 
     if (error) {
       alert(error.message)
     } else {
-      setSuperintendentName('')
+      resetSuperintendentForm()
       loadAllData()
     }
   }
 
-  async function addSurveyor() {
+  function editSuperintendent(person) {
+    setSuperintendentName(person.name || '')
+    setEditingSuperintendentId(person.id)
+  }
+
+  async function deleteSuperintendent(id) {
+    const confirmed = window.confirm('Delete this superintendent?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('superintendents').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (editingSuperintendentId === id) resetSuperintendentForm()
+      loadAllData()
+    }
+  }
+
+  function resetSurveyorForm() {
+    setSurveyorName('')
+    setEditingSurveyorId(null)
+  }
+
+  async function saveSurveyor() {
     if (!surveyorName) {
       alert('Enter a surveyor name')
       return
     }
 
-    const { error } = await supabase.from('surveyors').insert({
-      name: surveyorName,
-      active: true,
-    })
+    let error
+
+    if (editingSurveyorId) {
+      const result = await supabase
+        .from('surveyors')
+        .update({ name: surveyorName, active: true })
+        .eq('id', editingSurveyorId)
+      error = result.error
+    } else {
+      const result = await supabase
+        .from('surveyors')
+        .insert({ name: surveyorName, active: true })
+      error = result.error
+    }
 
     if (error) {
       alert(error.message)
     } else {
-      setSurveyorName('')
+      resetSurveyorForm()
       loadAllData()
     }
   }
 
-  async function addForeman() {
+  function editSurveyor(person) {
+    setSurveyorName(person.name || '')
+    setEditingSurveyorId(person.id)
+  }
+
+  async function deleteSurveyor(id) {
+    const confirmed = window.confirm('Delete this surveyor?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('surveyors').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (editingSurveyorId === id) resetSurveyorForm()
+      loadAllData()
+    }
+  }
+
+  function resetForemanForm() {
+    setForemanName('')
+    setEditingForemanId(null)
+  }
+
+  async function saveForeman() {
     if (!foremanName) {
       alert('Enter a foreman name')
       return
     }
 
-    const { error } = await supabase.from('foremen').insert({
-      name: foremanName,
-      active: true,
-    })
+    let error
+
+    if (editingForemanId) {
+      const result = await supabase
+        .from('foremen')
+        .update({ name: foremanName, active: true })
+        .eq('id', editingForemanId)
+      error = result.error
+    } else {
+      const result = await supabase
+        .from('foremen')
+        .insert({ name: foremanName, active: true })
+      error = result.error
+    }
 
     if (error) {
       alert(error.message)
     } else {
-      setForemanName('')
+      resetForemanForm()
+      loadAllData()
+    }
+  }
+
+  function editForeman(person) {
+    setForemanName(person.name || '')
+    setEditingForemanId(person.id)
+  }
+
+  async function deleteForeman(id) {
+    const confirmed = window.confirm('Delete this foreman?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('foremen').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (editingForemanId === id) resetForemanForm()
       loadAllData()
     }
   }
@@ -586,16 +794,33 @@ export default function App() {
               style={styles.input}
             />
 
-            <button onClick={addJob} style={styles.button}>
-              Add Job
-            </button>
+            <div style={styles.formButtonRow}>
+              <button onClick={saveJob} style={styles.button}>
+                {editingJobId ? 'Update Job' : 'Add Job'}
+              </button>
+              {editingJobId && (
+                <button onClick={resetJobForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <div style={styles.listWrap}>
-              {jobs.map((job) => (
+              {sortedJobs.map((job) => (
                 <div key={job.id} style={styles.listItem}>
-                  <strong>{job.job_number}</strong> — {job.job_name}
-                  <div style={styles.smallText}>
-                    Start: {formatDate(job.start_date)} | Stop: {formatDate(job.stop_date)}
+                  <div>
+                    <strong>{job.job_number}</strong> — {job.job_name}
+                    <div style={styles.smallText}>
+                      Start: {formatDate(job.start_date)} | Stop: {formatDate(job.stop_date)}
+                    </div>
+                  </div>
+                  <div style={styles.itemButtonRow}>
+                    <button onClick={() => editJob(job)} style={styles.smallButton}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteJob(job.id)} style={styles.smallDangerButton}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -609,14 +834,29 @@ export default function App() {
               onChange={(e) => setPmName(e.target.value)}
               style={styles.input}
             />
-            <button onClick={addProjectManager} style={styles.button}>
-              Add Project Manager
-            </button>
+            <div style={styles.formButtonRow}>
+              <button onClick={saveProjectManager} style={styles.button}>
+                {editingPmId ? 'Update Project Manager' : 'Add Project Manager'}
+              </button>
+              {editingPmId && (
+                <button onClick={resetPmForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <div style={styles.listWrap}>
               {projectManagers.map((person) => (
                 <div key={person.id} style={styles.listItem}>
-                  {person.name}
+                  <div>{person.name}</div>
+                  <div style={styles.itemButtonRow}>
+                    <button onClick={() => editProjectManager(person)} style={styles.smallButton}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteProjectManager(person.id)} style={styles.smallDangerButton}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -629,14 +869,29 @@ export default function App() {
               onChange={(e) => setSuperintendentName(e.target.value)}
               style={styles.input}
             />
-            <button onClick={addSuperintendent} style={styles.button}>
-              Add Superintendent
-            </button>
+            <div style={styles.formButtonRow}>
+              <button onClick={saveSuperintendent} style={styles.button}>
+                {editingSuperintendentId ? 'Update Superintendent' : 'Add Superintendent'}
+              </button>
+              {editingSuperintendentId && (
+                <button onClick={resetSuperintendentForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <div style={styles.listWrap}>
               {superintendents.map((person) => (
                 <div key={person.id} style={styles.listItem}>
-                  {person.name}
+                  <div>{person.name}</div>
+                  <div style={styles.itemButtonRow}>
+                    <button onClick={() => editSuperintendent(person)} style={styles.smallButton}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteSuperintendent(person.id)} style={styles.smallDangerButton}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -649,14 +904,29 @@ export default function App() {
               onChange={(e) => setSurveyorName(e.target.value)}
               style={styles.input}
             />
-            <button onClick={addSurveyor} style={styles.button}>
-              Add Surveyor
-            </button>
+            <div style={styles.formButtonRow}>
+              <button onClick={saveSurveyor} style={styles.button}>
+                {editingSurveyorId ? 'Update Surveyor' : 'Add Surveyor'}
+              </button>
+              {editingSurveyorId && (
+                <button onClick={resetSurveyorForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <div style={styles.listWrap}>
               {surveyors.map((person) => (
                 <div key={person.id} style={styles.listItem}>
-                  {person.name}
+                  <div>{person.name}</div>
+                  <div style={styles.itemButtonRow}>
+                    <button onClick={() => editSurveyor(person)} style={styles.smallButton}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteSurveyor(person.id)} style={styles.smallDangerButton}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -669,14 +939,29 @@ export default function App() {
               onChange={(e) => setForemanName(e.target.value)}
               style={styles.input}
             />
-            <button onClick={addForeman} style={styles.button}>
-              Add Foreman
-            </button>
+            <div style={styles.formButtonRow}>
+              <button onClick={saveForeman} style={styles.button}>
+                {editingForemanId ? 'Update Foreman' : 'Add Foreman'}
+              </button>
+              {editingForemanId && (
+                <button onClick={resetForemanForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <div style={styles.listWrap}>
               {foremen.map((person) => (
                 <div key={person.id} style={styles.listItem}>
-                  {person.name}
+                  <div>{person.name}</div>
+                  <div style={styles.itemButtonRow}>
+                    <button onClick={() => editForeman(person)} style={styles.smallButton}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteForeman(person.id)} style={styles.smallDangerButton}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -718,7 +1003,7 @@ export default function App() {
                   style={styles.select}
                 >
                   <option value="">Select Job</option>
-                  {jobs.map((job) => (
+                  {sortedJobs.map((job) => (
                     <option key={job.id} value={job.id}>
                       {job.job_number} — {job.job_name}
                     </option>
@@ -1101,6 +1386,14 @@ function SectionCard({ title, children }) {
   )
 }
 
+function extractJobNumberValue(jobNumber) {
+  if (!jobNumber) return 0
+  const parts = jobNumber.split('-')
+  if (parts.length < 2) return 0
+  const num = parseInt(parts[1].trim(), 10)
+  return Number.isNaN(num) ? 0 : num
+}
+
 function formatDate(value) {
   if (!value) return '—'
 
@@ -1351,6 +1644,17 @@ const styles = {
     border: '1px solid #ccc',
     boxSizing: 'border-box',
   },
+  formButtonRow: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+    marginTop: '8px',
+  },
+  itemButtonRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
   title: {
     margin: 0,
     marginBottom: '8px',
@@ -1398,6 +1702,24 @@ const styles = {
     padding: '8px 14px',
     cursor: 'pointer',
   },
+  smallButton: {
+    background: '#ffffff',
+    color: '#111827',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontSize: '12px',
+  },
+  smallDangerButton: {
+    background: '#b91c1c',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontSize: '12px',
+  },
   input: {
     display: 'block',
     width: '100%',
@@ -1438,5 +1760,9 @@ const styles = {
     padding: '10px',
     borderBottom: '1px solid #f1f5f9',
     fontSize: '15px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '12px',
   },
 }
