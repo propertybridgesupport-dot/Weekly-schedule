@@ -2411,7 +2411,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '0',
-    paddingTop: '18px',
+    paddingTop: '22px',
   },
   printReportCard: {
     paddingTop: '2px',
@@ -2949,17 +2949,18 @@ const styles = {
     marginBottom: '10px',
   },
   reportHeader: {
-    marginBottom: '12px',
+    marginBottom: '14px',
   },
   reportHeaderTopBorder: {
-    borderTop: '1px solid #9ca3af',
-    marginBottom: '14px',
+    borderTop: '1px solid #c7cdd4',
+    marginBottom: '10px',
   },
   reportHeaderTop: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: '18px',
+    gap: '14px',
+    minHeight: '50px',
   },
   reportTitleBlock: {
     display: 'flex',
@@ -2967,29 +2968,30 @@ const styles = {
     alignItems: 'flex-start',
     justifyContent: 'center',
     flex: 1,
+    paddingTop: '1px',
   },
   reportLogo: {
-    height: '52px',
-    width: '170px',
+    height: '44px',
+    width: '148px',
     objectFit: 'contain',
     objectPosition: 'right center',
     flexShrink: 0,
   },
   reportTitle: {
-    fontSize: '21px',
+    fontSize: '20px',
     fontWeight: 'bold',
-    letterSpacing: '0.9px',
+    letterSpacing: '0.7px',
     color: '#111827',
-    lineHeight: 1.05,
+    lineHeight: 1.02,
   },
   reportDate: {
-    fontSize: '12px',
-    color: '#374151',
-    marginTop: '3px',
+    fontSize: '11.5px',
+    color: '#4b5563',
+    marginTop: '4px',
   },
   reportDivider: {
-    marginTop: '10px',
-    borderBottom: '1px solid #9ca3af',
+    marginTop: '9px',
+    borderBottom: '1px solid #c7cdd4',
   },
 
 }
