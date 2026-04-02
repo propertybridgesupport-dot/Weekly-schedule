@@ -13,18 +13,19 @@ function emptyForemanAssignment() {
   }
 }
 
-const GREG_AND_CHRISTIAN = [
-  'greg@example.com',
-  'christian@example.com',
-]
-
-const ALL_RECIPIENTS = [
-  'greg@example.com',
-  'christian@example.com',
-  'pm@example.com',
-  'super@example.com',
-  'survey@example.com',
-]
+function emptySurveyorAssignment() {
+  return {
+    localId: crypto.randomUUID(),
+    id: null,
+    surveyor_id: '',
+    monday: false,
+    tuesday: false,
+    wednesday: false,
+    thursday: false,
+    friday: false,
+    note: '',
+  }
+}
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -38,6 +39,8 @@ export default function App() {
   const [surveyors, setSurveyors] = useState([])
   const [foremen, setForemen] = useState([])
   const [scheduleItems, setScheduleItems] = useState([])
+  const [emailGroups, setEmailGroups] = useState([])
+  const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
 
   const [jobPrefix, setJobPrefix] = useState('CC')
   const [jobNumberPart2, setJobNumberPart2] = useState('')
@@ -58,6 +61,11 @@ export default function App() {
   const [foremanName, setForemanName] = useState('')
   const [editingForemanId, setEditingForemanId] = useState(null)
 
+  const [newEmailGroupName, setNewEmailGroupName] = useState('')
+  const [recipientGroupId, setRecipientGroupId] = useState('')
+  const [recipientName, setRecipientName] = useState('')
+  const [recipientEmail, setRecipientEmail] = useState('')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -75,6 +83,10 @@ export default function App() {
 
   const [foremanAssignments, setForemanAssignments] = useState([
     emptyForemanAssignment(),
+  ])
+
+  const [surveyorAssignments, setSurveyorAssignments] = useState([
+    emptySurveyorAssignment(),
   ])
 
   useEffect(() => {
@@ -106,6 +118,9 @@ export default function App() {
     })
   }, [jobs])
 
+  const selectedEmailGroup =
+    emailGroups.find((g) => g.id === selectedEmailGroupId) || null
+
   async function signIn() {
     setMessage('Signing in...')
 
@@ -129,6 +144,7 @@ export default function App() {
     setSurveyors([])
     setForemen([])
     setScheduleItems([])
+    setEmailGroups([])
     setMessage('Signed out.')
   }
 
@@ -139,12 +155,33 @@ export default function App() {
       superintendentResult,
       surveyorResult,
       foremanResult,
+      emailGroupsResult,
     ] = await Promise.all([
       supabase.from('jobs').select('*'),
-      supabase.from('project_managers').select('*').order('name', { ascending: true }),
-      supabase.from('superintendents').select('*').order('name', { ascending: true }),
+      supabase
+        .from('project_managers')
+        .select('*')
+        .order('name', { ascending: true }),
+      supabase
+        .from('superintendents')
+        .select('*')
+        .order('name', { ascending: true }),
       supabase.from('surveyors').select('*').order('name', { ascending: true }),
       supabase.from('foremen').select('*').order('name', { ascending: true }),
+      supabase
+        .from('email_groups')
+        .select(
+          `
+          *,
+          email_group_recipients (
+            id,
+            name,
+            email,
+            active
+          )
+        `
+        )
+        .order('name', { ascending: true }),
     ])
 
     if (
@@ -152,14 +189,16 @@ export default function App() {
       pmResult.error ||
       superintendentResult.error ||
       surveyorResult.error ||
-      foremanResult.error
+      foremanResult.error ||
+      emailGroupsResult.error
     ) {
       console.error(
         jobsResult.error ||
           pmResult.error ||
           superintendentResult.error ||
           surveyorResult.error ||
-          foremanResult.error
+          foremanResult.error ||
+          emailGroupsResult.error
       )
       throw new Error('There was an error loading master data.')
     }
@@ -169,12 +208,22 @@ export default function App() {
     setSuperintendents(superintendentResult.data || [])
     setSurveyors(surveyorResult.data || [])
     setForemen(foremanResult.data || [])
+    setEmailGroups(emailGroupsResult.data || [])
+
+    if (!selectedEmailGroupId && (emailGroupsResult.data || []).length) {
+      setSelectedEmailGroupId(emailGroupsResult.data[0].id)
+    }
+
+    if (!recipientGroupId && (emailGroupsResult.data || []).length) {
+      setRecipientGroupId(emailGroupsResult.data[0].id)
+    }
   }
 
   async function loadScheduleItems() {
     const { data, error } = await supabase
       .from('schedule_items')
-      .select(`
+      .select(
+        `
         *,
         jobs (
           id,
@@ -206,8 +255,23 @@ export default function App() {
             id,
             name
           )
+        ),
+        schedule_item_surveyors (
+          id,
+          surveyor_id,
+          monday,
+          tuesday,
+          wednesday,
+          thursday,
+          friday,
+          note,
+          surveyors (
+            id,
+            name
+          )
         )
-      `)
+      `
+      )
       .order('from_date', { ascending: true })
 
     if (error) {
@@ -288,7 +352,10 @@ export default function App() {
     let error
 
     if (editingJobId) {
-      const result = await supabase.from('jobs').update(payload).eq('id', editingJobId)
+      const result = await supabase
+        .from('jobs')
+        .update(payload)
+        .eq('id', editingJobId)
       error = result.error
     } else {
       const result = await supabase.from('jobs').insert(payload)
@@ -371,7 +438,10 @@ export default function App() {
     const confirmed = window.confirm('Delete this project manager?')
     if (!confirmed) return
 
-    const { error } = await supabase.from('project_managers').delete().eq('id', id)
+    const { error } = await supabase
+      .from('project_managers')
+      .delete()
+      .eq('id', id)
 
     if (error) {
       alert(error.message)
@@ -424,7 +494,10 @@ export default function App() {
     const confirmed = window.confirm('Delete this superintendent?')
     if (!confirmed) return
 
-    const { error } = await supabase.from('superintendents').delete().eq('id', id)
+    const { error } = await supabase
+      .from('superintendents')
+      .delete()
+      .eq('id', id)
 
     if (error) {
       alert(error.message)
@@ -540,6 +613,78 @@ export default function App() {
     }
   }
 
+  async function addEmailGroup() {
+    if (!newEmailGroupName.trim()) {
+      alert('Enter an email group name')
+      return
+    }
+
+    const { error } = await supabase.from('email_groups').insert({
+      name: newEmailGroupName.trim(),
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      setNewEmailGroupName('')
+      loadAllData()
+    }
+  }
+
+  async function addRecipient() {
+    if (!recipientGroupId || !recipientEmail.trim()) {
+      alert('Choose a group and enter an email')
+      return
+    }
+
+    const { error } = await supabase.from('email_group_recipients').insert({
+      email_group_id: recipientGroupId,
+      name: recipientName.trim() || null,
+      email: recipientEmail.trim(),
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+    } else {
+      setRecipientName('')
+      setRecipientEmail('')
+      loadAllData()
+    }
+  }
+
+  async function deleteEmailGroup(id) {
+    const confirmed = window.confirm('Delete this email group?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('email_groups').delete().eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      if (selectedEmailGroupId === id) setSelectedEmailGroupId('')
+      if (recipientGroupId === id) setRecipientGroupId('')
+      loadAllData()
+    }
+  }
+
+  async function deleteRecipient(id) {
+    const confirmed = window.confirm('Delete this email recipient?')
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('email_group_recipients')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      alert(error.message)
+    } else {
+      loadAllData()
+    }
+  }
+
   function updateScheduleForm(field, value) {
     setScheduleForm((prev) => ({
       ...prev,
@@ -566,6 +711,25 @@ export default function App() {
     })
   }
 
+  function updateSurveyorAssignment(localId, field, value) {
+    setSurveyorAssignments((prev) =>
+      prev.map((item) =>
+        item.localId === localId ? { ...item, [field]: value } : item
+      )
+    )
+  }
+
+  function addSurveyorAssignmentRow() {
+    setSurveyorAssignments((prev) => [...prev, emptySurveyorAssignment()])
+  }
+
+  function removeSurveyorAssignmentRow(localId) {
+    setSurveyorAssignments((prev) => {
+      const updated = prev.filter((item) => item.localId !== localId)
+      return updated.length ? updated : [emptySurveyorAssignment()]
+    })
+  }
+
   function resetScheduleForm() {
     setEditingScheduleItemId(null)
     setScheduleForm({
@@ -578,6 +742,7 @@ export default function App() {
       notes: '',
     })
     setForemanAssignments([emptyForemanAssignment()])
+    setSurveyorAssignments([emptySurveyorAssignment()])
   }
 
   function editScheduleItem(item) {
@@ -606,6 +771,24 @@ export default function App() {
       )
     } else {
       setForemanAssignments([emptyForemanAssignment()])
+    }
+
+    if (item.schedule_item_surveyors?.length) {
+      setSurveyorAssignments(
+        item.schedule_item_surveyors.map((assignment) => ({
+          localId: crypto.randomUUID(),
+          id: assignment.id,
+          surveyor_id: assignment.surveyor_id || '',
+          monday: !!assignment.monday,
+          tuesday: !!assignment.tuesday,
+          wednesday: !!assignment.wednesday,
+          thursday: !!assignment.thursday,
+          friday: !!assignment.friday,
+          note: assignment.note || '',
+        }))
+      )
+    } else {
+      setSurveyorAssignments([emptySurveyorAssignment()])
     }
 
     setActiveTab('schedule')
@@ -637,7 +820,9 @@ export default function App() {
       return
     }
 
-    setMessage(editingScheduleItemId ? 'Updating schedule item...' : 'Saving schedule item...')
+    setMessage(
+      editingScheduleItemId ? 'Updating schedule item...' : 'Saving schedule item...'
+    )
 
     const payload = {
       from_date: scheduleForm.from_date,
@@ -688,9 +873,19 @@ export default function App() {
         alert(deleteAssignmentsError.message)
         return
       }
+
+      const { error: deleteSurveyorAssignmentsError } = await supabase
+        .from('schedule_item_surveyors')
+        .delete()
+        .eq('schedule_item_id', editingScheduleItemId)
+
+      if (deleteSurveyorAssignmentsError) {
+        alert(deleteSurveyorAssignmentsError.message)
+        return
+      }
     }
 
-    const cleanedAssignments = foremanAssignments.filter((item) => {
+    const cleanedForemanAssignments = foremanAssignments.filter((item) => {
       return (
         item.foreman_id ||
         item.assignment_from_date ||
@@ -700,8 +895,8 @@ export default function App() {
       )
     })
 
-    if (cleanedAssignments.length > 0) {
-      const rowsToInsert = cleanedAssignments.map((item) => ({
+    if (cleanedForemanAssignments.length > 0) {
+      const rowsToInsert = cleanedForemanAssignments.map((item) => ({
         schedule_item_id: scheduleItem.id,
         foreman_id: item.foreman_id || null,
         assignment_from_date: item.assignment_from_date || null,
@@ -722,17 +917,72 @@ export default function App() {
       }
     }
 
-    setMessage(editingScheduleItemId ? 'Schedule item updated successfully.' : 'Schedule item saved successfully.')
+    const cleanedSurveyorAssignments = surveyorAssignments.filter((item) => {
+      return (
+        item.surveyor_id ||
+        item.monday ||
+        item.tuesday ||
+        item.wednesday ||
+        item.thursday ||
+        item.friday ||
+        item.note
+      )
+    })
+
+    if (cleanedSurveyorAssignments.length > 0) {
+      const rowsToInsert = cleanedSurveyorAssignments.map((item) => ({
+        schedule_item_id: scheduleItem.id,
+        surveyor_id: item.surveyor_id || null,
+        monday: !!item.monday,
+        tuesday: !!item.tuesday,
+        wednesday: !!item.wednesday,
+        thursday: !!item.thursday,
+        friday: !!item.friday,
+        note: item.note || null,
+      }))
+
+      const { error: surveyorError } = await supabase
+        .from('schedule_item_surveyors')
+        .insert(rowsToInsert)
+
+      if (surveyorError) {
+        console.error(surveyorError)
+        alert(surveyorError.message)
+        setMessage('Schedule saved, but surveyor assignments had an error.')
+        return
+      }
+    }
+
+    setMessage(
+      editingScheduleItemId
+        ? 'Schedule item updated successfully.'
+        : 'Schedule item saved successfully.'
+    )
     resetScheduleForm()
     await loadAllData()
     setActiveTab('weekly')
   }
 
-  function emailSchedule(recipients) {
-    const subject = encodeURIComponent('Weekly Schedule PDF')
+  function emailSchedule(group) {
+    if (!group || !group.email_group_recipients?.length) {
+      alert('This email group has no recipients.')
+      return
+    }
+
+    const recipients = group.email_group_recipients
+      .filter((r) => r.active !== false && r.email)
+      .map((r) => r.email)
+
+    if (!recipients.length) {
+      alert('This email group has no active recipients.')
+      return
+    }
+
+    const subject = encodeURIComponent(`Weekly Schedule PDF - ${group.name}`)
     const body = encodeURIComponent(
       'Please find the weekly schedule attached. Use the Print / PDF button in the app first to save the PDF, then attach it to this email.'
     )
+
     window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
   }
 
@@ -788,16 +1038,28 @@ export default function App() {
           </div>
 
           <div style={styles.topBarButtons}>
-            <button onClick={() => setActiveTab('master')} style={activeTab === 'master' ? styles.button : styles.buttonSecondary}>
+            <button
+              onClick={() => setActiveTab('master')}
+              style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
+            >
               Master Data
             </button>
-            <button onClick={() => setActiveTab('schedule')} style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}>
+            <button
+              onClick={() => setActiveTab('schedule')}
+              style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
+            >
               Schedule Entry
             </button>
-            <button onClick={() => setActiveTab('weekly')} style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}>
+            <button
+              onClick={() => setActiveTab('weekly')}
+              style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
+            >
               Weekly Schedule
             </button>
-            <button onClick={() => setActiveTab('print')} style={activeTab === 'print' ? styles.button : styles.buttonSecondary}>
+            <button
+              onClick={() => setActiveTab('print')}
+              style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
+            >
               Print / PDF
             </button>
             <button onClick={loadAllData} style={styles.buttonSecondary}>
@@ -815,18 +1077,24 @@ export default function App() {
           <SectionCard title="Jobs">
             <label style={styles.label}>Job Number</label>
             <div style={styles.jobNumberRow}>
-             <select value={jobPrefix} onChange={(e) => setJobPrefix(e.target.value)} style={styles.jobPrefixSelect}>
-  <option value="CC">CC</option>
-  <option value="CCI">CCI</option>
-  <option value="CCIS">CCIS</option>
-</select>
+              <select
+                value={jobPrefix}
+                onChange={(e) => setJobPrefix(e.target.value)}
+                style={styles.jobPrefixSelect}
+              >
+                <option value="CC">CC</option>
+                <option value="CCI">CCI</option>
+                <option value="CCIS">CCIS</option>
+              </select>
 
               <div style={styles.jobDash}>-</div>
 
               <input
                 placeholder="123"
                 value={jobNumberPart2}
-                onChange={(e) => setJobNumberPart2(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) =>
+                  setJobNumberPart2(e.target.value.replace(/\D/g, ''))
+                }
                 style={styles.jobNumberInput}
               />
             </div>
@@ -876,12 +1144,23 @@ export default function App() {
                   <div>
                     <strong>{job.job_number}</strong> — {job.job_name}
                     <div style={styles.smallText}>
-                      Start: {formatDate(job.start_date)} | Stop: {formatDate(job.stop_date)}
+                      Start: {formatDate(job.start_date)} | Stop:{' '}
+                      {formatDate(job.stop_date)}
                     </div>
                   </div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editJob(job)} style={styles.smallButton}>Edit</button>
-                    <button onClick={() => deleteJob(job.id)} style={styles.smallDangerButton}>Delete</button>
+                    <button
+                      onClick={() => editJob(job)}
+                      style={styles.smallButton}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteJob(job.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -900,7 +1179,9 @@ export default function App() {
                 {editingPmId ? 'Update Project Manager' : 'Add Project Manager'}
               </button>
               {editingPmId && (
-                <button onClick={resetPmForm} style={styles.buttonSecondary}>Cancel Edit</button>
+                <button onClick={resetPmForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
               )}
             </div>
 
@@ -909,8 +1190,18 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editProjectManager(person)} style={styles.smallButton}>Edit</button>
-                    <button onClick={() => deleteProjectManager(person.id)} style={styles.smallDangerButton}>Delete</button>
+                    <button
+                      onClick={() => editProjectManager(person)}
+                      style={styles.smallButton}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteProjectManager(person.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -926,10 +1217,17 @@ export default function App() {
             />
             <div style={styles.formButtonRow}>
               <button onClick={saveSuperintendent} style={styles.button}>
-                {editingSuperintendentId ? 'Update Superintendent' : 'Add Superintendent'}
+                {editingSuperintendentId
+                  ? 'Update Superintendent'
+                  : 'Add Superintendent'}
               </button>
               {editingSuperintendentId && (
-                <button onClick={resetSuperintendentForm} style={styles.buttonSecondary}>Cancel Edit</button>
+                <button
+                  onClick={resetSuperintendentForm}
+                  style={styles.buttonSecondary}
+                >
+                  Cancel Edit
+                </button>
               )}
             </div>
 
@@ -938,8 +1236,18 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editSuperintendent(person)} style={styles.smallButton}>Edit</button>
-                    <button onClick={() => deleteSuperintendent(person.id)} style={styles.smallDangerButton}>Delete</button>
+                    <button
+                      onClick={() => editSuperintendent(person)}
+                      style={styles.smallButton}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteSuperintendent(person.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -958,7 +1266,12 @@ export default function App() {
                 {editingSurveyorId ? 'Update Surveyor' : 'Add Surveyor'}
               </button>
               {editingSurveyorId && (
-                <button onClick={resetSurveyorForm} style={styles.buttonSecondary}>Cancel Edit</button>
+                <button
+                  onClick={resetSurveyorForm}
+                  style={styles.buttonSecondary}
+                >
+                  Cancel Edit
+                </button>
               )}
             </div>
 
@@ -967,8 +1280,18 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editSurveyor(person)} style={styles.smallButton}>Edit</button>
-                    <button onClick={() => deleteSurveyor(person.id)} style={styles.smallDangerButton}>Delete</button>
+                    <button
+                      onClick={() => editSurveyor(person)}
+                      style={styles.smallButton}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteSurveyor(person.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -987,7 +1310,9 @@ export default function App() {
                 {editingForemanId ? 'Update Foreman' : 'Add Foreman'}
               </button>
               {editingForemanId && (
-                <button onClick={resetForemanForm} style={styles.buttonSecondary}>Cancel Edit</button>
+                <button onClick={resetForemanForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
               )}
             </div>
 
@@ -996,9 +1321,100 @@ export default function App() {
                 <div key={person.id} style={styles.listItem}>
                   <div>{person.name}</div>
                   <div style={styles.itemButtonRow}>
-                    <button onClick={() => editForeman(person)} style={styles.smallButton}>Edit</button>
-                    <button onClick={() => deleteForeman(person.id)} style={styles.smallDangerButton}>Delete</button>
+                    <button
+                      onClick={() => editForeman(person)}
+                      style={styles.smallButton}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteForeman(person.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete
+                    </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Email Groups">
+            <label style={styles.label}>New Email Group</label>
+            <input
+              placeholder="Group Name"
+              value={newEmailGroupName}
+              onChange={(e) => setNewEmailGroupName(e.target.value)}
+              style={styles.input}
+            />
+            <button onClick={addEmailGroup} style={styles.button}>
+              Add Email Group
+            </button>
+
+            <label style={styles.label}>Add Recipient To</label>
+            <select
+              value={recipientGroupId}
+              onChange={(e) => setRecipientGroupId(e.target.value)}
+              style={styles.select}
+            >
+              <option value="">Select Group</option>
+              {emailGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              placeholder="Recipient Name"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              style={styles.input}
+            />
+
+            <input
+              placeholder="Recipient Email"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              style={styles.input}
+            />
+
+            <button onClick={addRecipient} style={styles.button}>
+              Add Recipient
+            </button>
+
+            <div style={styles.listWrap}>
+              {emailGroups.map((group) => (
+                <div key={group.id} style={styles.emailGroupBlock}>
+                  <div style={styles.emailGroupHeader}>
+                    <strong>{group.name}</strong>
+                    <button
+                      onClick={() => deleteEmailGroup(group.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete Group
+                    </button>
+                  </div>
+
+                  {(group.email_group_recipients || []).length ? (
+                    group.email_group_recipients.map((recipient) => (
+                      <div key={recipient.id} style={styles.listItem}>
+                        <div>
+                          {recipient.name || 'No Name'} — {recipient.email}
+                        </div>
+                        <div style={styles.itemButtonRow}>
+                          <button
+                            onClick={() => deleteRecipient(recipient.id)}
+                            style={styles.smallDangerButton}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.smallText}>No recipients yet.</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1019,7 +1435,9 @@ export default function App() {
                 <input
                   type="date"
                   value={scheduleForm.from_date}
-                  onChange={(e) => updateScheduleForm('from_date', e.target.value)}
+                  onChange={(e) =>
+                    updateScheduleForm('from_date', e.target.value)
+                  }
                   style={styles.input}
                 />
               </div>
@@ -1054,7 +1472,9 @@ export default function App() {
                 <label style={styles.label}>Project Manager (optional)</label>
                 <select
                   value={scheduleForm.project_manager_id}
-                  onChange={(e) => updateScheduleForm('project_manager_id', e.target.value)}
+                  onChange={(e) =>
+                    updateScheduleForm('project_manager_id', e.target.value)
+                  }
                   style={styles.select}
                 >
                   <option value="">None</option>
@@ -1070,7 +1490,9 @@ export default function App() {
                 <label style={styles.label}>Superintendent (optional)</label>
                 <select
                   value={scheduleForm.superintendent_id}
-                  onChange={(e) => updateScheduleForm('superintendent_id', e.target.value)}
+                  onChange={(e) =>
+                    updateScheduleForm('superintendent_id', e.target.value)
+                  }
                   style={styles.select}
                 >
                   <option value="">None</option>
@@ -1086,7 +1508,9 @@ export default function App() {
                 <label style={styles.label}>Surveyor (optional)</label>
                 <select
                   value={scheduleForm.surveyor_id}
-                  onChange={(e) => updateScheduleForm('surveyor_id', e.target.value)}
+                  onChange={(e) =>
+                    updateScheduleForm('surveyor_id', e.target.value)
+                  }
                   style={styles.select}
                 >
                   <option value="">None</option>
@@ -1136,7 +1560,11 @@ export default function App() {
                     <select
                       value={assignment.foreman_id}
                       onChange={(e) =>
-                        updateForemanAssignment(assignment.localId, 'foreman_id', e.target.value)
+                        updateForemanAssignment(
+                          assignment.localId,
+                          'foreman_id',
+                          e.target.value
+                        )
                       }
                       style={styles.select}
                     >
@@ -1155,7 +1583,11 @@ export default function App() {
                       type="date"
                       value={assignment.assignment_from_date}
                       onChange={(e) =>
-                        updateForemanAssignment(assignment.localId, 'assignment_from_date', e.target.value)
+                        updateForemanAssignment(
+                          assignment.localId,
+                          'assignment_from_date',
+                          e.target.value
+                        )
                       }
                       style={styles.input}
                     />
@@ -1167,7 +1599,11 @@ export default function App() {
                       type="date"
                       value={assignment.assignment_to_date}
                       onChange={(e) =>
-                        updateForemanAssignment(assignment.localId, 'assignment_to_date', e.target.value)
+                        updateForemanAssignment(
+                          assignment.localId,
+                          'assignment_to_date',
+                          e.target.value
+                        )
                       }
                       style={styles.input}
                     />
@@ -1179,7 +1615,11 @@ export default function App() {
                       type="text"
                       value={assignment.split_note}
                       onChange={(e) =>
-                        updateForemanAssignment(assignment.localId, 'split_note', e.target.value)
+                        updateForemanAssignment(
+                          assignment.localId,
+                          'split_note',
+                          e.target.value
+                        )
                       }
                       style={styles.input}
                       placeholder="Half week here, then another job..."
@@ -1192,7 +1632,11 @@ export default function App() {
                   <textarea
                     value={assignment.work_description}
                     onChange={(e) =>
-                      updateForemanAssignment(assignment.localId, 'work_description', e.target.value)
+                      updateForemanAssignment(
+                        assignment.localId,
+                        'work_description',
+                        e.target.value
+                      )
                     }
                     style={styles.textarea}
                     placeholder="What is this foreman doing on this job?"
@@ -1200,10 +1644,152 @@ export default function App() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <h2 style={styles.sectionTitle}>Surveyor Assignment</h2>
+              <button onClick={addSurveyorAssignmentRow} style={styles.button}>
+                Add Surveyor Row
+              </button>
+            </div>
+
+            {surveyorAssignments.map((assignment, index) => (
+              <div key={assignment.localId} style={styles.assignmentCard}>
+                <div style={styles.assignmentTopRow}>
+                  <strong>Surveyor Assignment {index + 1}</strong>
+                  <button
+                    onClick={() => removeSurveyorAssignmentRow(assignment.localId)}
+                    style={styles.buttonDanger}
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div style={styles.formGrid}>
+                  <div>
+                    <label style={styles.label}>Surveyor</label>
+                    <select
+                      value={assignment.surveyor_id}
+                      onChange={(e) =>
+                        updateSurveyorAssignment(
+                          assignment.localId,
+                          'surveyor_id',
+                          e.target.value
+                        )
+                      }
+                      style={styles.select}
+                    >
+                      <option value="">Select Surveyor</option>
+                      {surveyors.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={styles.dayCheckboxRow}>
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.monday}
+                      onChange={(e) =>
+                        updateSurveyorAssignment(
+                          assignment.localId,
+                          'monday',
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Monday
+                  </label>
+
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.tuesday}
+                      onChange={(e) =>
+                        updateSurveyorAssignment(
+                          assignment.localId,
+                          'tuesday',
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Tuesday
+                  </label>
+
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.wednesday}
+                      onChange={(e) =>
+                        updateSurveyorAssignment(
+                          assignment.localId,
+                          'wednesday',
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Wednesday
+                  </label>
+
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.thursday}
+                      onChange={(e) =>
+                        updateSurveyorAssignment(
+                          assignment.localId,
+                          'thursday',
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Thursday
+                  </label>
+
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.friday}
+                      onChange={(e) =>
+                        updateSurveyorAssignment(
+                          assignment.localId,
+                          'friday',
+                          e.target.checked
+                        )
+                      }
+                    />
+                    Friday
+                  </label>
+                </div>
+
+                <div style={{ marginTop: '14px' }}>
+                  <label style={styles.label}>Surveyor Note</label>
+                  <textarea
+                    value={assignment.note}
+                    onChange={(e) =>
+                      updateSurveyorAssignment(
+                        assignment.localId,
+                        'note',
+                        e.target.value
+                      )
+                    }
+                    style={styles.textarea}
+                    placeholder="What does the surveyor need to do?"
+                  />
+                </div>
+              </div>
+            ))}
 
             <div style={styles.bottomButtons}>
               <button onClick={saveScheduleItem} style={styles.button}>
-                {editingScheduleItemId ? 'Update Schedule Item' : 'Save Schedule Item'}
+                {editingScheduleItemId
+                  ? 'Update Schedule Item'
+                  : 'Save Schedule Item'}
               </button>
               <button onClick={resetScheduleForm} style={styles.buttonSecondary}>
                 Clear Form
@@ -1232,30 +1818,45 @@ export default function App() {
                     <div style={styles.scheduleHeader}>
                       <div>
                         <div style={styles.scheduleJobTitle}>
-                          {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                          {item.jobs?.job_number || '—'} —{' '}
+                          {item.jobs?.job_name || 'No Job Name'}
                         </div>
                         <div style={styles.scheduleDates}>
                           {formatDate(item.from_date)} to {formatDate(item.to_date)}
                         </div>
                         <div style={styles.smallText}>
-                          Job Start: {formatDate(item.jobs?.start_date)} | Job Stop: {formatDate(item.jobs?.stop_date)}
+                          Job Start: {formatDate(item.jobs?.start_date)} | Job Stop:{' '}
+                          {formatDate(item.jobs?.stop_date)}
                         </div>
                       </div>
 
                       <div style={styles.itemButtonRow}>
-                        <button onClick={() => editScheduleItem(item)} style={styles.smallButton}>
+                        <button
+                          onClick={() => editScheduleItem(item)}
+                          style={styles.smallButton}
+                        >
                           Edit
                         </button>
-                        <button onClick={() => deleteScheduleItem(item.id)} style={styles.smallDangerButton}>
+                        <button
+                          onClick={() => deleteScheduleItem(item.id)}
+                          style={styles.smallDangerButton}
+                        >
                           Delete
                         </button>
                       </div>
                     </div>
 
                     <div style={styles.metaGrid}>
-                      <div><strong>PM:</strong> {item.project_managers?.name || '—'}</div>
-                      <div><strong>Superintendent:</strong> {item.superintendents?.name || '—'}</div>
-                      <div><strong>Surveyor:</strong> {item.surveyors?.name || '—'}</div>
+                      <div>
+                        <strong>PM:</strong> {item.project_managers?.name || '—'}
+                      </div>
+                      <div>
+                        <strong>Superintendent:</strong>{' '}
+                        {item.superintendents?.name || '—'}
+                      </div>
+                      <div>
+                        <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
+                      </div>
                     </div>
 
                     {item.notes && (
@@ -1272,21 +1873,54 @@ export default function App() {
                       <div style={{ marginTop: '10px' }}>
                         {item.schedule_item_foremen.map((assignment) => (
                           <div key={assignment.id} style={styles.foremanViewCard}>
-                            <div><strong>Foreman:</strong> {assignment.foremen?.name || '—'}</div>
                             <div>
-                              <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                              <strong>Foreman:</strong>{' '}
+                              {assignment.foremen?.name || '—'}
                             </div>
                             <div>
-                              <strong>Work:</strong> {assignment.work_description || '—'}
+                              <strong>Dates:</strong>{' '}
+                              {formatDate(assignment.assignment_from_date)} to{' '}
+                              {formatDate(assignment.assignment_to_date)}
                             </div>
                             <div>
-                              <strong>Split Note:</strong> {assignment.split_note || '—'}
+                              <strong>Work:</strong>{' '}
+                              {assignment.work_description || '—'}
+                            </div>
+                            <div>
+                              <strong>Split Note:</strong>{' '}
+                              {assignment.split_note || '—'}
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
                       <p style={styles.text}>No foremen assigned yet.</p>
+                    )}
+
+                    <div style={{ marginTop: '14px' }}>
+                      <strong>Surveyor Assignments</strong>
+                    </div>
+
+                    {item.schedule_item_surveyors?.length ? (
+                      <div style={{ marginTop: '10px' }}>
+                        {item.schedule_item_surveyors.map((assignment) => (
+                          <div key={assignment.id} style={styles.foremanViewCard}>
+                            <div>
+                              <strong>Surveyor:</strong>{' '}
+                              {assignment.surveyors?.name || '—'}
+                            </div>
+                            <div>
+                              <strong>Days:</strong>{' '}
+                              {formatSurveyorDays(assignment)}
+                            </div>
+                            <div>
+                              <strong>Note:</strong> {assignment.note || '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={styles.text}>No surveyor assignments yet.</p>
                     )}
                   </div>
                 ))}
@@ -1305,17 +1939,33 @@ export default function App() {
                 <button onClick={() => window.print()} style={styles.button}>
                   Print / Save PDF
                 </button>
-                <button onClick={() => emailSchedule(GREG_AND_CHRISTIAN)} style={styles.buttonSecondary}>
-                  Email Greg + Christian
-                </button>
-                <button onClick={() => emailSchedule(ALL_RECIPIENTS)} style={styles.buttonSecondary}>
-                  Email All
+
+                <select
+                  value={selectedEmailGroupId}
+                  onChange={(e) => setSelectedEmailGroupId(e.target.value)}
+                  style={styles.jobPrefixSelect}
+                >
+                  <option value="">Select Email Group</option>
+                  {emailGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => emailSchedule(selectedEmailGroup)}
+                  style={styles.buttonSecondary}
+                >
+                  Email Selected Group
                 </button>
               </div>
             </div>
 
             <div style={styles.emailNoteBox} className="no-print">
-              <strong>How this works right now:</strong> click <em>Print / Save PDF</em> first, save the PDF, then click one of the email buttons to open your email app and attach the PDF.
+              <strong>How this works right now:</strong> click{' '}
+              <em>Print / Save PDF</em> first, save the PDF, then click the email
+              button to open your email app and attach the PDF.
             </div>
 
             <div style={styles.printHeader}>
@@ -1332,23 +1982,28 @@ export default function App() {
                 {scheduleItems.map((item) => (
                   <div key={item.id} style={styles.printCard}>
                     <div style={styles.printJobTitle}>
-                      {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                      {item.jobs?.job_number || '—'} —{' '}
+                      {item.jobs?.job_name || 'No Job Name'}
                     </div>
 
                     <div style={styles.printLine}>
-                      <strong>Dates:</strong> {formatDate(item.from_date)} to {formatDate(item.to_date)}
+                      <strong>Dates:</strong> {formatDate(item.from_date)} to{' '}
+                      {formatDate(item.to_date)}
                     </div>
                     <div style={styles.printLine}>
-                      <strong>Job Start:</strong> {formatDate(item.jobs?.start_date)}
+                      <strong>Job Start:</strong>{' '}
+                      {formatDate(item.jobs?.start_date)}
                     </div>
                     <div style={styles.printLine}>
                       <strong>Job Stop:</strong> {formatDate(item.jobs?.stop_date)}
                     </div>
                     <div style={styles.printLine}>
-                      <strong>Project Manager:</strong> {item.project_managers?.name || '—'}
+                      <strong>Project Manager:</strong>{' '}
+                      {item.project_managers?.name || '—'}
                     </div>
                     <div style={styles.printLine}>
-                      <strong>Superintendent:</strong> {item.superintendents?.name || '—'}
+                      <strong>Superintendent:</strong>{' '}
+                      {item.superintendents?.name || '—'}
                     </div>
                     <div style={styles.printLine}>
                       <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
@@ -1366,21 +2021,47 @@ export default function App() {
                       item.schedule_item_foremen.map((assignment) => (
                         <div key={assignment.id} style={styles.printForemanCard}>
                           <div style={styles.printLine}>
-                            <strong>Foreman:</strong> {assignment.foremen?.name || '—'}
+                            <strong>Foreman:</strong>{' '}
+                            {assignment.foremen?.name || '—'}
                           </div>
                           <div style={styles.printLine}>
-                            <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                            <strong>Dates:</strong>{' '}
+                            {formatDate(assignment.assignment_from_date)} to{' '}
+                            {formatDate(assignment.assignment_to_date)}
                           </div>
                           <div style={styles.printLine}>
-                            <strong>Work:</strong> {assignment.work_description || '—'}
+                            <strong>Work:</strong>{' '}
+                            {assignment.work_description || '—'}
                           </div>
                           <div style={styles.printLine}>
-                            <strong>Split Note:</strong> {assignment.split_note || '—'}
+                            <strong>Split Note:</strong>{' '}
+                            {assignment.split_note || '—'}
                           </div>
                         </div>
                       ))
                     ) : (
                       <div style={styles.printLine}>No foremen assigned yet.</div>
+                    )}
+
+                    <div style={styles.printForemanTitle}>Surveyor Assignments</div>
+
+                    {item.schedule_item_surveyors?.length ? (
+                      item.schedule_item_surveyors.map((assignment) => (
+                        <div key={assignment.id} style={styles.printForemanCard}>
+                          <div style={styles.printLine}>
+                            <strong>Surveyor:</strong>{' '}
+                            {assignment.surveyors?.name || '—'}
+                          </div>
+                          <div style={styles.printLine}>
+                            <strong>Days:</strong> {formatSurveyorDays(assignment)}
+                          </div>
+                          <div style={styles.printLine}>
+                            <strong>Note:</strong> {assignment.note || '—'}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.printLine}>No surveyor assignments yet.</div>
                     )}
                   </div>
                 ))}
@@ -1412,13 +2093,21 @@ function extractJobNumberValue(jobNumber) {
 
 function formatDate(value) {
   if (!value) return '—'
-
   const date = new Date(`${value}T00:00:00`)
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const dd = String(date.getDate()).padStart(2, '0')
   const yy = String(date.getFullYear()).slice(-2)
-
   return `${mm}/${dd}/${yy}`
+}
+
+function formatSurveyorDays(assignment) {
+  const days = []
+  if (assignment.monday) days.push('Mon')
+  if (assignment.tuesday) days.push('Tue')
+  if (assignment.wednesday) days.push('Wed')
+  if (assignment.thursday) days.push('Thu')
+  if (assignment.friday) days.push('Fri')
+  return days.length ? days.join(', ') : '—'
 }
 
 const styles = {
@@ -1500,13 +2189,6 @@ const styles = {
     background: '#ffffff',
     pageBreakInside: 'avoid',
   },
-  printForemanCard: {
-    border: '1px solid #e5e7eb',
-    borderRadius: '10px',
-    padding: '12px',
-    marginTop: '10px',
-    background: '#f9fafb',
-  },
   topBar: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -1564,16 +2246,6 @@ const styles = {
     gap: '12px',
     flexWrap: 'wrap',
   },
-  scheduleJobTitle: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  scheduleDates: {
-    marginTop: '4px',
-    color: '#4b5563',
-    fontSize: '14px',
-  },
   notesBox: {
     marginTop: '12px',
     background: '#ffffff',
@@ -1589,6 +2261,19 @@ const styles = {
     padding: '12px',
     fontSize: '14px',
     color: '#374151',
+  },
+  emailGroupBlock: {
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '10px',
+    marginBottom: '12px',
+  },
+  emailGroupHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '8px',
   },
   printHeader: {
     borderBottom: '2px solid #111827',
@@ -1641,7 +2326,7 @@ const styles = {
     marginBottom: '10px',
   },
   jobPrefixSelect: {
-    width: '120px',
+    width: '160px',
     padding: '10px',
     borderRadius: '8px',
     border: '1px solid #ccc',
@@ -1685,6 +2370,16 @@ const styles = {
     fontSize: '16px',
     color: '#374151',
     margin: 0,
+  },
+  scheduleJobTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  scheduleDates: {
+    marginTop: '4px',
+    color: '#4b5563',
+    fontSize: '14px',
   },
   label: {
     display: 'block',
@@ -1767,7 +2462,7 @@ const styles = {
   },
   listWrap: {
     marginTop: '16px',
-    maxHeight: '260px',
+    maxHeight: '300px',
     overflowY: 'auto',
     borderTop: '1px solid #e5e7eb',
     paddingTop: '12px',
@@ -1780,5 +2475,18 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: '12px',
+  },
+  dayCheckboxRow: {
+    display: 'flex',
+    gap: '14px',
+    flexWrap: 'wrap',
+    marginTop: '8px',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '14px',
+    color: '#374151',
   },
 }
