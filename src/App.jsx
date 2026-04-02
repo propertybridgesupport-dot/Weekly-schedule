@@ -1158,11 +1158,12 @@ export default function App() {
     <div style={styles.page}>
       <style>{`
         @page {
-          margin: 0.35in;
+          size: portrait;
+          margin: 0.22in;
         }
 
         @media print {
-          body {
+          html, body {
             background: #ffffff !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -1176,6 +1177,37 @@ export default function App() {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
+          }
+
+          .print-page-wrap {
+            max-width: 100% !important;
+            margin: 0 !important;
+          }
+
+          .print-paper {
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+
+          .print-report-list {
+            gap: 0 !important;
+          }
+
+          .print-report-card {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            border-bottom: 1px solid #d1d5db !important;
+            padding-top: 0 !important;
+            padding-bottom: 12px !important;
+            margin-bottom: 12px !important;
+          }
+
+          .print-report-card:last-child {
+            border-bottom: none !important;
+            margin-bottom: 0 !important;
           }
         }
       `}</style>
@@ -2071,7 +2103,7 @@ export default function App() {
 
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
-          <div style={styles.printPageWrap}>
+          <div style={styles.printPageWrap} className="print-page-wrap">
             <div style={styles.assignmentHeader} className="no-print">
               <h2 style={styles.sectionTitle}>Print / PDF View</h2>
               <div style={styles.topBarButtons}>
@@ -2116,7 +2148,7 @@ export default function App() {
               button to open your email app and attach the PDF.
             </div>
 
-            <div style={styles.reportPaper}>
+            <div style={styles.reportPaper} className="print-paper">
               <div style={styles.reportHeader}>
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
@@ -2140,9 +2172,9 @@ export default function App() {
 {filteredScheduleItems.length === 0 ? (
                 <p style={styles.text}>No schedule items saved yet.</p>
               ) : (
-                <div style={styles.printReportList}>
+                <div style={styles.printReportList} className="print-report-list">
                   {filteredScheduleItems.map((item) => (
-                    <div key={item.id} style={styles.printReportCard}>
+                    <div key={item.id} style={styles.printReportCard} className="print-report-card">
                       <div style={styles.printCompactJobTitle}>
                         {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
                       </div>
@@ -2316,7 +2348,7 @@ const styles = {
     maxWidth: '1200px',
     margin: '0 auto 20px auto',
     background: '#ffffff',
-    borderRadius: '16px',
+    borderRadius: '10px',
     padding: '24px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
@@ -2324,7 +2356,7 @@ const styles = {
     maxWidth: '900px',
     margin: '0 auto',
     background: '#ffffff',
-    borderRadius: '16px',
+    borderRadius: '10px',
     padding: '24px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
@@ -2332,7 +2364,7 @@ const styles = {
     maxWidth: '500px',
     margin: '60px auto',
     background: '#ffffff',
-    borderRadius: '16px',
+    borderRadius: '10px',
     padding: '24px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
@@ -2355,28 +2387,29 @@ const styles = {
   },
   reportPaper: {
     background: '#ffffff',
-    border: '1px solid #d1d5db',
-    borderRadius: '16px',
-    padding: '28px',
-    boxShadow: '0 10px 24px rgba(0,0,0,0.06)',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '26px 24px 22px',
+    boxShadow: '0 3px 10px rgba(0,0,0,0.04)',
   },
   printReportList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '16px',
+    paddingTop: '8px',
   },
   printReportCard: {
     borderBottom: '1px solid #d1d5db',
-    paddingBottom: '12px',
+    paddingBottom: '14px',
     pageBreakInside: 'avoid',
   },
   printPmLine: {
-    marginTop: '8px',
+    marginTop: '10px',
     fontSize: '14px',
   },
   sectionCard: {
     background: '#ffffff',
-    borderRadius: '16px',
+    borderRadius: '10px',
     padding: '20px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
@@ -2398,11 +2431,11 @@ const styles = {
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
     padding: '12px',
-    marginBottom: '10px',
+    marginBottom: '18px',
     background: '#ffffff',
   },
   printCard: {
-    border: '1px solid #d1d5db',
+    border: '1px solid #e5e7eb',
     borderRadius: '12px',
     padding: '18px',
     marginBottom: '18px',
@@ -2504,7 +2537,7 @@ const styles = {
   printJobTitle: {
     fontSize: '20px',
     fontWeight: 'bold',
-    marginBottom: '10px',
+    marginBottom: '18px',
     color: '#111827',
   },
   printForemanTitle: {
@@ -2534,7 +2567,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    marginBottom: '10px',
+    marginBottom: '18px',
   },
   jobPrefixSelect: {
     width: '160px',
@@ -2611,7 +2644,7 @@ const styles = {
   buttonSecondary: {
     background: '#ffffff',
     color: '#111827',
-    border: '1px solid #d1d5db',
+    border: '1px solid #e5e7eb',
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
@@ -2627,7 +2660,7 @@ const styles = {
   smallButton: {
     background: '#ffffff',
     color: '#111827',
-    border: '1px solid #d1d5db',
+    border: '1px solid #e5e7eb',
     borderRadius: '8px',
     padding: '6px 10px',
     cursor: 'pointer',
@@ -2645,7 +2678,7 @@ const styles = {
   input: {
     display: 'block',
     width: '100%',
-    marginBottom: '10px',
+    marginBottom: '18px',
     padding: '10px',
     borderRadius: '8px',
     border: '1px solid #ccc',
@@ -2654,7 +2687,7 @@ const styles = {
   select: {
     display: 'block',
     width: '100%',
-    marginBottom: '10px',
+    marginBottom: '18px',
     padding: '10px',
     borderRadius: '8px',
     border: '1px solid #ccc',
@@ -2775,7 +2808,7 @@ const styles = {
     color: '#9ca3af',
   },
   printCompactCard: {
-    border: '1px solid #d1d5db',
+    border: '1px solid #e5e7eb',
     borderRadius: '10px',
     padding: '14px',
     marginBottom: '14px',
@@ -2815,18 +2848,20 @@ const styles = {
     lineHeight: 1.35,
   },
   printNotesAccent: {
-  borderLeft: '3px solid #f59e0b', // keep your bar
-  backgroundColor: '#fffdf7',      // MUCH lighter, almost white
-  padding: '4px 8px',
-  marginTop: '4px',
-  marginLeft: '10px',
-  marginRight: '10px',
-  fontSize: '12px',
-  lineHeight: '1.3',
-},
+    borderLeft: '2px solid #f2a531',
+    backgroundColor: '#fffdf8',
+    padding: '4px 8px',
+    marginTop: '4px',
+    marginBottom: '8px',
+    marginLeft: '10px',
+    marginRight: '10px',
+    fontSize: '12px',
+    lineHeight: 1.3,
+    color: '#111827',
+  },
   printNotesBox: {
-    backgroundColor: '#fff8eb',
-    border: '1px solid #f6cd8a',
+    backgroundColor: '#fffdf8',
+    border: '1px solid #f3dfbe',
     borderRadius: '6px',
     padding: '4px 8px',
     marginTop: '4px',
@@ -2879,11 +2914,11 @@ const styles = {
     marginBottom: '4px',
   },
   reportHeader: {
-    marginBottom: '10px',
+    marginBottom: '22px',
   },
   reportHeaderTopBorder: {
     borderTop: '1px solid #9ca3af',
-    marginBottom: '10px',
+    marginBottom: '18px',
   },
   reportHeaderTop: {
     display: 'flex',
