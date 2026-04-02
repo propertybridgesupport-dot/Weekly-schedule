@@ -27,6 +27,15 @@ function emptySurveyorAssignment() {
   }
 }
 
+const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+const WEEKDAY_LABELS = {
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -1057,6 +1066,12 @@ export default function App() {
               Weekly Schedule
             </button>
             <button
+              onClick={() => setActiveTab('grid')}
+              style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
+            >
+              Weekly Grid
+            </button>
+            <button
               onClick={() => setActiveTab('print')}
               style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
             >
@@ -1691,80 +1706,22 @@ export default function App() {
                 </div>
 
                 <div style={styles.dayCheckboxRow}>
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={assignment.monday}
-                      onChange={(e) =>
-                        updateSurveyorAssignment(
-                          assignment.localId,
-                          'monday',
-                          e.target.checked
-                        )
-                      }
-                    />
-                    Monday
-                  </label>
-
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={assignment.tuesday}
-                      onChange={(e) =>
-                        updateSurveyorAssignment(
-                          assignment.localId,
-                          'tuesday',
-                          e.target.checked
-                        )
-                      }
-                    />
-                    Tuesday
-                  </label>
-
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={assignment.wednesday}
-                      onChange={(e) =>
-                        updateSurveyorAssignment(
-                          assignment.localId,
-                          'wednesday',
-                          e.target.checked
-                        )
-                      }
-                    />
-                    Wednesday
-                  </label>
-
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={assignment.thursday}
-                      onChange={(e) =>
-                        updateSurveyorAssignment(
-                          assignment.localId,
-                          'thursday',
-                          e.target.checked
-                        )
-                      }
-                    />
-                    Thursday
-                  </label>
-
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={assignment.friday}
-                      onChange={(e) =>
-                        updateSurveyorAssignment(
-                          assignment.localId,
-                          'friday',
-                          e.target.checked
-                        )
-                      }
-                    />
-                    Friday
-                  </label>
+                  {WEEKDAY_KEYS.map((dayKey) => (
+                    <label key={dayKey} style={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={assignment[dayKey]}
+                        onChange={(e) =>
+                          updateSurveyorAssignment(
+                            assignment.localId,
+                            dayKey,
+                            e.target.checked
+                          )
+                        }
+                      />
+                      {WEEKDAY_LABELS[dayKey]}
+                    </label>
+                  ))}
                 </div>
 
                 <div style={{ marginTop: '14px' }}>
@@ -1930,6 +1887,51 @@ export default function App() {
         </div>
       )}
 
+      {activeTab === 'grid' && (
+        <div style={styles.singleColumnWrap}>
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <h2 style={styles.sectionTitle}>Weekly Grid View</h2>
+              <button onClick={loadAllData} style={styles.buttonSecondary}>
+                Refresh Grid
+              </button>
+            </div>
+
+            {scheduleItems.length === 0 ? (
+              <p style={styles.text}>No schedule items saved yet.</p>
+            ) : (
+              <div style={styles.gridBoard}>
+                <div style={styles.gridHeaderCell}>Job</div>
+                {WEEKDAY_KEYS.map((dayKey) => (
+                  <div key={dayKey} style={styles.gridHeaderCell}>
+                    {WEEKDAY_LABELS[dayKey]}
+                  </div>
+                ))}
+
+                {scheduleItems.map((item) => (
+                  <React.Fragment key={item.id}>
+                    <div style={styles.gridJobCell}>
+                      <div style={styles.gridJobTitle}>
+                        {item.jobs?.job_number || '—'}
+                      </div>
+                      <div style={styles.gridJobSubTitle}>
+                        {item.jobs?.job_name || 'No Job Name'}
+                      </div>
+                    </div>
+
+                    {WEEKDAY_KEYS.map((dayKey) => (
+                      <div key={`${item.id}-${dayKey}`} style={styles.gridDayCell}>
+                        {renderDayContents(item, dayKey)}
+                      </div>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
@@ -2072,6 +2074,49 @@ export default function App() {
       )}
     </div>
   )
+
+  function renderDayContents(item, dayKey) {
+    const surveyorMatches =
+      item.schedule_item_surveyors?.filter((assignment) => assignment[dayKey]) || []
+
+    const foremanMatches =
+      item.schedule_item_foremen?.filter((assignment) =>
+        assignmentCoversDay(assignment, dayKey, item.from_date)
+      ) || []
+
+    const hasAnything = foremanMatches.length || surveyorMatches.length
+
+    if (!hasAnything) {
+      return <div style={styles.gridEmptyText}>—</div>
+    }
+
+    return (
+      <div style={styles.gridChipStack}>
+        {foremanMatches.map((assignment) => (
+          <div key={`f-${assignment.id}`} style={styles.gridForemanChip}>
+            <div style={styles.gridChipTitle}>
+              {assignment.foremen?.name || 'Foreman'}
+            </div>
+            <div style={styles.gridChipText}>
+              {assignment.work_description || 'No work note'}
+            </div>
+            {assignment.split_note ? (
+              <div style={styles.gridChipSubText}>{assignment.split_note}</div>
+            ) : null}
+          </div>
+        ))}
+
+        {surveyorMatches.map((assignment) => (
+          <div key={`s-${assignment.id}`} style={styles.gridSurveyorChip}>
+            <div style={styles.gridChipTitle}>
+              {assignment.surveyors?.name || 'Surveyor'}
+            </div>
+            <div style={styles.gridChipText}>{assignment.note || 'No note'}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 }
 
 function SectionCard({ title, children }) {
@@ -2108,6 +2153,35 @@ function formatSurveyorDays(assignment) {
   if (assignment.thursday) days.push('Thu')
   if (assignment.friday) days.push('Fri')
   return days.length ? days.join(', ') : '—'
+}
+
+function assignmentCoversDay(assignment, dayKey, weekFromDate) {
+  if (!assignment?.assignment_from_date && !assignment?.assignment_to_date) {
+    return true
+  }
+
+  const startOfWeek = new Date(`${weekFromDate}T00:00:00`)
+  const offsets = {
+    monday: 0,
+    tuesday: 1,
+    wednesday: 2,
+    thursday: 3,
+    friday: 4,
+  }
+
+  const dayDate = new Date(startOfWeek)
+  dayDate.setDate(startOfWeek.getDate() + (offsets[dayKey] ?? 0))
+
+  const assignmentFrom = assignment.assignment_from_date
+    ? new Date(`${assignment.assignment_from_date}T00:00:00`)
+    : null
+  const assignmentTo = assignment.assignment_to_date
+    ? new Date(`${assignment.assignment_to_date}T00:00:00`)
+    : null
+
+  if (assignmentFrom && dayDate < assignmentFrom) return false
+  if (assignmentTo && dayDate > assignmentTo) return false
+  return true
 }
 
 const styles = {
@@ -2488,5 +2562,79 @@ const styles = {
     gap: '6px',
     fontSize: '14px',
     color: '#374151',
+  },
+  gridBoard: {
+    display: 'grid',
+    gridTemplateColumns: '260px repeat(5, minmax(180px, 1fr))',
+    gap: '8px',
+    alignItems: 'stretch',
+    overflowX: 'auto',
+  },
+  gridHeaderCell: {
+    background: '#111827',
+    color: '#ffffff',
+    borderRadius: '10px',
+    padding: '12px',
+    fontWeight: 'bold',
+    minHeight: '48px',
+  },
+  gridJobCell: {
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '12px',
+    minHeight: '140px',
+  },
+  gridJobTitle: {
+    fontWeight: 'bold',
+    fontSize: '15px',
+    color: '#111827',
+  },
+  gridJobSubTitle: {
+    marginTop: '6px',
+    fontSize: '13px',
+    color: '#6b7280',
+  },
+  gridDayCell: {
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '10px',
+    minHeight: '140px',
+  },
+  gridChipStack: {
+    display: 'grid',
+    gap: '8px',
+  },
+  gridForemanChip: {
+    background: '#eef2ff',
+    border: '1px solid #c7d2fe',
+    borderRadius: '10px',
+    padding: '8px',
+  },
+  gridSurveyorChip: {
+    background: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    borderRadius: '10px',
+    padding: '8px',
+  },
+  gridChipTitle: {
+    fontWeight: 'bold',
+    fontSize: '12px',
+    color: '#111827',
+    marginBottom: '4px',
+  },
+  gridChipText: {
+    fontSize: '12px',
+    color: '#374151',
+  },
+  gridChipSubText: {
+    fontSize: '11px',
+    color: '#6b7280',
+    marginTop: '4px',
+  },
+  gridEmptyText: {
+    fontSize: '13px',
+    color: '#9ca3af',
   },
 }
