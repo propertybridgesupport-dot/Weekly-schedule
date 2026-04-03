@@ -289,7 +289,7 @@ const [printLayout, setPrintLayout] = useState('report')
     }, 180)
 
     return () => clearTimeout(timer)
-  }, [activeTab, restoreWeeklyPosition, weekScheduleItems, returnToItemId, returnToScrollY])
+  }, [activeTab, restoreWeeklyPosition, scheduleItems, selectedWeekFrom, selectedWeekTo, returnToItemId, returnToScrollY])
 
   function applyWeekFromAnyDate(value) {
     if (!value) return
@@ -2153,7 +2153,7 @@ async function copyContactList() {
               Schedule Entry
             </button>
             <button className="nav-button" onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
-              {loading ? 'Refreshing...' : 'Reload Data'}
+              {loading ? 'Reloading...' : '{loading ? 'Refreshing...' : 'Reload Data'}'}
             </button>
             <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
               Sign Out
