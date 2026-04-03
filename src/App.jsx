@@ -263,7 +263,6 @@ const [printLayout, setPrintLayout] = useState('report')
     }
   }, [isViewerMode, viewerWeekFromParam, viewerWeekToParam])
 
-
   function applyWeekFromAnyDate(value) {
     if (!value) return
     const nextRange = getMondaySundayRange(new Date(`${value}T00:00:00`))
@@ -310,7 +309,6 @@ const [printLayout, setPrintLayout] = useState('report')
   const gridScheduleItems = weekScheduleItems
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
-
 
   async function addContact() {
     const name = newContactName.trim()
@@ -416,7 +414,6 @@ const [printLayout, setPrintLayout] = useState('report')
   }
 
   function createMobileShareUrl() {
- {
     if (typeof window === 'undefined') return ''
     if (!selectedWeekFrom || !selectedWeekTo) return ''
     const base = `${window.location.origin}${window.location.pathname}`
@@ -488,8 +485,7 @@ async function copyContactList() {
         if (contact.email) parts.push(contact.email)
         return parts.join(' — ')
       })
-      .join('
-')
+      .join('\n')
     try {
       await navigator.clipboard.writeText(contactList)
       alert('Contact list copied.')
@@ -1360,7 +1356,6 @@ async function copyContactList() {
     setActiveTab('weekly')
   }
 
-
   async function duplicateCurrentWeek() {
     if (!selectedWeekFrom || !selectedWeekTo) {
       alert('Choose a week first.')
@@ -1523,7 +1518,6 @@ async function copyContactList() {
       </div>
     )
   }
-
 
   function buildSmsMessageText() {
     return `${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)} ${createMobileShareUrl()}`
@@ -1703,7 +1697,6 @@ async function copyContactList() {
       </div>
     )
   }
-
 
   if (isMobileShareMode && mobileShareSnapshot) {
     return (
