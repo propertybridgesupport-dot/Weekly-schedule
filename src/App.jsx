@@ -311,24 +311,10 @@ const [printLayout, setPrintLayout] = useState('report')
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
-  function resetContactForm() {
-    setNewContactName('')
-    setNewContactPhone('')
-    setNewContactEmail('')
-    setEditingContactId(null)
-  }
-
-  function editContact(contact) {
-    setNewContactName(contact.name || '')
-    setNewContactPhone(contact.phone || '')
-    setNewContactEmail(contact.email || '')
-    setEditingContactId(contact.id)
-  }
-
-  async function saveContact() {
+  async function addContact() {
     const name = newContactName.trim()
     const phone = newContactPhone.trim()
-    const email = newContactEmail.trim().toLowerCase()
+    const email = newContactEmail.trim()
 
     if (!name) {
       alert('Enter a contact name.')
@@ -349,7 +335,6 @@ const [printLayout, setPrintLayout] = useState('report')
           name,
           phone: phone || null,
           email: email || null,
-          active: true,
         })
         .eq('id', editingContactId)
       error = result.error
@@ -368,8 +353,25 @@ const [printLayout, setPrintLayout] = useState('report')
       return
     }
 
-    resetContactForm()
+    setNewContactName('')
+    setNewContactPhone('')
+    setNewContactEmail('')
+    setEditingContactId(null)
     await loadAllData()
+  }
+
+  function editContact(contact) {
+    setEditingContactId(contact.id)
+    setNewContactName(contact.name || '')
+    setNewContactPhone(contact.phone || '')
+    setNewContactEmail(contact.email || '')
+  }
+
+  function cancelEditContact() {
+    setEditingContactId(null)
+    setNewContactName('')
+    setNewContactPhone('')
+    setNewContactEmail('')
   }
 
   async function deleteContact(contactId) {
@@ -381,7 +383,9 @@ const [printLayout, setPrintLayout] = useState('report')
       alert(error.message)
       return
     }
-    if (editingContactId === contactId) resetContactForm()
+    if (editingContactId === contactId) {
+      cancelEditContact()
+    }
     await loadAllData()
   }
 
@@ -416,6 +420,20 @@ const [printLayout, setPrintLayout] = useState('report')
     await loadAllData()
   }
 
+  async function renameContactGroup(group) {
+    const nextName = window.prompt('Edit text group name', group.name || '')
+    if (!nextName || nextName.trim() === group.name) return
+    const { error } = await supabase
+      .from('contact_groups')
+      .update({ name: nextName.trim() })
+      .eq('id', group.id)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    await loadAllData()
+  }
+
   async function toggleContactInGroup(groupId, contactId) {
     const group = contactGroups.find((g) => g.id === groupId)
     const exists = (group?.contact_group_memberships || []).some((m) => m.contact_id === contactId)
@@ -443,37 +461,23 @@ const [printLayout, setPrintLayout] = useState('report')
     await loadAllData()
   }
 
-  async function renameTextGroup(group) {
-    const nextName = window.prompt('Edit text group name', group.name || '')
-    if (!nextName || !nextName.trim()) return
-
-    const { error } = await supabase
-      .from('contact_groups')
-      .update({ name: nextName.trim() })
-      .eq('id', group.id)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    await loadAllData()
+  function contactIsInEmailGroup(group, contact) {
+    return (group.email_group_recipients || []).some(
+      (recipient) => (recipient.email || '').toLowerCase() === (contact.email || '').toLowerCase()
+    )
   }
 
   async function renameEmailGroup(group) {
     const nextName = window.prompt('Edit email group name', group.name || '')
-    if (!nextName || !nextName.trim()) return
-
+    if (!nextName || nextName.trim() === group.name) return
     const { error } = await supabase
       .from('email_groups')
       .update({ name: nextName.trim() })
       .eq('id', group.id)
-
     if (error) {
       alert(error.message)
       return
     }
-
     await loadAllData()
   }
 
@@ -490,7 +494,6 @@ const [printLayout, setPrintLayout] = useState('report')
         .from('email_group_recipients')
         .delete()
         .eq('id', existing.id)
-
       if (error) {
         alert(error.message)
         return
@@ -501,10 +504,9 @@ const [printLayout, setPrintLayout] = useState('report')
         .insert({
           email_group_id: groupId,
           name: contact.name || null,
-          email: (contact.email || '').toLowerCase(),
+          email: contact.email,
           active: true,
         })
-
       if (error) {
         alert(error.message)
         return
@@ -2321,9 +2323,10 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
+
           <SectionCard title="Contacts">
             <div style={styles.smallText}>
-              Add each person once here. Text Groups and Email Groups will both pull from this master contact list.
+              Add each person once here. Text and email groups both pull from this master contact list.
             </div>
 
             <div style={styles.formGrid}>
@@ -2348,11 +2351,11 @@ async function copyContactList() {
             </div>
 
             <div style={styles.formButtonRow}>
-              <button onClick={saveContact} style={styles.button}>
+              <button onClick={addContact} style={styles.button}>
                 {editingContactId ? 'Update Contact' : 'Add Contact'}
               </button>
               {editingContactId ? (
-                <button onClick={resetContactForm} style={styles.buttonSecondary}>
+                <button onClick={cancelEditContact} style={styles.buttonSecondary}>
                   Cancel Edit
                 </button>
               ) : null}
@@ -2370,18 +2373,18 @@ async function copyContactList() {
                     <div>
                       <strong>{contact.name}</strong>
                       <div style={styles.smallText}>
-                        {contact.phone || 'No phone'} {contact.email ? `| ${contact.email}` : '| No email'}
+                        {contact.phone || 'No phone'}{contact.email ? ` | ${contact.email}` : ''}
                       </div>
                     </div>
                     <div style={styles.itemButtonRow}>
-                      <button onClick={() => editContact(contact)} style={styles.smallButton}>
-                        Edit
-                      </button>
                       {contact.phone ? (
                         <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
                           Text
                         </button>
                       ) : null}
+                      <button onClick={() => editContact(contact)} style={styles.smallButton}>
+                        Edit
+                      </button>
                       <button onClick={() => deleteContact(contact.id)} style={styles.smallDangerButton}>
                         Delete
                       </button>
@@ -2394,7 +2397,7 @@ async function copyContactList() {
 
           <SectionCard title="Text Groups">
             <div style={styles.smallText}>
-              Create texting groups and check the contacts you want inside each one.
+              Create texting groups and check the contacts you want included. Only contacts with phone numbers are shown here.
             </div>
 
             <div style={styles.formGrid}>
@@ -2404,11 +2407,15 @@ async function copyContactList() {
                 onChange={(e) => setNewContactGroupName(e.target.value)}
                 style={styles.input}
               />
-              <div style={styles.formButtonRow}>
-                <button onClick={addContactGroup} style={styles.button}>
-                  Add Text Group
-                </button>
-              </div>
+            </div>
+
+            <div style={styles.formButtonRow}>
+              <button onClick={addContactGroup} style={styles.button}>
+                Add Text Group
+              </button>
+              <button onClick={sendMobileTextToAll} style={styles.buttonSecondary}>
+                Text All Contacts
+              </button>
             </div>
 
             <div style={styles.listWrap}>
@@ -2420,11 +2427,11 @@ async function copyContactList() {
                     <div style={styles.emailGroupHeader}>
                       <strong>{group.name}</strong>
                       <div style={styles.itemButtonRow}>
-                        <button onClick={() => renameTextGroup(group)} style={styles.smallButton}>
-                          Edit
-                        </button>
                         <button onClick={() => sendTextToGroup(group.id)} style={styles.smallButton}>
                           Text Group
+                        </button>
+                        <button onClick={() => renameContactGroup(group)} style={styles.smallButton}>
+                          Edit
                         </button>
                         <button onClick={() => deleteContactGroup(group.id)} style={styles.smallDangerButton}>
                           Delete
@@ -2432,7 +2439,7 @@ async function copyContactList() {
                       </div>
                     </div>
 
-                    {contacts.filter((contact) => contact.phone).length === 0 ? (
+                    {(contacts.filter((contact) => contact.phone)).length === 0 ? (
                       <div style={styles.smallText}>No contacts with phone numbers yet.</div>
                     ) : (
                       contacts
@@ -2450,6 +2457,7 @@ async function copyContactList() {
                               />
                               <span>
                                 {contact.name} — {contact.phone}
+                                {contact.email ? ` — ${contact.email}` : ''}
                               </span>
                             </label>
                           )
@@ -2463,16 +2471,17 @@ async function copyContactList() {
 
           <SectionCard title="Email Groups">
             <div style={styles.smallText}>
-              Create email groups and check the contacts you want inside each one.
+              Create email groups and select contacts with email addresses from the master contact list.
             </div>
 
-            <label style={styles.label}>New Email Group</label>
-            <input
-              placeholder="Group Name"
-              value={newEmailGroupName}
-              onChange={(e) => setNewEmailGroupName(e.target.value)}
-              style={styles.input}
-            />
+            <div style={styles.formGrid}>
+              <input
+                placeholder="New email group name"
+                value={newEmailGroupName}
+                onChange={(e) => setNewEmailGroupName(e.target.value)}
+                style={styles.input}
+              />
+            </div>
 
             <div style={styles.formButtonRow}>
               <button onClick={addEmailGroup} style={styles.button}>
@@ -2489,11 +2498,11 @@ async function copyContactList() {
                     <div style={styles.emailGroupHeader}>
                       <strong>{group.name}</strong>
                       <div style={styles.itemButtonRow}>
-                        <button onClick={() => renameEmailGroup(group)} style={styles.smallButton}>
-                          Edit
-                        </button>
                         <button onClick={() => emailSchedule(group)} style={styles.smallButton}>
                           Email Group
+                        </button>
+                        <button onClick={() => renameEmailGroup(group)} style={styles.smallButton}>
+                          Edit
                         </button>
                         <button onClick={() => deleteEmailGroup(group.id)} style={styles.smallDangerButton}>
                           Delete
@@ -2501,15 +2510,13 @@ async function copyContactList() {
                       </div>
                     </div>
 
-                    {contacts.filter((contact) => contact.email).length === 0 ? (
+                    {(contacts.filter((contact) => contact.email)).length === 0 ? (
                       <div style={styles.smallText}>No contacts with email addresses yet.</div>
                     ) : (
                       contacts
                         .filter((contact) => contact.email)
                         .map((contact) => {
-                          const checked = (group.email_group_recipients || []).some(
-                            (recipient) => (recipient.email || '').toLowerCase() === (contact.email || '').toLowerCase()
-                          )
+                          const checked = contactIsInEmailGroup(group, contact)
                           return (
                             <label key={`${group.id}-${contact.id}`} style={styles.contactCheckboxRow}>
                               <input
@@ -2519,6 +2526,7 @@ async function copyContactList() {
                               />
                               <span>
                                 {contact.name} — {contact.email}
+                                {contact.phone ? ` — ${contact.phone}` : ''}
                               </span>
                             </label>
                           )
@@ -2528,7 +2536,7 @@ async function copyContactList() {
                 ))
               )}
             </div>
-          </SectionCard></SectionCard>
+          </SectionCard>
         </div>
       )}
 
