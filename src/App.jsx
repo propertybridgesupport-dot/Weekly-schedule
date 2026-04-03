@@ -271,8 +271,8 @@ const [printLayout, setPrintLayout] = useState('report')
 
   useEffect(() => {
     if (!banner) return
-    const timer = window.setTimeout(() => setBanner(null), banner.type === 'success' ? 2600 : 4200)
-    return () => window.clearTimeout(timer)
+    const timer = setTimeout(() => setBanner(null), banner.type === 'success' ? 2600 : 4200)
+    return () => clearTimeout(timer)
   }, [banner])
 
   useEffect(() => {
@@ -288,7 +288,7 @@ const [printLayout, setPrintLayout] = useState('report')
       setRestoreWeeklyPosition(false)
     }, 180)
 
-    return () => window.clearTimeout(timer)
+    return () => clearTimeout(timer)
   }, [activeTab, restoreWeeklyPosition, weekScheduleItems, returnToItemId, returnToScrollY])
 
   function applyWeekFromAnyDate(value) {
@@ -426,7 +426,10 @@ const [printLayout, setPrintLayout] = useState('report')
   async function deleteContact(contactId) {
     setActionLoading('deleteContact')
     const confirmed = window.confirm('Delete this contact?')
-    if (!confirmed) return
+    if (!confirmed) {
+      setActionLoading('')
+      return
+    }
 
     const { error } = await supabase.from('contacts').delete().eq('id', contactId)
     if (error) {
@@ -468,7 +471,10 @@ const [printLayout, setPrintLayout] = useState('report')
   async function deleteContactGroup(groupId) {
     setActionLoading('deleteTextGroup')
     const confirmed = window.confirm('Delete this contact group?')
-    if (!confirmed) return
+    if (!confirmed) {
+      setActionLoading('')
+      return
+    }
     const { error } = await supabase.from('contact_groups').delete().eq('id', groupId)
     if (error) {
       showError(error.message)
@@ -1224,7 +1230,10 @@ async function copyContactList() {
   async function deleteEmailGroup(id) {
     setActionLoading('deleteEmailGroup')
     const confirmed = window.confirm('Delete this email group?')
-    if (!confirmed) return
+    if (!confirmed) {
+      setActionLoading('')
+      return
+    }
 
     const { error } = await supabase.from('email_groups').delete().eq('id', id)
 
@@ -1580,7 +1589,10 @@ async function copyContactList() {
       const proceed = window.confirm(
         'There are already schedule items in next week. Duplicating will add more items to that week. Continue?'
       )
-      if (!proceed) return
+      if (!proceed) {
+        setActionLoading('')
+        return
+      }
     }
 
     setLoading(true)
@@ -2141,7 +2153,7 @@ async function copyContactList() {
               Schedule Entry
             </button>
             <button className="nav-button" onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
-              {loading ? 'Reloading...' : 'Reload Data'}
+              {loading ? 'Reloading...' : '{loading ? 'Refreshing...' : 'Reload Data'}'}
             </button>
             <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
               Sign Out
