@@ -2153,7 +2153,7 @@ async function copyContactList() {
               Schedule Entry
             </button>
             <button className="nav-button" onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
-              {loading ? 'Reloading...' : '{loading ? 'Refreshing...' : 'Reload Data'}'}
+              {loading ? 'Refreshing...' : 'Reload Data'}
             </button>
             <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
               Sign Out
