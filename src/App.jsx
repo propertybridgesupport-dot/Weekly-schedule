@@ -165,6 +165,11 @@ export default function App() {
   const [newContactGroupName, setNewContactGroupName] = useState('')
   const [selectedContactGroupId, setSelectedContactGroupId] = useState('')
   const [editingContactId, setEditingContactId] = useState(null)
+  const [banner, setBanner] = useState(null)
+  const [actionLoading, setActionLoading] = useState('')
+  const [returnToScrollY, setReturnToScrollY] = useState(null)
+  const [returnToItemId, setReturnToItemId] = useState('')
+  const [restoreWeeklyPosition, setRestoreWeeklyPosition] = useState(false)
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -264,6 +269,28 @@ const [printLayout, setPrintLayout] = useState('report')
     }
   }, [isViewerMode, viewerWeekFromParam, viewerWeekToParam])
 
+  useEffect(() => {
+    if (!banner) return
+    const timer = window.setTimeout(() => setBanner(null), banner.type === 'success' ? 2600 : 4200)
+    return () => window.clearTimeout(timer)
+  }, [banner])
+
+  useEffect(() => {
+    if (activeTab !== 'weekly' || !restoreWeeklyPosition) return
+    const timer = window.setTimeout(() => {
+      const targetId = returnToItemId ? `schedule-item-${returnToItemId}` : ''
+      const el = targetId ? document.getElementById(targetId) : null
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (typeof returnToScrollY === 'number') {
+        window.scrollTo({ top: returnToScrollY, behavior: 'smooth' })
+      }
+      setRestoreWeeklyPosition(false)
+    }, 180)
+
+    return () => window.clearTimeout(timer)
+  }, [activeTab, restoreWeeklyPosition, weekScheduleItems, returnToItemId, returnToScrollY])
+
   function applyWeekFromAnyDate(value) {
     if (!value) return
     const nextRange = getMondaySundayRange(new Date(`${value}T00:00:00`))
@@ -311,18 +338,37 @@ const [printLayout, setPrintLayout] = useState('report')
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
+  function showBanner(type, text) {
+    setBanner({ type, text, id: Date.now() })
+  }
+
+  function showSuccess(text) {
+    showBanner('success', text)
+  }
+
+  function showError(text) {
+    showBanner('error', text)
+  }
+
+  function isActionBusy(name) {
+    return loading || actionLoading === name
+  }
+
   async function addContact() {
+    setActionLoading('saveContact')
     const name = newContactName.trim()
     const phone = newContactPhone.trim()
     const email = newContactEmail.trim()
 
     if (!name) {
-      alert('Enter a contact name.')
+      showError('Enter a contact name.')
+      setActionLoading('')
       return
     }
 
     if (!phone && !email) {
-      alert('Enter at least a phone number or an email address.')
+      showError('Enter at least a phone number or an email address.')
+      setActionLoading('')
       return
     }
 
@@ -349,7 +395,8 @@ const [printLayout, setPrintLayout] = useState('report')
     }
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
+      setActionLoading('')
       return
     }
 
@@ -358,6 +405,8 @@ const [printLayout, setPrintLayout] = useState('report')
     setNewContactEmail('')
     setEditingContactId(null)
     await loadAllData()
+    showSuccess(editingContactId ? 'Contact updated successfully.' : 'Contact added successfully.')
+    setActionLoading('')
   }
 
   function editContact(contact) {
@@ -375,24 +424,29 @@ const [printLayout, setPrintLayout] = useState('report')
   }
 
   async function deleteContact(contactId) {
+    setActionLoading('deleteContact')
     const confirmed = window.confirm('Delete this contact?')
     if (!confirmed) return
 
     const { error } = await supabase.from('contacts').delete().eq('id', contactId)
     if (error) {
-      alert(error.message)
+      showError(error.message)
       return
     }
     if (editingContactId === contactId) {
       cancelEditContact()
     }
     await loadAllData()
+    showSuccess('Contact deleted.')
+    setActionLoading('')
   }
 
   async function addContactGroup() {
+    setActionLoading('saveTextGroup')
     const name = newContactGroupName.trim()
     if (!name) {
-      alert('Enter a group name.')
+      showError('Enter a group name.')
+      setActionLoading('')
       return
     }
 
@@ -401,23 +455,30 @@ const [printLayout, setPrintLayout] = useState('report')
       active: true,
     })
     if (error) {
-      alert(error.message)
+      showError(error.message)
+      setActionLoading('')
       return
     }
     setNewContactGroupName('')
     await loadAllData()
+    showSuccess('Text group added.')
+    setActionLoading('')
   }
 
   async function deleteContactGroup(groupId) {
+    setActionLoading('deleteTextGroup')
     const confirmed = window.confirm('Delete this contact group?')
     if (!confirmed) return
     const { error } = await supabase.from('contact_groups').delete().eq('id', groupId)
     if (error) {
-      alert(error.message)
+      showError(error.message)
+      setActionLoading('')
       return
     }
     if (selectedContactGroupId === groupId) setSelectedContactGroupId('')
     await loadAllData()
+    showSuccess('Text group deleted.')
+    setActionLoading('')
   }
 
   async function renameContactGroup(group) {
@@ -428,7 +489,7 @@ const [printLayout, setPrintLayout] = useState('report')
       .update({ name: nextName.trim() })
       .eq('id', group.id)
     if (error) {
-      alert(error.message)
+      showError(error.message)
       return
     }
     await loadAllData()
@@ -445,7 +506,7 @@ const [printLayout, setPrintLayout] = useState('report')
         .eq('group_id', groupId)
         .eq('contact_id', contactId)
       if (error) {
-        alert(error.message)
+        showError(error.message)
         return
       }
     } else {
@@ -454,7 +515,7 @@ const [printLayout, setPrintLayout] = useState('report')
         contact_id: contactId,
       })
       if (error) {
-        alert(error.message)
+        showError(error.message)
         return
       }
     }
@@ -475,7 +536,7 @@ const [printLayout, setPrintLayout] = useState('report')
       .update({ name: nextName.trim() })
       .eq('id', group.id)
     if (error) {
-      alert(error.message)
+      showError(error.message)
       return
     }
     await loadAllData()
@@ -495,7 +556,7 @@ const [printLayout, setPrintLayout] = useState('report')
         .delete()
         .eq('id', existing.id)
       if (error) {
-        alert(error.message)
+        showError(error.message)
         return
       }
     } else {
@@ -508,7 +569,7 @@ const [printLayout, setPrintLayout] = useState('report')
           active: true,
         })
       if (error) {
-        alert(error.message)
+        showError(error.message)
         return
       }
     }
@@ -539,22 +600,22 @@ const [printLayout, setPrintLayout] = useState('report')
   async function copyMobileShareLink() {
     const url = createMobileShareUrl()
     if (!url) {
-      alert('Could not create mobile share link.')
+      showError('Could not create mobile share link.')
       return
     }
 
     try {
       await navigator.clipboard.writeText(url)
-      alert('Mobile share link copied.')
+      showSuccess('Mobile share link copied.')
     } catch (error) {
-      alert(url)
+      showError(url)
     }
   }
 
   function openMobileShareView() {
     const url = createMobileShareUrl()
     if (!url) {
-      alert('Could not create mobile share link.')
+      showError('Could not create mobile share link.')
       return
     }
     window.open(url, '_blank', 'noopener,noreferrer')
@@ -563,22 +624,22 @@ const [printLayout, setPrintLayout] = useState('report')
   async function copyMobileSmsMessage() {
     const url = createMobileShareUrl()
     if (!url) {
-      alert('Could not create mobile share link.')
+      showError('Could not create mobile share link.')
       return
     }
     const message = `Weekly schedule for ${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}: ${url}`
     try {
       await navigator.clipboard.writeText(message)
-      alert('SMS message copied. Paste it into your text app.')
+      showSuccess('SMS message copied. Paste it into your text app.')
     } catch (error) {
-      alert(message)
+      showError(message)
     }
   }
 
   
 async function copyContactList() {
     if (!contacts.length) {
-      alert('No contacts saved yet.')
+      showError('No contacts saved yet.')
       return
     }
     const contactList = contacts
@@ -591,13 +652,14 @@ async function copyContactList() {
       .join('\n')
     try {
       await navigator.clipboard.writeText(contactList)
-      alert('Contact list copied.')
+      showSuccess('Contact list copied.')
     } catch (error) {
-      alert(contactList)
+      showError(contactList)
     }
   }
 
   async function signIn() {
+    setActionLoading('signIn')
     setMessage('Signing in...')
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -607,9 +669,12 @@ async function copyContactList() {
 
     if (error) {
       setMessage(error.message)
+      showError(error.message)
     } else {
       setMessage('Signed in successfully.')
+      showSuccess('Signed in successfully.')
     }
+    setActionLoading('')
   }
 
   async function signOut() {
@@ -624,6 +689,7 @@ async function copyContactList() {
     setContacts([])
     setContactGroups([])
     setMessage('Signed out.')
+    showSuccess('Signed out.')
   }
 
   async function loadMasterData() {
@@ -791,7 +857,9 @@ async function copyContactList() {
       setMessage('Data loaded successfully.')
     } catch (err) {
       console.error(err)
-      setMessage(err.message || 'There was an error loading your data.')
+      const nextMessage = err.message || 'There was an error loading your data.'
+      setMessage(nextMessage)
+      showError(nextMessage)
     }
 
     setLoading(false)
@@ -826,12 +894,12 @@ async function copyContactList() {
     const finalJobNumber = buildJobNumber()
 
     if (!finalJobNumber || !jobName) {
-      alert('Enter job prefix, job number, and job name')
+      showError('Enter job prefix, job number, and job name')
       return
     }
 
     if (!/^\d+$/.test(jobNumberPart2.trim())) {
-      alert('The second part of the job number must be numbers only')
+      showError('The second part of the job number must be numbers only')
       return
     }
 
@@ -857,7 +925,7 @@ async function copyContactList() {
     }
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       resetJobForm()
       loadAllData()
@@ -882,7 +950,7 @@ async function copyContactList() {
     const { error } = await supabase.from('jobs').delete().eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (editingJobId === id) resetJobForm()
       loadAllData()
@@ -896,7 +964,7 @@ async function copyContactList() {
 
   async function saveProjectManager() {
     if (!pmName) {
-      alert('Enter a project manager name')
+      showError('Enter a project manager name')
       return
     }
 
@@ -916,7 +984,7 @@ async function copyContactList() {
     }
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       resetPmForm()
       loadAllData()
@@ -938,7 +1006,7 @@ async function copyContactList() {
       .eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (editingPmId === id) resetPmForm()
       loadAllData()
@@ -952,7 +1020,7 @@ async function copyContactList() {
 
   async function saveSuperintendent() {
     if (!superintendentName) {
-      alert('Enter a superintendent name')
+      showError('Enter a superintendent name')
       return
     }
 
@@ -972,7 +1040,7 @@ async function copyContactList() {
     }
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       resetSuperintendentForm()
       loadAllData()
@@ -994,7 +1062,7 @@ async function copyContactList() {
       .eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (editingSuperintendentId === id) resetSuperintendentForm()
       loadAllData()
@@ -1008,7 +1076,7 @@ async function copyContactList() {
 
   async function saveSurveyor() {
     if (!surveyorName) {
-      alert('Enter a surveyor name')
+      showError('Enter a surveyor name')
       return
     }
 
@@ -1028,7 +1096,7 @@ async function copyContactList() {
     }
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       resetSurveyorForm()
       loadAllData()
@@ -1047,7 +1115,7 @@ async function copyContactList() {
     const { error } = await supabase.from('surveyors').delete().eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (editingSurveyorId === id) resetSurveyorForm()
       loadAllData()
@@ -1061,7 +1129,7 @@ async function copyContactList() {
 
   async function saveForeman() {
     if (!foremanName) {
-      alert('Enter a foreman name')
+      showError('Enter a foreman name')
       return
     }
 
@@ -1081,7 +1149,7 @@ async function copyContactList() {
     }
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       resetForemanForm()
       loadAllData()
@@ -1100,7 +1168,7 @@ async function copyContactList() {
     const { error } = await supabase.from('foremen').delete().eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (editingForemanId === id) resetForemanForm()
       loadAllData()
@@ -1108,8 +1176,10 @@ async function copyContactList() {
   }
 
   async function addEmailGroup() {
+    setActionLoading('saveEmailGroup')
     if (!newEmailGroupName.trim()) {
-      alert('Enter an email group name')
+      showError('Enter an email group name')
+      setActionLoading('')
       return
     }
 
@@ -1119,16 +1189,19 @@ async function copyContactList() {
     })
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       setNewEmailGroupName('')
       loadAllData()
+      showSuccess('Email group added.')
+      setActionLoading('')
     }
   }
 
   async function addRecipient() {
     if (!recipientGroupId || !recipientEmail.trim()) {
-      alert('Choose a group and enter an email')
+      showError('Choose a group and enter an email')
+      setActionLoading('')
       return
     }
 
@@ -1140,7 +1213,7 @@ async function copyContactList() {
     })
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       setRecipientName('')
       setRecipientEmail('')
@@ -1149,17 +1222,20 @@ async function copyContactList() {
   }
 
   async function deleteEmailGroup(id) {
+    setActionLoading('deleteEmailGroup')
     const confirmed = window.confirm('Delete this email group?')
     if (!confirmed) return
 
     const { error } = await supabase.from('email_groups').delete().eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (selectedEmailGroupId === id) setSelectedEmailGroupId('')
       if (recipientGroupId === id) setRecipientGroupId('')
       loadAllData()
+      showSuccess('Email group deleted.')
+      setActionLoading('')
     }
   }
 
@@ -1173,7 +1249,7 @@ async function copyContactList() {
       .eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       loadAllData()
     }
@@ -1240,6 +1316,8 @@ async function copyContactList() {
   }
 
   function editScheduleItem(item) {
+    setReturnToScrollY(window.scrollY)
+    setReturnToItemId(item.id)
     setEditingScheduleItemId(item.id)
     setSelectedWeekFrom(item.from_date || '')
     setSelectedWeekTo(item.to_date || '')
@@ -1298,7 +1376,7 @@ async function copyContactList() {
     const { error } = await supabase.from('schedule_items').delete().eq('id', id)
 
     if (error) {
-      alert(error.message)
+      showError(error.message)
     } else {
       if (editingScheduleItemId === id) resetScheduleForm()
       loadAllData()
@@ -1306,13 +1384,16 @@ async function copyContactList() {
   }
 
   async function saveScheduleItem() {
+    setActionLoading('saveSchedule')
     if (!scheduleForm.job_id) {
-      alert('Please select a job')
+      showError('Please select a job')
+      setActionLoading('')
       return
     }
 
     if (!selectedWeekFrom || !selectedWeekTo) {
-      alert('Please choose the week first on the Weekly Schedule tab')
+      showError('Please choose the week first on the Weekly Schedule tab')
+      setActionLoading('')
       return
     }
 
@@ -1354,8 +1435,9 @@ async function copyContactList() {
 
     if (scheduleError) {
       console.error(scheduleError)
-      alert(scheduleError.message)
+      showError(scheduleError.message)
       setMessage('Error saving schedule item.')
+      setActionLoading('')
       return
     }
 
@@ -1366,8 +1448,9 @@ async function copyContactList() {
         .eq('schedule_item_id', editingScheduleItemId)
 
       if (deleteAssignmentsError) {
-        alert(deleteAssignmentsError.message)
-        return
+        showError(deleteAssignmentsError.message)
+        setActionLoading('')
+      return
       }
 
       const { error: deleteSurveyorAssignmentsError } = await supabase
@@ -1376,8 +1459,9 @@ async function copyContactList() {
         .eq('schedule_item_id', editingScheduleItemId)
 
       if (deleteSurveyorAssignmentsError) {
-        alert(deleteSurveyorAssignmentsError.message)
-        return
+        showError(deleteSurveyorAssignmentsError.message)
+        setActionLoading('')
+      return
       }
     }
 
@@ -1407,9 +1491,10 @@ async function copyContactList() {
 
       if (foremanError) {
         console.error(foremanError)
-        alert(foremanError.message)
+        showError(foremanError.message)
         setMessage('Schedule saved, but foreman assignments had an error.')
-        return
+        setActionLoading('')
+      return
       }
     }
 
@@ -1443,9 +1528,10 @@ async function copyContactList() {
 
       if (surveyorError) {
         console.error(surveyorError)
-        alert(surveyorError.message)
+        showError(surveyorError.message)
         setMessage('Schedule saved, but surveyor assignments had an error.')
-        return
+        setActionLoading('')
+      return
       }
     }
 
@@ -1454,28 +1540,35 @@ async function copyContactList() {
         ? 'Schedule item updated successfully.'
         : 'Schedule item saved successfully.'
     )
+    showSuccess(editingScheduleItemId ? 'Schedule item updated successfully.' : 'Schedule item saved successfully.')
     resetScheduleForm()
     await loadAllData()
     setActiveTab('weekly')
+    setRestoreWeeklyPosition(true)
+    setActionLoading('')
   }
 
   async function duplicateCurrentWeek() {
+    setActionLoading('duplicateWeek')
     if (!selectedWeekFrom || !selectedWeekTo) {
-      alert('Choose a week first.')
+      showError('Choose a week first.')
+      setActionLoading('')
       return
     }
 
     const sourceItems = weekScheduleItems
 
     if (!sourceItems.length) {
-      alert('There are no schedule items in the selected week to duplicate.')
+      showError('There are no schedule items in the selected week to duplicate.')
+      setActionLoading('')
       return
     }
 
     const nextWeek = getNextWeekRangeFromSelectedWeek()
 
     if (!nextWeek.from || !nextWeek.to) {
-      alert('Could not calculate the next week.')
+      showError('Could not calculate the next week.')
+      setActionLoading('')
       return
     }
 
@@ -1546,19 +1639,20 @@ async function copyContactList() {
       setSelectedWeekFrom(nextWeek.from)
       setSelectedWeekTo(nextWeek.to)
       setMessage('Week duplicated successfully.')
-      alert('Selected week duplicated to next week.')
+      showSuccess('Selected week duplicated to next week.')
     } catch (error) {
       console.error(error)
-      alert(error.message || 'There was an error duplicating the week.')
+      showError(error.message || 'There was an error duplicating the week.')
       setMessage('Error duplicating week.')
     } finally {
       setLoading(false)
+      setActionLoading('')
     }
   }
 
   function emailSchedule(group) {
     if (!group || !group.email_group_recipients?.length) {
-      alert('This email group has no recipients.')
+      showError('This email group has no recipients.')
       return
     }
 
@@ -1567,7 +1661,7 @@ async function copyContactList() {
       .map((r) => r.email)
 
     if (!recipients.length) {
-      alert('This email group has no active recipients.')
+      showError('This email group has no active recipients.')
       return
     }
 
@@ -1632,13 +1726,13 @@ async function copyContactList() {
       .filter(Boolean)
 
     if (!cleanedNumbers.length) {
-      alert('Add at least one mobile contact first.')
+      showError('Add at least one mobile contact first.')
       return
     }
 
     const url = createMobileShareUrl()
     if (!url) {
-      alert('Could not create mobile share link.')
+      showError('Could not create mobile share link.')
       return
     }
 
@@ -1872,8 +1966,8 @@ async function copyContactList() {
             style={styles.input}
           />
 
-          <button onClick={signIn} style={styles.button}>
-            Sign In
+          <button onClick={signIn} disabled={isActionBusy('signIn')} style={isActionBusy('signIn') ? styles.buttonDisabled : styles.button}>
+            {isActionBusy('signIn') ? 'Signing In...' : 'Sign In'}
           </button>
         </div>
       </div>
@@ -2046,8 +2140,8 @@ async function copyContactList() {
             >
               Schedule Entry
             </button>
-            <button className="nav-button" onClick={loadAllData} style={styles.buttonSecondary}>
-              Reload Data
+            <button className="nav-button" onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
+              {loading ? 'Reloading...' : 'Reload Data'}
             </button>
             <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
               Sign Out
@@ -2055,6 +2149,13 @@ async function copyContactList() {
           </div>
         </div>
       </div>
+
+      {banner ? (
+        <div style={banner.type === 'success' ? styles.bannerSuccess : styles.bannerError} className="no-print">
+          <div>{banner.text}</div>
+          <button onClick={() => setBanner(null)} style={styles.bannerCloseButton}>Dismiss</button>
+        </div>
+      ) : null}
 
       {activeTab === 'master' && (
         <div style={styles.grid}>
@@ -2351,8 +2452,8 @@ async function copyContactList() {
             </div>
 
             <div style={styles.formButtonRow}>
-              <button onClick={addContact} style={styles.button}>
-                {editingContactId ? 'Update Contact' : 'Add Contact'}
+              <button onClick={addContact} disabled={isActionBusy('saveContact')} style={isActionBusy('saveContact') ? styles.buttonDisabled : styles.button}>
+                {isActionBusy('saveContact') ? (editingContactId ? 'Updating...' : 'Adding...') : (editingContactId ? 'Update Contact' : 'Add Contact')}
               </button>
               {editingContactId ? (
                 <button onClick={cancelEditContact} style={styles.buttonSecondary}>
@@ -2410,8 +2511,8 @@ async function copyContactList() {
             </div>
 
             <div style={styles.formButtonRow}>
-              <button onClick={addContactGroup} style={styles.button}>
-                Add Text Group
+              <button onClick={addContactGroup} disabled={isActionBusy('saveTextGroup')} style={isActionBusy('saveTextGroup') ? styles.buttonDisabled : styles.button}>
+                {isActionBusy('saveTextGroup') ? 'Adding...' : 'Add Text Group'}
               </button>
               <button onClick={sendMobileTextToAll} style={styles.buttonSecondary}>
                 Text All Contacts
@@ -2484,8 +2585,8 @@ async function copyContactList() {
             </div>
 
             <div style={styles.formButtonRow}>
-              <button onClick={addEmailGroup} style={styles.button}>
-                Add Email Group
+              <button onClick={addEmailGroup} disabled={isActionBusy('saveEmailGroup')} style={isActionBusy('saveEmailGroup') ? styles.buttonDisabled : styles.button}>
+                {isActionBusy('saveEmailGroup') ? 'Adding...' : 'Add Email Group'}
               </button>
             </div>
 
@@ -2824,10 +2925,8 @@ async function copyContactList() {
             ))}
 
             <div style={styles.bottomButtons}>
-              <button onClick={saveScheduleItem} style={styles.button}>
-                {editingScheduleItemId
-                  ? 'Update Schedule Item'
-                  : 'Save Schedule Item'}
+              <button onClick={saveScheduleItem} disabled={isActionBusy('saveSchedule')} style={isActionBusy('saveSchedule') ? styles.buttonDisabled : styles.button}>
+                {isActionBusy('saveSchedule') ? (editingScheduleItemId ? 'Updating...' : 'Saving...') : (editingScheduleItemId ? 'Update Schedule Item' : 'Save Schedule Item')}
               </button>
               <button onClick={resetScheduleForm} style={styles.buttonSecondary}>
                 Clear Form
@@ -2843,16 +2942,16 @@ async function copyContactList() {
             <div style={styles.assignmentHeader}>
               <h2 style={styles.sectionTitle}>Weekly Schedule View</h2>
               <div style={styles.topBarButtons}>
-                <button onClick={duplicateCurrentWeek} style={styles.button}>
-                  Duplicate to Next Week
+                <button onClick={duplicateCurrentWeek} disabled={isActionBusy('duplicateWeek')} style={isActionBusy('duplicateWeek') ? styles.buttonDisabled : styles.button}>
+                  {isActionBusy('duplicateWeek') ? 'Duplicating...' : 'Duplicate to Next Week'}
                 </button>
-                <button onClick={loadAllData} style={styles.buttonSecondary}>
-                  Refresh Schedule
+                <button onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
+                  {loading ? 'Refreshing...' : 'Refresh Schedule'}
                 </button>
               </div>
             </div>
 
-            <div style={styles.weekSelectorRow}>
+            <div style={styles.weekSelectorRowSticky}>
               <div>
                 <label style={styles.label}>Week Of</label>
                 <input
@@ -2879,7 +2978,7 @@ async function copyContactList() {
             ) : (
               <div style={styles.scheduleList}>
                 {weekScheduleItems.map((item) => (
-                  <div key={item.id} style={styles.scheduleCard}>
+                  <div key={item.id} id={`schedule-item-${item.id}`} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
                         <div style={styles.scheduleJobTitle}>
@@ -3003,8 +3102,8 @@ async function copyContactList() {
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader}>
               <h2 style={styles.sectionTitle}>Weekly Grid View</h2>
-              <button onClick={loadAllData} style={styles.buttonSecondary}>
-                Refresh Grid
+              <button onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
+                {loading ? 'Refreshing...' : 'Refresh Grid'}
               </button>
             </div>
 
@@ -3070,6 +3169,28 @@ async function copyContactList() {
                 <button onClick={sendMobileTextToAll} style={styles.buttonSecondary}>
                   Send via Text
                 </button>
+              </div>
+            </div>
+
+            <div style={styles.weekSelectorRowSticky}>
+              <div>
+                <label style={styles.label}>Week Of</label>
+                <input
+                  type="date"
+                  value={selectedWeekFrom}
+                  onChange={(e) => applyWeekFromAnyDate(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
+              <div>
+                <label style={styles.label}>To</label>
+                <input
+                  type="date"
+                  value={selectedWeekTo}
+                  onChange={(e) => applyWeekFromAnyDate(e.target.value)}
+                  style={styles.input}
+                />
               </div>
             </div>
 
@@ -3263,6 +3384,28 @@ async function copyContactList() {
   </div>
 </div>
 
+<div style={styles.weekSelectorRowSticky} className="no-print">
+  <div>
+    <label style={styles.label}>Week Of</label>
+    <input
+      type="date"
+      value={selectedWeekFrom}
+      onChange={(e) => applyWeekFromAnyDate(e.target.value)}
+      style={styles.input}
+    />
+  </div>
+
+  <div>
+    <label style={styles.label}>To</label>
+    <input
+      type="date"
+      value={selectedWeekTo}
+      onChange={(e) => applyWeekFromAnyDate(e.target.value)}
+      style={styles.input}
+    />
+  </div>
+</div>
+
 <div style={styles.printNotesInputWrap} className="no-print">
   <label style={styles.label}>Report Notes (optional)</label>
   <textarea
@@ -3439,7 +3582,29 @@ async function copyContactList() {
             </>
           ) : (
             <>
-              {gridScheduleItems.length === 0 ? (
+              <div style={styles.weekSelectorRowSticky}>
+              <div>
+                <label style={styles.label}>Week Of</label>
+                <input
+                  type="date"
+                  value={selectedWeekFrom}
+                  onChange={(e) => applyWeekFromAnyDate(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+
+              <div>
+                <label style={styles.label}>To</label>
+                <input
+                  type="date"
+                  value={selectedWeekTo}
+                  onChange={(e) => applyWeekFromAnyDate(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            {gridScheduleItems.length === 0 ? (
                 <p style={styles.text}>
                   {selectedWeekFrom && selectedWeekTo
                     ? 'No jobs found for this week.'
@@ -3817,6 +3982,20 @@ const styles = {
     gap: '14px',
     marginBottom: '18px',
   },
+  weekSelectorRowSticky: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '14px',
+    marginBottom: '18px',
+    position: 'sticky',
+    top: '8px',
+    zIndex: 20,
+    background: '#fbf7f0',
+    padding: '12px',
+    border: '1px solid #eadfce',
+    borderRadius: '12px',
+    boxShadow: '0 8px 18px rgba(15, 23, 42, 0.08)',
+  },
   scheduleList: {
     display: 'grid',
     gap: '16px',
@@ -3843,6 +4022,43 @@ const styles = {
     padding: '12px',
     fontSize: '14px',
     color: '#7c2d12',
+  },
+  bannerSuccess: {
+    margin: '0 auto 16px',
+    maxWidth: '1280px',
+    background: '#ecfdf5',
+    border: '1px solid #86efac',
+    color: '#166534',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    boxShadow: '0 10px 18px rgba(22, 101, 52, 0.08)',
+  },
+  bannerError: {
+    margin: '0 auto 16px',
+    maxWidth: '1280px',
+    background: '#fff7ed',
+    border: '1px solid #fdba74',
+    color: '#9a3412',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    boxShadow: '0 10px 18px rgba(154, 52, 18, 0.08)',
+  },
+  bannerCloseButton: {
+    background: '#ffffff',
+    color: '#111827',
+    border: '1px solid #d7c4ab',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
 
   contactCheckboxRow: {
@@ -3982,6 +4198,26 @@ const styles = {
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
+  },
+  buttonDisabled: {
+    marginTop: '8px',
+    background: '#f2c998',
+    color: '#ffffff',
+    border: '1px solid #f2c998',
+    borderRadius: '10px',
+    padding: '10px 16px',
+    cursor: 'not-allowed',
+    opacity: 0.85,
+    boxShadow: 'none',
+  },
+  buttonDisabledSecondary: {
+    background: '#f8f3eb',
+    color: '#8b7355',
+    border: '1px solid #e5d7c6',
+    borderRadius: '10px',
+    padding: '10px 16px',
+    cursor: 'not-allowed',
+    opacity: 0.85,
   },
   buttonDanger: {
     background: '#c9732f',
