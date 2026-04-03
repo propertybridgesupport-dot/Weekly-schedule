@@ -289,7 +289,7 @@ const [printLayout, setPrintLayout] = useState('report')
     }, 180)
 
     return () => clearTimeout(timer)
-  }, [activeTab, restoreWeeklyPosition, weekScheduleItems, returnToItemId, returnToScrollY])
+  }, [activeTab, restoreWeeklyPosition, scheduleItems, selectedWeekFrom, selectedWeekTo, returnToItemId, returnToScrollY])
 
   function applyWeekFromAnyDate(value) {
     if (!value) return
