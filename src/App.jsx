@@ -157,10 +157,13 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
   const [activeTab, setActiveTab] = useState('weekly')
-  const [mobileContacts, setMobileContacts] = useState([])
-  const [newMobileContactName, setNewMobileContactName] = useState('')
-  const [newMobileContactPhone, setNewMobileContactPhone] = useState('')
-  const [newMobileContactEmail, setNewMobileContactEmail] = useState('')
+  const [contacts, setContacts] = useState([])
+  const [contactGroups, setContactGroups] = useState([])
+  const [newContactName, setNewContactName] = useState('')
+  const [newContactPhone, setNewContactPhone] = useState('')
+  const [newContactEmail, setNewContactEmail] = useState('')
+  const [newContactGroupName, setNewContactGroupName] = useState('')
+  const [selectedContactGroupId, setSelectedContactGroupId] = useState('')
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -260,24 +263,6 @@ const [printLayout, setPrintLayout] = useState('report')
     }
   }, [isViewerMode, viewerWeekFromParam, viewerWeekToParam])
 
-  useEffect(() => {
-    try {
-      const savedContacts = window.localStorage.getItem('weeklyScheduleMobileContacts')
-      if (savedContacts) {
-        setMobileContacts(JSON.parse(savedContacts))
-      }
-    } catch (error) {
-      console.error('Could not load mobile contacts.', error)
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('weeklyScheduleMobileContacts', JSON.stringify(mobileContacts))
-    } catch (error) {
-      console.error('Could not save mobile contacts.', error)
-    }
-  }, [mobileContacts])
 
   function applyWeekFromAnyDate(value) {
     if (!value) return
@@ -326,35 +311,112 @@ const [printLayout, setPrintLayout] = useState('report')
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
-  function addMobileContact() {
-    const trimmedPhone = newMobileContactPhone.trim()
-    const trimmedName = newMobileContactName.trim()
-    const trimmedEmail = newMobileContactEmail.trim()
 
-    if (!trimmedPhone && !trimmedEmail) {
+  async function addContact() {
+    const name = newContactName.trim()
+    const phone = newContactPhone.trim()
+    const email = newContactEmail.trim()
+
+    if (!name) {
+      alert('Enter a contact name.')
+      return
+    }
+
+    if (!phone && !email) {
       alert('Enter at least a phone number or an email address.')
       return
     }
 
-    setMobileContacts((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        name: trimmedName || 'No Name',
-        phone: trimmedPhone,
-        email: trimmedEmail,
-      },
-    ])
-    setNewMobileContactName('')
-    setNewMobileContactPhone('')
-    setNewMobileContactEmail('')
+    const { error } = await supabase.from('contacts').insert({
+      name,
+      phone: phone || null,
+      email: email || null,
+      active: true,
+    })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setNewContactName('')
+    setNewContactPhone('')
+    setNewContactEmail('')
+    await loadAllData()
   }
 
-  function removeMobileContact(id) {
-    setMobileContacts((prev) => prev.filter((contact) => contact.id !== id))
+  async function deleteContact(contactId) {
+    const confirmed = window.confirm('Delete this contact?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('contacts').delete().eq('id', contactId)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    await loadAllData()
+  }
+
+  async function addContactGroup() {
+    const name = newContactGroupName.trim()
+    if (!name) {
+      alert('Enter a group name.')
+      return
+    }
+
+    const { error } = await supabase.from('contact_groups').insert({
+      name,
+      active: true,
+    })
+    if (error) {
+      alert(error.message)
+      return
+    }
+    setNewContactGroupName('')
+    await loadAllData()
+  }
+
+  async function deleteContactGroup(groupId) {
+    const confirmed = window.confirm('Delete this contact group?')
+    if (!confirmed) return
+    const { error } = await supabase.from('contact_groups').delete().eq('id', groupId)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    if (selectedContactGroupId === groupId) setSelectedContactGroupId('')
+    await loadAllData()
+  }
+
+  async function toggleContactInGroup(groupId, contactId) {
+    const group = contactGroups.find((g) => g.id === groupId)
+    const exists = (group?.contact_group_memberships || []).some((m) => m.contact_id === contactId)
+
+    if (exists) {
+      const { error } = await supabase
+        .from('contact_group_memberships')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('contact_id', contactId)
+      if (error) {
+        alert(error.message)
+        return
+      }
+    } else {
+      const { error } = await supabase.from('contact_group_memberships').insert({
+        group_id: groupId,
+        contact_id: contactId,
+      })
+      if (error) {
+        alert(error.message)
+        return
+      }
+    }
+    await loadAllData()
   }
 
   function createMobileShareUrl() {
+ {
     if (typeof window === 'undefined') return ''
     if (!selectedWeekFrom || !selectedWeekTo) return ''
     const base = `${window.location.origin}${window.location.pathname}`
@@ -413,22 +475,24 @@ const [printLayout, setPrintLayout] = useState('report')
     }
   }
 
-  async function copyMobilePhones() {
-    if (!mobileContacts.length) {
-      alert('No mobile contacts saved yet.')
+  
+async function copyContactList() {
+    if (!contacts.length) {
+      alert('No contacts saved yet.')
       return
     }
-    const contactList = mobileContacts
+    const contactList = contacts
       .map((contact) => {
         const parts = [contact.name]
         if (contact.phone) parts.push(contact.phone)
         if (contact.email) parts.push(contact.email)
         return parts.join(' — ')
       })
-      .join('\n')
+      .join('
+')
     try {
       await navigator.clipboard.writeText(contactList)
-      alert('Mobile contact list copied.')
+      alert('Contact list copied.')
     } catch (error) {
       alert(contactList)
     }
@@ -458,6 +522,8 @@ const [printLayout, setPrintLayout] = useState('report')
     setForemen([])
     setScheduleItems([])
     setEmailGroups([])
+    setContacts([])
+    setContactGroups([])
     setMessage('Signed out.')
   }
 
@@ -469,6 +535,8 @@ const [printLayout, setPrintLayout] = useState('report')
       surveyorResult,
       foremanResult,
       emailGroupsResult,
+      contactsResult,
+      contactGroupsResult,
     ] = await Promise.all([
       supabase.from('jobs').select('*'),
       supabase
@@ -493,6 +561,18 @@ const [printLayout, setPrintLayout] = useState('report')
           )
         `)
         .order('name', { ascending: true }),
+      supabase.from('contacts').select('*').eq('active', true).order('name', { ascending: true }),
+      supabase
+        .from('contact_groups')
+        .select(`
+          *,
+          contact_group_memberships (
+            id,
+            contact_id
+          )
+        `)
+        .eq('active', true)
+        .order('name', { ascending: true }),
     ])
 
     if (
@@ -501,7 +581,9 @@ const [printLayout, setPrintLayout] = useState('report')
       superintendentResult.error ||
       surveyorResult.error ||
       foremanResult.error ||
-      emailGroupsResult.error
+      emailGroupsResult.error ||
+      contactsResult.error ||
+      contactGroupsResult.error
     ) {
       console.error(
         jobsResult.error ||
@@ -509,7 +591,9 @@ const [printLayout, setPrintLayout] = useState('report')
           superintendentResult.error ||
           surveyorResult.error ||
           foremanResult.error ||
-          emailGroupsResult.error
+          emailGroupsResult.error ||
+          contactsResult.error ||
+          contactGroupsResult.error
       )
       throw new Error('There was an error loading master data.')
     }
@@ -520,6 +604,8 @@ const [printLayout, setPrintLayout] = useState('report')
     setSurveyors(surveyorResult.data || [])
     setForemen(foremanResult.data || [])
     setEmailGroups(emailGroupsResult.data || [])
+    setContacts(contactsResult.data || [])
+    setContactGroups(contactGroupsResult.data || [])
 
     if (!selectedEmailGroupId && (emailGroupsResult.data || []).length) {
       setSelectedEmailGroupId(emailGroupsResult.data[0].id)
@@ -1464,8 +1550,23 @@ const [printLayout, setPrintLayout] = useState('report')
     window.location.href = `sms:${recipients}?&body=${body}`
   }
 
+  
+  function getPhonesForGroup(groupId) {
+    const group = contactGroups.find((g) => g.id === groupId)
+    if (!group) return []
+    const memberIds = (group.contact_group_memberships || []).map((m) => m.contact_id)
+    return contacts
+      .filter((contact) => memberIds.includes(contact.id))
+      .map((contact) => contact.phone)
+      .filter(Boolean)
+  }
+
   function sendMobileTextToAll() {
-    openSmsApp(mobileContacts.map((contact) => contact.phone))
+    openSmsApp(contacts.map((contact) => contact.phone).filter(Boolean))
+  }
+
+  function sendTextToGroup(groupId) {
+    openSmsApp(getPhonesForGroup(groupId))
   }
 
   function sendMobileTextToContact(contact) {
@@ -2207,46 +2308,98 @@ const [printLayout, setPrintLayout] = useState('report')
             </div>
           </SectionCard>
 
-          <SectionCard title="Share Contacts">
+          <SectionCard title="Contacts & Groups">
             <div style={styles.smallText}>
-              Save phone numbers and optional email addresses here for easier mobile sharing. These contacts are stored in this browser for this app.
+              Add each person once, then place them into one or more groups for texting and sharing.
             </div>
 
             <div style={styles.formGrid}>
               <input
                 placeholder="Contact name"
-                value={newMobileContactName}
-                onChange={(e) => setNewMobileContactName(e.target.value)}
+                value={newContactName}
+                onChange={(e) => setNewContactName(e.target.value)}
                 style={styles.input}
               />
               <input
                 placeholder="Cell number"
-                value={newMobileContactPhone}
-                onChange={(e) => setNewMobileContactPhone(e.target.value)}
+                value={newContactPhone}
+                onChange={(e) => setNewContactPhone(e.target.value)}
                 style={styles.input}
               />
               <input
-                placeholder="Email address (optional)"
-                value={newMobileContactEmail}
-                onChange={(e) => setNewMobileContactEmail(e.target.value)}
+                placeholder="Email address"
+                value={newContactEmail}
+                onChange={(e) => setNewContactEmail(e.target.value)}
                 style={styles.input}
               />
             </div>
 
             <div style={styles.formButtonRow}>
-              <button onClick={addMobileContact} style={styles.button}>
-                Add Share Contact
+              <button onClick={addContact} style={styles.button}>
+                Add Contact
               </button>
-              <button onClick={copyMobilePhones} style={styles.buttonSecondary}>
+              <button onClick={copyContactList} style={styles.buttonSecondary}>
                 Copy Contact List
               </button>
             </div>
 
+            <div style={styles.formGrid}>
+              <input
+                placeholder="New group name"
+                value={newContactGroupName}
+                onChange={(e) => setNewContactGroupName(e.target.value)}
+                style={styles.input}
+              />
+              <div style={styles.formButtonRow}>
+                <button onClick={addContactGroup} style={styles.button}>
+                  Add Group
+                </button>
+              </div>
+            </div>
+
             <div style={styles.listWrap}>
-              {mobileContacts.length === 0 ? (
-                <div style={styles.smallText}>No share contacts saved yet.</div>
+              {contactGroups.map((group) => (
+                <div key={group.id} style={styles.emailGroupBlock}>
+                  <div style={styles.emailGroupHeader}>
+                    <strong>{group.name}</strong>
+                    <div style={styles.itemButtonRow}>
+                      <button onClick={() => sendTextToGroup(group.id)} style={styles.smallButton}>
+                        Text Group
+                      </button>
+                      <button onClick={() => deleteContactGroup(group.id)} style={styles.smallDangerButton}>
+                        Delete Group
+                      </button>
+                    </div>
+                  </div>
+
+                  {contacts.map((contact) => {
+                    const checked = (group.contact_group_memberships || []).some(
+                      (membership) => membership.contact_id === contact.id
+                    )
+                    return (
+                      <label key={`${group.id}-${contact.id}`} style={styles.contactCheckboxRow}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleContactInGroup(group.id, contact.id)}
+                        />
+                        <span>
+                          {contact.name}
+                          {contact.phone ? ` — ${contact.phone}` : ''}
+                          {contact.email ? ` — ${contact.email}` : ''}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.listWrap}>
+              {contacts.length === 0 ? (
+                <div style={styles.smallText}>No contacts saved yet.</div>
               ) : (
-                mobileContacts.map((contact) => (
+                contacts.map((contact) => (
                   <div key={contact.id} style={styles.listItem}>
                     <div>
                       {contact.name}
@@ -2259,7 +2412,7 @@ const [printLayout, setPrintLayout] = useState('report')
                           Text
                         </button>
                       ) : null}
-                      <button onClick={() => removeMobileContact(contact.id)} style={styles.smallDangerButton}>
+                      <button onClick={() => deleteContact(contact.id)} style={styles.smallDangerButton}>
                         Delete
                       </button>
                     </div>
@@ -2843,16 +2996,16 @@ const [printLayout, setPrintLayout] = useState('report')
                   <div style={styles.mobileReadonlyDivider} />
                 </div>
 
-                {renderReadonlyScheduleCards(filteredScheduleItems, { compact: true })}
+                {renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
               </div>
             </div>
           </div>
 
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader}>
-              <h2 style={styles.sectionTitle}>Mobile Share Contacts</h2>
+              <h2 style={styles.sectionTitle}>Mobile Share Groups</h2>
               <div style={styles.topBarButtons}>
-                <button onClick={copyMobilePhones} style={styles.buttonSecondary}>
+                <button onClick={copyContactList} style={styles.buttonSecondary}>
                   Copy Contact List
                 </button>
                 <button onClick={sendMobileTextToAll} style={styles.buttonSecondary}>
@@ -2862,53 +3015,69 @@ const [printLayout, setPrintLayout] = useState('report')
             </div>
 
             <div style={styles.formGrid}>
-              <input
-                placeholder="Contact name"
-                value={newMobileContactName}
-                onChange={(e) => setNewMobileContactName(e.target.value)}
-                style={styles.input}
-              />
-              <input
-                placeholder="Cell number"
-                value={newMobileContactPhone}
-                onChange={(e) => setNewMobileContactPhone(e.target.value)}
-                style={styles.input}
-              />
-              <input
-                placeholder="Email address (optional)"
-                value={newMobileContactEmail}
-                onChange={(e) => setNewMobileContactEmail(e.target.value)}
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formButtonRow}>
-              <button onClick={addMobileContact} style={styles.button}>Add Mobile Contact</button>
+              <select
+                value={selectedContactGroupId}
+                onChange={(e) => setSelectedContactGroupId(e.target.value)}
+                style={styles.select}
+              >
+                <option value="">Select Group</option>
+                {contactGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+              <div style={styles.formButtonRow}>
+                <button
+                  onClick={() => sendTextToGroup(selectedContactGroupId)}
+                  style={styles.button}
+                >
+                  Text Selected Group
+                </button>
+              </div>
             </div>
 
             <div style={styles.listWrap}>
-              {mobileContacts.length === 0 ? (
-                <div style={styles.smallText}>No mobile contacts saved yet.</div>
+              {contactGroups.length === 0 ? (
+                <div style={styles.smallText}>No contact groups saved yet.</div>
               ) : (
-                mobileContacts.map((contact) => (
-                  <div key={contact.id} style={styles.listItem}>
-                    <div>
-                      {contact.name}
-                      {contact.phone ? ` — ${contact.phone}` : ''}
-                      {contact.email ? ` — ${contact.email}` : ''}
-                    </div>
-                    <div style={styles.itemButtonRow}>
-                      {contact.phone ? (
-                        <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
-                          Text
+                contactGroups.map((group) => {
+                  const groupContacts = contacts.filter((contact) =>
+                    (group.contact_group_memberships || []).some(
+                      (membership) => membership.contact_id === contact.id
+                    )
+                  )
+                  return (
+                    <div key={group.id} style={styles.emailGroupBlock}>
+                      <div style={styles.emailGroupHeader}>
+                        <strong>{group.name}</strong>
+                        <button onClick={() => sendTextToGroup(group.id)} style={styles.smallButton}>
+                          Text Group
                         </button>
-                      ) : null}
-                      <button onClick={() => removeMobileContact(contact.id)} style={styles.smallDangerButton}>
-                        Delete
-                      </button>
+                      </div>
+                      {groupContacts.length === 0 ? (
+                        <div style={styles.smallText}>No contacts in this group yet.</div>
+                      ) : (
+                        groupContacts.map((contact) => (
+                          <div key={contact.id} style={styles.listItem}>
+                            <div>
+                              {contact.name}
+                              {contact.phone ? ` — ${contact.phone}` : ''}
+                              {contact.email ? ` — ${contact.email}` : ''}
+                            </div>
+                            <div style={styles.itemButtonRow}>
+                              {contact.phone ? (
+                                <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
+                                  Text
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
 
@@ -3558,6 +3727,15 @@ const styles = {
     padding: '12px',
     fontSize: '14px',
     color: '#7c2d12',
+  },
+
+  contactCheckboxRow: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'flex-start',
+    padding: '8px 0',
+    borderBottom: '1px solid #efe7db',
+    fontSize: '14px',
   },
   emailGroupBlock: {
     border: '1px solid #e5e7eb',
