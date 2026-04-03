@@ -164,6 +164,7 @@ export default function App() {
   const [newContactEmail, setNewContactEmail] = useState('')
   const [newContactGroupName, setNewContactGroupName] = useState('')
   const [selectedContactGroupId, setSelectedContactGroupId] = useState('')
+  const [editingContactId, setEditingContactId] = useState(null)
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -310,10 +311,24 @@ const [printLayout, setPrintLayout] = useState('report')
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
-  async function addContact() {
+  function resetContactForm() {
+    setNewContactName('')
+    setNewContactPhone('')
+    setNewContactEmail('')
+    setEditingContactId(null)
+  }
+
+  function editContact(contact) {
+    setNewContactName(contact.name || '')
+    setNewContactPhone(contact.phone || '')
+    setNewContactEmail(contact.email || '')
+    setEditingContactId(contact.id)
+  }
+
+  async function saveContact() {
     const name = newContactName.trim()
     const phone = newContactPhone.trim()
-    const email = newContactEmail.trim()
+    const email = newContactEmail.trim().toLowerCase()
 
     if (!name) {
       alert('Enter a contact name.')
@@ -325,21 +340,35 @@ const [printLayout, setPrintLayout] = useState('report')
       return
     }
 
-    const { error } = await supabase.from('contacts').insert({
-      name,
-      phone: phone || null,
-      email: email || null,
-      active: true,
-    })
+    let error
+
+    if (editingContactId) {
+      const result = await supabase
+        .from('contacts')
+        .update({
+          name,
+          phone: phone || null,
+          email: email || null,
+          active: true,
+        })
+        .eq('id', editingContactId)
+      error = result.error
+    } else {
+      const result = await supabase.from('contacts').insert({
+        name,
+        phone: phone || null,
+        email: email || null,
+        active: true,
+      })
+      error = result.error
+    }
 
     if (error) {
       alert(error.message)
       return
     }
 
-    setNewContactName('')
-    setNewContactPhone('')
-    setNewContactEmail('')
+    resetContactForm()
     await loadAllData()
   }
 
@@ -352,6 +381,7 @@ const [printLayout, setPrintLayout] = useState('report')
       alert(error.message)
       return
     }
+    if (editingContactId === contactId) resetContactForm()
     await loadAllData()
   }
 
@@ -410,6 +440,77 @@ const [printLayout, setPrintLayout] = useState('report')
         return
       }
     }
+    await loadAllData()
+  }
+
+  async function renameTextGroup(group) {
+    const nextName = window.prompt('Edit text group name', group.name || '')
+    if (!nextName || !nextName.trim()) return
+
+    const { error } = await supabase
+      .from('contact_groups')
+      .update({ name: nextName.trim() })
+      .eq('id', group.id)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    await loadAllData()
+  }
+
+  async function renameEmailGroup(group) {
+    const nextName = window.prompt('Edit email group name', group.name || '')
+    if (!nextName || !nextName.trim()) return
+
+    const { error } = await supabase
+      .from('email_groups')
+      .update({ name: nextName.trim() })
+      .eq('id', group.id)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    await loadAllData()
+  }
+
+  async function toggleContactInEmailGroup(groupId, contact) {
+    if (!contact.email) return
+
+    const group = emailGroups.find((g) => g.id === groupId)
+    const existing = (group?.email_group_recipients || []).find(
+      (recipient) => (recipient.email || '').toLowerCase() === (contact.email || '').toLowerCase()
+    )
+
+    if (existing) {
+      const { error } = await supabase
+        .from('email_group_recipients')
+        .delete()
+        .eq('id', existing.id)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+    } else {
+      const { error } = await supabase
+        .from('email_group_recipients')
+        .insert({
+          email_group_id: groupId,
+          name: contact.name || null,
+          email: (contact.email || '').toLowerCase(),
+          active: true,
+        })
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+    }
+
     await loadAllData()
   }
 
@@ -2220,90 +2321,9 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Email Groups">
-            <label style={styles.label}>New Email Group</label>
-            <input
-              placeholder="Group Name"
-              value={newEmailGroupName}
-              onChange={(e) => setNewEmailGroupName(e.target.value)}
-              style={styles.input}
-            />
-            <button onClick={addEmailGroup} style={styles.button}>
-              Add Email Group
-            </button>
-
-            <label style={styles.label}>Add Recipient To</label>
-            <select
-              value={recipientGroupId}
-              onChange={(e) => setRecipientGroupId(e.target.value)}
-              style={styles.select}
-            >
-              <option value="">Select Group</option>
-              {emailGroups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              placeholder="Recipient Name"
-              value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
-              style={styles.input}
-            />
-
-            <input
-              placeholder="Recipient Email"
-              value={recipientEmail}
-              onChange={(e) => setRecipientEmail(e.target.value)}
-              style={styles.input}
-            />
-
-            <button onClick={addRecipient} style={styles.button}>
-              Add Recipient
-            </button>
-
-            <div style={styles.listWrap}>
-              {emailGroups.map((group) => (
-                <div key={group.id} style={styles.emailGroupBlock}>
-                  <div style={styles.emailGroupHeader}>
-                    <strong>{group.name}</strong>
-                    <button
-                      onClick={() => deleteEmailGroup(group.id)}
-                      style={styles.smallDangerButton}
-                    >
-                      Delete Group
-                    </button>
-                  </div>
-
-                  {(group.email_group_recipients || []).length ? (
-                    group.email_group_recipients.map((recipient) => (
-                      <div key={recipient.id} style={styles.listItem}>
-                        <div>
-                          {recipient.name || 'No Name'} — {recipient.email}
-                        </div>
-                        <div style={styles.itemButtonRow}>
-                          <button
-                            onClick={() => deleteRecipient(recipient.id)}
-                            style={styles.smallDangerButton}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={styles.smallText}>No recipients yet.</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Contacts & Groups">
+          <SectionCard title="Contacts">
             <div style={styles.smallText}>
-              Add each person once, then place them into one or more groups for texting and sharing.
+              Add each person once here. Text Groups and Email Groups will both pull from this master contact list.
             </div>
 
             <div style={styles.formGrid}>
@@ -2328,64 +2348,17 @@ async function copyContactList() {
             </div>
 
             <div style={styles.formButtonRow}>
-              <button onClick={addContact} style={styles.button}>
-                Add Contact
+              <button onClick={saveContact} style={styles.button}>
+                {editingContactId ? 'Update Contact' : 'Add Contact'}
               </button>
+              {editingContactId ? (
+                <button onClick={resetContactForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              ) : null}
               <button onClick={copyContactList} style={styles.buttonSecondary}>
                 Copy Contact List
               </button>
-            </div>
-
-            <div style={styles.formGrid}>
-              <input
-                placeholder="New group name"
-                value={newContactGroupName}
-                onChange={(e) => setNewContactGroupName(e.target.value)}
-                style={styles.input}
-              />
-              <div style={styles.formButtonRow}>
-                <button onClick={addContactGroup} style={styles.button}>
-                  Add Group
-                </button>
-              </div>
-            </div>
-
-            <div style={styles.listWrap}>
-              {contactGroups.map((group) => (
-                <div key={group.id} style={styles.emailGroupBlock}>
-                  <div style={styles.emailGroupHeader}>
-                    <strong>{group.name}</strong>
-                    <div style={styles.itemButtonRow}>
-                      <button onClick={() => sendTextToGroup(group.id)} style={styles.smallButton}>
-                        Text Group
-                      </button>
-                      <button onClick={() => deleteContactGroup(group.id)} style={styles.smallDangerButton}>
-                        Delete Group
-                      </button>
-                    </div>
-                  </div>
-
-                  {contacts.map((contact) => {
-                    const checked = (group.contact_group_memberships || []).some(
-                      (membership) => membership.contact_id === contact.id
-                    )
-                    return (
-                      <label key={`${group.id}-${contact.id}`} style={styles.contactCheckboxRow}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleContactInGroup(group.id, contact.id)}
-                        />
-                        <span>
-                          {contact.name}
-                          {contact.phone ? ` — ${contact.phone}` : ''}
-                          {contact.email ? ` — ${contact.email}` : ''}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              ))}
             </div>
 
             <div style={styles.listWrap}>
@@ -2395,11 +2368,15 @@ async function copyContactList() {
                 contacts.map((contact) => (
                   <div key={contact.id} style={styles.listItem}>
                     <div>
-                      {contact.name}
-                      {contact.phone ? ` — ${contact.phone}` : ''}
-                      {contact.email ? ` — ${contact.email}` : ''}
+                      <strong>{contact.name}</strong>
+                      <div style={styles.smallText}>
+                        {contact.phone || 'No phone'} {contact.email ? `| ${contact.email}` : '| No email'}
+                      </div>
                     </div>
                     <div style={styles.itemButtonRow}>
+                      <button onClick={() => editContact(contact)} style={styles.smallButton}>
+                        Edit
+                      </button>
                       {contact.phone ? (
                         <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
                           Text
@@ -2414,6 +2391,144 @@ async function copyContactList() {
               )}
             </div>
           </SectionCard>
+
+          <SectionCard title="Text Groups">
+            <div style={styles.smallText}>
+              Create texting groups and check the contacts you want inside each one.
+            </div>
+
+            <div style={styles.formGrid}>
+              <input
+                placeholder="New text group name"
+                value={newContactGroupName}
+                onChange={(e) => setNewContactGroupName(e.target.value)}
+                style={styles.input}
+              />
+              <div style={styles.formButtonRow}>
+                <button onClick={addContactGroup} style={styles.button}>
+                  Add Text Group
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.listWrap}>
+              {contactGroups.length === 0 ? (
+                <div style={styles.smallText}>No text groups saved yet.</div>
+              ) : (
+                contactGroups.map((group) => (
+                  <div key={group.id} style={styles.emailGroupBlock}>
+                    <div style={styles.emailGroupHeader}>
+                      <strong>{group.name}</strong>
+                      <div style={styles.itemButtonRow}>
+                        <button onClick={() => renameTextGroup(group)} style={styles.smallButton}>
+                          Edit
+                        </button>
+                        <button onClick={() => sendTextToGroup(group.id)} style={styles.smallButton}>
+                          Text Group
+                        </button>
+                        <button onClick={() => deleteContactGroup(group.id)} style={styles.smallDangerButton}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {contacts.filter((contact) => contact.phone).length === 0 ? (
+                      <div style={styles.smallText}>No contacts with phone numbers yet.</div>
+                    ) : (
+                      contacts
+                        .filter((contact) => contact.phone)
+                        .map((contact) => {
+                          const checked = (group.contact_group_memberships || []).some(
+                            (membership) => membership.contact_id === contact.id
+                          )
+                          return (
+                            <label key={`${group.id}-${contact.id}`} style={styles.contactCheckboxRow}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleContactInGroup(group.id, contact.id)}
+                              />
+                              <span>
+                                {contact.name} — {contact.phone}
+                              </span>
+                            </label>
+                          )
+                        })
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Email Groups">
+            <div style={styles.smallText}>
+              Create email groups and check the contacts you want inside each one.
+            </div>
+
+            <label style={styles.label}>New Email Group</label>
+            <input
+              placeholder="Group Name"
+              value={newEmailGroupName}
+              onChange={(e) => setNewEmailGroupName(e.target.value)}
+              style={styles.input}
+            />
+
+            <div style={styles.formButtonRow}>
+              <button onClick={addEmailGroup} style={styles.button}>
+                Add Email Group
+              </button>
+            </div>
+
+            <div style={styles.listWrap}>
+              {emailGroups.length === 0 ? (
+                <div style={styles.smallText}>No email groups saved yet.</div>
+              ) : (
+                emailGroups.map((group) => (
+                  <div key={group.id} style={styles.emailGroupBlock}>
+                    <div style={styles.emailGroupHeader}>
+                      <strong>{group.name}</strong>
+                      <div style={styles.itemButtonRow}>
+                        <button onClick={() => renameEmailGroup(group)} style={styles.smallButton}>
+                          Edit
+                        </button>
+                        <button onClick={() => emailSchedule(group)} style={styles.smallButton}>
+                          Email Group
+                        </button>
+                        <button onClick={() => deleteEmailGroup(group.id)} style={styles.smallDangerButton}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {contacts.filter((contact) => contact.email).length === 0 ? (
+                      <div style={styles.smallText}>No contacts with email addresses yet.</div>
+                    ) : (
+                      contacts
+                        .filter((contact) => contact.email)
+                        .map((contact) => {
+                          const checked = (group.email_group_recipients || []).some(
+                            (recipient) => (recipient.email || '').toLowerCase() === (contact.email || '').toLowerCase()
+                          )
+                          return (
+                            <label key={`${group.id}-${contact.id}`} style={styles.contactCheckboxRow}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleContactInEmailGroup(group.id, contact)}
+                              />
+                              <span>
+                                {contact.name} — {contact.email}
+                              </span>
+                            </label>
+                          )
+                        })
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </SectionCard></SectionCard>
         </div>
       )}
 
