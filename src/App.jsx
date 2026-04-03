@@ -160,6 +160,7 @@ export default function App() {
   const [mobileContacts, setMobileContacts] = useState([])
   const [newMobileContactName, setNewMobileContactName] = useState('')
   const [newMobileContactPhone, setNewMobileContactPhone] = useState('')
+  const [newMobileContactEmail, setNewMobileContactEmail] = useState('')
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -285,6 +286,20 @@ const [printLayout, setPrintLayout] = useState('report')
     setSelectedWeekTo(nextRange.to)
   }
 
+  function shiftIsoDate(value, days = 7) {
+    if (!value) return null
+    const date = new Date(`${value}T00:00:00`)
+    date.setDate(date.getDate() + days)
+    return toIsoDate(date)
+  }
+
+  function getNextWeekRangeFromSelectedWeek() {
+    return {
+      from: shiftIsoDate(selectedWeekFrom, 7),
+      to: shiftIsoDate(selectedWeekTo, 7),
+    }
+  }
+
   const sortedJobs = useMemo(() => {
     return [...jobs].sort((a, b) => {
       const aNum = extractJobNumberValue(a.job_number)
@@ -296,29 +311,43 @@ const [printLayout, setPrintLayout] = useState('report')
   const filteredScheduleItems = useMemo(() => {
     return scheduleItems
   }, [scheduleItems])
-const gridScheduleItems = useMemo(() => {
-  return scheduleItems.filter((item) => {
-    return (
-      !selectedWeekFrom ||
-      !selectedWeekTo ||
-      (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
-    )
-  })
-}, [scheduleItems, selectedWeekFrom, selectedWeekTo])
+
+  const weekScheduleItems = useMemo(() => {
+    return scheduleItems.filter((item) => {
+      return (
+        !selectedWeekFrom ||
+        !selectedWeekTo ||
+        (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
+      )
+    })
+  }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
+
+  const gridScheduleItems = weekScheduleItems
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
   function addMobileContact() {
     const trimmedPhone = newMobileContactPhone.trim()
     const trimmedName = newMobileContactName.trim()
-    if (!trimmedPhone) return
+    const trimmedEmail = newMobileContactEmail.trim()
+
+    if (!trimmedPhone && !trimmedEmail) {
+      alert('Enter at least a phone number or an email address.')
+      return
+    }
 
     setMobileContacts((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), name: trimmedName || 'No Name', phone: trimmedPhone },
+      {
+        id: crypto.randomUUID(),
+        name: trimmedName || 'No Name',
+        phone: trimmedPhone,
+        email: trimmedEmail,
+      },
     ])
     setNewMobileContactName('')
     setNewMobileContactPhone('')
+    setNewMobileContactEmail('')
   }
 
   function removeMobileContact(id) {
@@ -389,12 +418,19 @@ const gridScheduleItems = useMemo(() => {
       alert('No mobile contacts saved yet.')
       return
     }
-    const phoneList = mobileContacts.map((contact) => `${contact.name}: ${contact.phone}`).join('\n')
+    const contactList = mobileContacts
+      .map((contact) => {
+        const parts = [contact.name]
+        if (contact.phone) parts.push(contact.phone)
+        if (contact.email) parts.push(contact.email)
+        return parts.join(' — ')
+      })
+      .join('\n')
     try {
-      await navigator.clipboard.writeText(phoneList)
+      await navigator.clipboard.writeText(contactList)
       alert('Mobile contact list copied.')
     } catch (error) {
-      alert(phoneList)
+      alert(contactList)
     }
   }
 
@@ -1238,6 +1274,104 @@ const gridScheduleItems = useMemo(() => {
     setActiveTab('weekly')
   }
 
+
+  async function duplicateCurrentWeek() {
+    if (!selectedWeekFrom || !selectedWeekTo) {
+      alert('Choose a week first.')
+      return
+    }
+
+    const sourceItems = weekScheduleItems
+
+    if (!sourceItems.length) {
+      alert('There are no schedule items in the selected week to duplicate.')
+      return
+    }
+
+    const nextWeek = getNextWeekRangeFromSelectedWeek()
+
+    if (!nextWeek.from || !nextWeek.to) {
+      alert('Could not calculate the next week.')
+      return
+    }
+
+    const existingNextWeekItems = scheduleItems.filter(
+      (item) => item.from_date === nextWeek.from && item.to_date === nextWeek.to
+    )
+
+    if (existingNextWeekItems.length) {
+      const proceed = window.confirm(
+        'There are already schedule items in next week. Duplicating will add more items to that week. Continue?'
+      )
+      if (!proceed) return
+    }
+
+    setLoading(true)
+    setMessage('Duplicating selected week...')
+
+    try {
+      for (const item of sourceItems) {
+        const { data: newItem, error: newItemError } = await supabase
+          .from('schedule_items')
+          .insert({
+            from_date: nextWeek.from,
+            to_date: nextWeek.to,
+            job_id: item.job_id,
+            project_manager_id: item.project_manager_id || null,
+            superintendent_id: item.superintendent_id || null,
+            surveyor_id: item.surveyor_id || null,
+            notes: item.notes || null,
+          })
+          .select()
+          .single()
+
+        if (newItemError) throw newItemError
+
+        const foremanRows = (item.schedule_item_foremen || []).map((assignment) => ({
+          schedule_item_id: newItem.id,
+          foreman_id: assignment.foreman_id || null,
+          assignment_from_date: shiftIsoDate(assignment.assignment_from_date, 7),
+          assignment_to_date: shiftIsoDate(assignment.assignment_to_date, 7),
+          work_description: assignment.work_description || null,
+          split_note: assignment.split_note || null,
+        }))
+
+        if (foremanRows.length) {
+          const { error } = await supabase.from('schedule_item_foremen').insert(foremanRows)
+          if (error) throw error
+        }
+
+        const surveyorRows = (item.schedule_item_surveyors || []).map((assignment) => ({
+          schedule_item_id: newItem.id,
+          surveyor_id: assignment.surveyor_id || null,
+          monday: !!assignment.monday,
+          tuesday: !!assignment.tuesday,
+          wednesday: !!assignment.wednesday,
+          thursday: !!assignment.thursday,
+          friday: !!assignment.friday,
+          note: assignment.note || null,
+        }))
+
+        if (surveyorRows.length) {
+          const { error } = await supabase.from('schedule_item_surveyors').insert(surveyorRows)
+          if (error) throw error
+        }
+      }
+
+      await loadAllData()
+      setSelectedWeekFrom(nextWeek.from)
+      setSelectedWeekTo(nextWeek.to)
+      setMessage('Week duplicated successfully.')
+      alert('Selected week duplicated to next week.')
+    } catch (error) {
+      console.error(error)
+      alert(error.message || 'There was an error duplicating the week.')
+      setMessage('Error duplicating week.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function emailSchedule(group) {
     if (!group || !group.email_group_recipients?.length) {
       alert('This email group has no recipients.')
@@ -1463,7 +1597,7 @@ const gridScheduleItems = useMemo(() => {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderReadonlyScheduleCards(filteredScheduleItems, { compact: true })}
+          {renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
         </div>
       </div>
     )
@@ -2072,6 +2206,68 @@ const gridScheduleItems = useMemo(() => {
               ))}
             </div>
           </SectionCard>
+
+          <SectionCard title="Share Contacts">
+            <div style={styles.smallText}>
+              Save phone numbers and optional email addresses here for easier mobile sharing. These contacts are stored in this browser for this app.
+            </div>
+
+            <div style={styles.formGrid}>
+              <input
+                placeholder="Contact name"
+                value={newMobileContactName}
+                onChange={(e) => setNewMobileContactName(e.target.value)}
+                style={styles.input}
+              />
+              <input
+                placeholder="Cell number"
+                value={newMobileContactPhone}
+                onChange={(e) => setNewMobileContactPhone(e.target.value)}
+                style={styles.input}
+              />
+              <input
+                placeholder="Email address (optional)"
+                value={newMobileContactEmail}
+                onChange={(e) => setNewMobileContactEmail(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.formButtonRow}>
+              <button onClick={addMobileContact} style={styles.button}>
+                Add Share Contact
+              </button>
+              <button onClick={copyMobilePhones} style={styles.buttonSecondary}>
+                Copy Contact List
+              </button>
+            </div>
+
+            <div style={styles.listWrap}>
+              {mobileContacts.length === 0 ? (
+                <div style={styles.smallText}>No share contacts saved yet.</div>
+              ) : (
+                mobileContacts.map((contact) => (
+                  <div key={contact.id} style={styles.listItem}>
+                    <div>
+                      {contact.name}
+                      {contact.phone ? ` — ${contact.phone}` : ''}
+                      {contact.email ? ` — ${contact.email}` : ''}
+                    </div>
+                    <div style={styles.itemButtonRow}>
+                      {contact.phone ? (
+                        <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
+                          Text
+                        </button>
+                      ) : null}
+                      <button onClick={() => removeMobileContact(contact.id)} style={styles.smallDangerButton}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </SectionCard>
         </div>
       )}
 
@@ -2377,9 +2573,14 @@ const gridScheduleItems = useMemo(() => {
           <div style={styles.sectionCard}>
             <div style={styles.assignmentHeader}>
               <h2 style={styles.sectionTitle}>Weekly Schedule View</h2>
-              <button onClick={loadAllData} style={styles.buttonSecondary}>
-                Refresh Schedule
-              </button>
+              <div style={styles.topBarButtons}>
+                <button onClick={duplicateCurrentWeek} style={styles.button}>
+                  Duplicate to Next Week
+                </button>
+                <button onClick={loadAllData} style={styles.buttonSecondary}>
+                  Refresh Schedule
+                </button>
+              </div>
             </div>
 
             <div style={styles.weekSelectorRow}>
@@ -2408,7 +2609,7 @@ const gridScheduleItems = useMemo(() => {
               <p style={styles.text}>No schedule items saved yet.</p>
             ) : (
               <div style={styles.scheduleList}>
-                {filteredScheduleItems.map((item) => (
+                {weekScheduleItems.map((item) => (
                   <div key={item.id} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
@@ -2673,6 +2874,12 @@ const gridScheduleItems = useMemo(() => {
                 onChange={(e) => setNewMobileContactPhone(e.target.value)}
                 style={styles.input}
               />
+              <input
+                placeholder="Email address (optional)"
+                value={newMobileContactEmail}
+                onChange={(e) => setNewMobileContactEmail(e.target.value)}
+                style={styles.input}
+              />
             </div>
 
             <div style={styles.formButtonRow}>
@@ -2685,11 +2892,17 @@ const gridScheduleItems = useMemo(() => {
               ) : (
                 mobileContacts.map((contact) => (
                   <div key={contact.id} style={styles.listItem}>
-                    <div>{contact.name} — {contact.phone}</div>
+                    <div>
+                      {contact.name}
+                      {contact.phone ? ` — ${contact.phone}` : ''}
+                      {contact.email ? ` — ${contact.email}` : ''}
+                    </div>
                     <div style={styles.itemButtonRow}>
-                      <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
-                        Text
-                      </button>
+                      {contact.phone ? (
+                        <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
+                          Text
+                        </button>
+                      ) : null}
                       <button onClick={() => removeMobileContact(contact.id)} style={styles.smallDangerButton}>
                         Delete
                       </button>
@@ -2815,7 +3028,7 @@ const gridScheduleItems = useMemo(() => {
       <p style={styles.text}>No schedule items saved yet.</p>
     ) : (
       <div style={styles.printReportList} className="print-report-list">
-        {filteredScheduleItems.map((item, index) => (
+        {weekScheduleItems.map((item, index) => (
                     <React.Fragment key={item.id}>
                       <div style={styles.printReportCard} className="print-report-card">
                         <div style={styles.printCompactJobTitle}>
@@ -2910,7 +3123,7 @@ const gridScheduleItems = useMemo(() => {
                         ) : null}
                         </div>
                       </div>
-                      {index !== filteredScheduleItems.length - 1 ? (
+                      {index !== weekScheduleItems.length - 1 ? (
                         <div style={styles.jobDivider} className="print-job-divider" />
                       ) : null}
                     </React.Fragment>
