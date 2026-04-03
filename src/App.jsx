@@ -2562,6 +2562,11 @@ const gridScheduleItems = useMemo(() => {
                       <div style={styles.gridJobSubTitle}>
                         {item.jobs?.job_name || 'No Job Name'}
                       </div>
+                      {item.notes ? (
+                        <div style={styles.gridJobNote}>
+                          <span style={styles.gridJobNoteLabel}>Note:</span> {item.notes}
+                        </div>
+                      ) : null}
                     </div>
 
                     {WEEKDAY_KEYS.map((dayKey) => (
@@ -2961,6 +2966,11 @@ const gridScheduleItems = useMemo(() => {
                           <div style={styles.printGridJobSubTitle}>
                             {item.jobs?.job_name || 'No Job Name'}
                           </div>
+                          {item.notes ? (
+                            <div style={styles.printGridJobNote}>
+                              <span style={styles.printGridJobNoteLabel}>Note:</span> {item.notes}
+                            </div>
+                          ) : null}
                         </div>
 
                         {WEEKDAY_KEYS.map((dayKey) => (
@@ -3585,6 +3595,19 @@ const styles = {
     fontSize: '13px',
     color: '#6b7280',
   },
+  gridJobNote: {
+    marginTop: '8px',
+    fontSize: '12px',
+    lineHeight: '1.35',
+    color: '#7c2d12',
+    background: '#fff3e0',
+    border: '1px solid #f6d3a7',
+    borderRadius: '8px',
+    padding: '6px 8px',
+  },
+  gridJobNoteLabel: {
+    fontWeight: '700',
+  },
   gridDayCell: {
     background: '#ffffff',
     border: '1px solid #e9e2d7',
@@ -3896,6 +3919,21 @@ printGridJobTitle: {
 printGridJobSubTitle: {
   fontSize: '8px',
   marginTop: '1px',
+},
+
+printGridJobNote: {
+  marginTop: '3px',
+  fontSize: '7px',
+  lineHeight: '1.2',
+  color: '#7c2d12',
+  background: '#fff3e0',
+  border: '1px solid #f6d3a7',
+  borderRadius: '4px',
+  padding: '2px 3px',
+},
+
+printGridJobNoteLabel: {
+  fontWeight: '700',
 },
 
 printGridDayCell: {
