@@ -1809,7 +1809,9 @@ async function copyContactList() {
             <div style={styles.gridChipTitle}>
               {assignment.surveyors?.name || 'Surveyor'}
             </div>
-            <div style={styles.gridChipText}>{assignment.note || 'No note'}</div>
+            {assignment.note ? (
+              <div style={styles.gridChipText}>{assignment.note}</div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -4473,40 +4475,49 @@ const styles = {
   gridDayCell: {
     background: '#ffffff',
     border: '1px solid #e9e2d7',
-    borderRadius: '10px',
-    padding: '10px',
-    minHeight: '140px',
+    borderRadius: '8px',
+    padding: '8px',
+    minHeight: '118px',
   },
   gridChipStack: {
     display: 'grid',
-    gap: '8px',
+    gap: '6px',
   },
   gridForemanChip: {
-    background: '#fff3e0',
-    border: '1px solid #f6c78f',
-    borderRadius: '10px',
-    padding: '8px',
+    background: '#fff7ed',
+    borderLeft: '4px solid #d97706',
+    borderTop: '1px solid #fdba74',
+    borderRight: '1px solid #fdba74',
+    borderBottom: '1px solid #fdba74',
+    borderRadius: '8px',
+    padding: '7px 8px',
   },
   gridSurveyorChip: {
-    background: '#ecfdf5',
-    border: '1px solid #86efac',
-    borderRadius: '10px',
-    padding: '8px',
+    background: '#f0fdf4',
+    borderLeft: '4px solid #22c55e',
+    borderTop: '1px solid #86efac',
+    borderRight: '1px solid #86efac',
+    borderBottom: '1px solid #86efac',
+    borderRadius: '8px',
+    padding: '7px 8px',
   },
   gridChipTitle: {
     fontWeight: 'bold',
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#111827',
-    marginBottom: '4px',
+    marginBottom: '2px',
+    lineHeight: 1.2,
   },
   gridChipText: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#374151',
+    lineHeight: 1.25,
   },
   gridChipSubText: {
-    fontSize: '11px',
+    fontSize: '10px',
     color: '#6b7280',
-    marginTop: '4px',
+    marginTop: '3px',
+    lineHeight: 1.2,
   },
   gridEmptyText: {
     fontSize: '13px',
