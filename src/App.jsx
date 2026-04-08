@@ -334,7 +334,15 @@ const [printLayout, setPrintLayout] = useState('report')
     })
   }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
 
-  const gridScheduleItems = weekScheduleItems
+  const gridScheduleItems = useMemo(() => {
+    return weekScheduleItems.filter((item) => {
+      const hasJobNote = Boolean((item.notes || '').trim())
+      const hasForemanAssignments = Boolean(item.schedule_item_foremen?.length)
+      const hasSurveyorAssignments = Boolean(item.schedule_item_surveyors?.length)
+
+      return hasJobNote || hasForemanAssignments || hasSurveyorAssignments
+    })
+  }, [weekScheduleItems])
   const nextWeekRange = useMemo(() => getNextWeekRangeFromSelectedWeek(), [selectedWeekFrom, selectedWeekTo])
 
   const nextWeekHasItems = useMemo(() => {
@@ -3095,7 +3103,7 @@ async function copyContactList() {
             </div>
 
             {filteredScheduleItems.length === 0 ? (
-              <p style={styles.text}>No schedule items saved yet.</p>
+              <p style={styles.text}>No jobs with notes or assignments for this week.</p>
             ) : (
               <div style={styles.scheduleList}>
                 {weekScheduleItems.map((item) => (
