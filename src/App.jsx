@@ -335,6 +335,33 @@ const [printLayout, setPrintLayout] = useState('report')
   }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
 
   const gridScheduleItems = weekScheduleItems
+  const nextWeekRange = useMemo(() => getNextWeekRangeFromSelectedWeek(), [selectedWeekFrom, selectedWeekTo])
+
+  const nextWeekHasItems = useMemo(() => {
+    if (!nextWeekRange.from || !nextWeekRange.to) return false
+    return scheduleItems.some(
+      (item) => item.from_date === nextWeekRange.from && item.to_date === nextWeekRange.to
+    )
+  }, [scheduleItems, nextWeekRange])
+
+  const selectedWeekDuplicateItemIds = useMemo(() => {
+    const seenJobIds = new Set()
+    const duplicateIds = []
+
+    for (const item of weekScheduleItems) {
+      const key = item.job_id || item.jobs?.id || item.id
+      if (seenJobIds.has(key)) {
+        duplicateIds.push(item.id)
+      } else {
+        seenJobIds.add(key)
+      }
+    }
+
+    return duplicateIds
+  }, [weekScheduleItems])
+
+  const selectedWeekDuplicateCount = selectedWeekDuplicateItemIds.length
+
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
@@ -1586,13 +1613,11 @@ async function copyContactList() {
     )
 
     if (existingNextWeekItems.length) {
-      const proceed = window.confirm(
-        'There are already schedule items in next week. Duplicating will add more items to that week. Continue?'
+      showError(
+        `Next week already has ${existingNextWeekItems.length} job${existingNextWeekItems.length === 1 ? '' : 's'}. Duplicate to Next Week is blocked so jobs cannot be copied twice.`
       )
-      if (!proceed) {
-        setActionLoading('')
-        return
-      }
+      setActionLoading('')
+      return
     }
 
     setLoading(true)
@@ -1656,6 +1681,69 @@ async function copyContactList() {
       console.error(error)
       showError(error.message || 'There was an error duplicating the week.')
       setMessage('Error duplicating week.')
+    } finally {
+      setLoading(false)
+      setActionLoading('')
+    }
+  }
+
+  async function cleanupSelectedWeekDuplicates() {
+    setActionLoading('cleanupDuplicates')
+
+    if (!selectedWeekFrom || !selectedWeekTo) {
+      showError('Choose a week first.')
+      setActionLoading('')
+      return
+    }
+
+    if (!selectedWeekDuplicateItemIds.length) {
+      showSuccess('No duplicate jobs found in the selected week.')
+      setActionLoading('')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Clean up ${selectedWeekDuplicateItemIds.length} duplicate job${selectedWeekDuplicateItemIds.length === 1 ? '' : 's'} from the selected week? This keeps the first copy of each job and removes the extras.`
+    )
+    if (!confirmed) {
+      setActionLoading('')
+      return
+    }
+
+    setLoading(true)
+    setMessage('Cleaning up duplicate jobs...')
+
+    try {
+      const { error: foremanDeleteError } = await supabase
+        .from('schedule_item_foremen')
+        .delete()
+        .in('schedule_item_id', selectedWeekDuplicateItemIds)
+
+      if (foremanDeleteError) throw foremanDeleteError
+
+      const { error: surveyorDeleteError } = await supabase
+        .from('schedule_item_surveyors')
+        .delete()
+        .in('schedule_item_id', selectedWeekDuplicateItemIds)
+
+      if (surveyorDeleteError) throw surveyorDeleteError
+
+      const { error: scheduleDeleteError } = await supabase
+        .from('schedule_items')
+        .delete()
+        .in('id', selectedWeekDuplicateItemIds)
+
+      if (scheduleDeleteError) throw scheduleDeleteError
+
+      await loadAllData()
+      setMessage('Duplicate jobs cleaned up successfully.')
+      showSuccess(
+        `Removed ${selectedWeekDuplicateItemIds.length} duplicate job${selectedWeekDuplicateItemIds.length === 1 ? '' : 's'} from the selected week.`
+      )
+    } catch (error) {
+      console.error(error)
+      showError(error.message || 'There was an error cleaning up duplicate jobs.')
+      setMessage('Error cleaning up duplicate jobs.')
     } finally {
       setLoading(false)
       setActionLoading('')
@@ -2954,8 +3042,27 @@ async function copyContactList() {
             <div style={styles.assignmentHeader}>
               <h2 style={styles.sectionTitle}>Weekly Schedule View</h2>
               <div style={styles.topBarButtons}>
-                <button onClick={duplicateCurrentWeek} disabled={isActionBusy('duplicateWeek')} style={isActionBusy('duplicateWeek') ? styles.buttonDisabled : styles.button}>
-                  {isActionBusy('duplicateWeek') ? 'Duplicating...' : 'Duplicate to Next Week'}
+                <button
+                  onClick={duplicateCurrentWeek}
+                  disabled={isActionBusy('duplicateWeek') || nextWeekHasItems}
+                  style={isActionBusy('duplicateWeek') || nextWeekHasItems ? styles.buttonDisabled : styles.button}
+                >
+                  {isActionBusy('duplicateWeek')
+                    ? 'Duplicating...'
+                    : nextWeekHasItems
+                      ? 'Already Copied to Next Week'
+                      : 'Duplicate to Next Week'}
+                </button>
+                <button
+                  onClick={cleanupSelectedWeekDuplicates}
+                  disabled={isActionBusy('cleanupDuplicates') || !selectedWeekDuplicateCount}
+                  style={isActionBusy('cleanupDuplicates') || !selectedWeekDuplicateCount ? styles.buttonDisabledSecondary : styles.buttonSecondary}
+                >
+                  {isActionBusy('cleanupDuplicates')
+                    ? 'Cleaning Duplicates...'
+                    : selectedWeekDuplicateCount
+                      ? `Clean Up Duplicates (${selectedWeekDuplicateCount})`
+                      : 'No Duplicates Found'}
                 </button>
                 <button onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
                   {loading ? 'Refreshing...' : 'Refresh Schedule'}
