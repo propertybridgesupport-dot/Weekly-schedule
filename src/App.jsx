@@ -134,7 +134,13 @@ function buildMobileShareSnapshot(items, selectedWeekFrom, selectedWeekTo) {
   }
 
   try {
-    return encodeURIComponent(btoa(JSON.stringify(payload)))
+    const json = JSON.stringify(payload)
+    const utf8Bytes = new TextEncoder().encode(json)
+    let binary = ''
+    utf8Bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte)
+    })
+    return encodeURIComponent(btoa(binary))
   } catch (error) {
     console.error('Could not build mobile share snapshot.', error)
     return ''
