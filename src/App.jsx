@@ -1918,11 +1918,11 @@ async function copyContactList() {
     )
   }
 
-  function buildSmsMessageText() {
-    return `${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)} ${createMobileShareUrl()}`
+  function buildSmsMessageText(url = '') {
+    return `${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)} ${url}`.trim()
   }
 
-  function openSmsApp(phoneNumbers = []) {
+  function openSmsApp(phoneNumbers = [], messageText = '') {
     const cleanedNumbers = phoneNumbers
       .map((value) => String(value || '').trim())
       .filter(Boolean)
@@ -1932,13 +1932,12 @@ async function copyContactList() {
       return
     }
 
-    const url = createMobileShareUrl()
-    if (!url) {
+    if (!messageText) {
       showError('Could not create mobile share link.')
       return
     }
 
-    const body = encodeURIComponent(buildSmsMessageText())
+    const body = encodeURIComponent(messageText)
     const recipients = cleanedNumbers.join(',')
     window.location.href = `sms:${recipients}?&body=${body}`
   }
@@ -1954,16 +1953,37 @@ async function copyContactList() {
       .filter(Boolean)
   }
 
-  function sendMobileTextToAll() {
-    openSmsApp(contacts.map((contact) => contact.phone).filter(Boolean))
+  async function sendMobileTextToAll() {
+    let url = ''
+    try {
+      url = await createMobileShareUrl()
+    } catch (error) {
+      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+      return
+    }
+    openSmsApp(contacts.map((contact) => contact.phone).filter(Boolean), buildSmsMessageText(url))
   }
 
-  function sendTextToGroup(groupId) {
-    openSmsApp(getPhonesForGroup(groupId))
+  async function sendTextToGroup(groupId) {
+    let url = ''
+    try {
+      url = await createMobileShareUrl()
+    } catch (error) {
+      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+      return
+    }
+    openSmsApp(getPhonesForGroup(groupId), buildSmsMessageText(url))
   }
 
-  function sendMobileTextToContact(contact) {
-    openSmsApp([contact.phone])
+  async function sendMobileTextToContact(contact) {
+    let url = ''
+    try {
+      url = await createMobileShareUrl()
+    } catch (error) {
+      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+      return
+    }
+    openSmsApp([contact.phone], buildSmsMessageText(url))
   }
 
   function renderReadonlyScheduleCards(items, options = {}) {
