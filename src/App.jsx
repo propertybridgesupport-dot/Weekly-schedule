@@ -154,7 +154,9 @@ export default function App() {
     if (!searchParams) return null
     return decodeMobileShareSnapshot(searchParams.get('snapshot'))
   }, [])
+  const publicShareToken = searchParams?.get('publicShare') || ''
   const isMobileShareMode = Boolean(searchParams?.get('mobileShare') === '1' && mobileShareSnapshot)
+  const isPublicShareMode = Boolean(publicShareToken)
   const isViewerMode = Boolean(searchParams?.get('viewer') === '1')
   const viewerWeekFromParam = searchParams?.get('weekFrom') || ''
   const viewerWeekToParam = searchParams?.get('weekTo') || ''
@@ -176,6 +178,8 @@ export default function App() {
   const [returnToScrollY, setReturnToScrollY] = useState(null)
   const [returnToItemId, setReturnToItemId] = useState('')
   const [restoreWeeklyPosition, setRestoreWeeklyPosition] = useState(false)
+  const [publicShareLoading, setPublicShareLoading] = useState(Boolean(publicShareToken))
+  const [publicShareData, setPublicShareData] = useState(null)
 
   const [jobs, setJobs] = useState([])
   const [projectManagers, setProjectManagers] = useState([])
@@ -257,6 +261,39 @@ const [printLayout, setPrintLayout] = useState('report')
       loadAllData()
     }
   }, [session])
+
+  useEffect(() => {
+    if (!publicShareToken) return
+
+    let isCancelled = false
+
+    async function loadPublicShare() {
+      setPublicShareLoading(true)
+
+      const { data, error } = await supabase
+        .from('public_schedule_shares')
+        .select('share_token, week_from, week_to, snapshot')
+        .eq('share_token', publicShareToken)
+        .maybeSingle()
+
+      if (isCancelled) return
+
+      if (error || !data) {
+        console.error('Could not load public share.', error)
+        setPublicShareData({ error: true })
+      } else {
+        setPublicShareData(data)
+      }
+
+      setPublicShareLoading(false)
+    }
+
+    loadPublicShare()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [publicShareToken])
 
   useEffect(() => {
     try {
@@ -624,8 +661,35 @@ const [printLayout, setPrintLayout] = useState('report')
     await loadAllData()
   }
 
-  function createMobileShareUrl() {
-    return createSnapshotShareUrl()
+  async function createMobileShareUrl() {
+    if (typeof window === 'undefined') return ''
+    if (!selectedWeekFrom || !selectedWeekTo) return ''
+
+    const snapshot = buildMobileShareSnapshot(gridScheduleItems, selectedWeekFrom, selectedWeekTo)
+    if (!snapshot) return ''
+
+    const decodedSnapshot = decodeMobileShareSnapshot(snapshot)
+    if (!decodedSnapshot) return ''
+
+    const token =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, '')
+        : `${Date.now()}${Math.random().toString(36).slice(2, 12)}`
+
+    const { error } = await supabase.from('public_schedule_shares').insert({
+      share_token: token,
+      week_from: selectedWeekFrom,
+      week_to: selectedWeekTo,
+      snapshot: decodedSnapshot,
+    })
+
+    if (error) {
+      console.error('Could not create public share link.', error)
+      throw error
+    }
+
+    const base = `${window.location.origin}${window.location.pathname}`
+    return `${base}?publicShare=${token}`
   }
 
   function createAuthenticatedViewerUrl() {
@@ -649,7 +713,13 @@ const [printLayout, setPrintLayout] = useState('report')
   }
 
   async function copyMobileShareLink() {
-    const url = createMobileShareUrl()
+    let url = ''
+    try {
+      url = await createMobileShareUrl()
+    } catch (error) {
+      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+      return
+    }
     if (!url) {
       showError('Could not create mobile share link.')
       return
@@ -663,8 +733,14 @@ const [printLayout, setPrintLayout] = useState('report')
     }
   }
 
-  function openMobileShareView() {
-    const url = createMobileShareUrl()
+  async function openMobileShareView() {
+    let url = ''
+    try {
+      url = await createMobileShareUrl()
+    } catch (error) {
+      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+      return
+    }
     if (!url) {
       showError('Could not create mobile share link.')
       return
@@ -673,7 +749,13 @@ const [printLayout, setPrintLayout] = useState('report')
   }
 
   async function copyMobileSmsMessage() {
-    const url = createMobileShareUrl()
+    let url = ''
+    try {
+      url = await createMobileShareUrl()
+    } catch (error) {
+      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+      return
+    }
     if (!url) {
       showError('Could not create mobile share link.')
       return
@@ -2054,6 +2136,66 @@ async function copyContactList() {
     )
   }
 
+  if (isPublicShareMode && publicShareLoading) {
+    return (
+      <div style={styles.mobileSharePage}>
+        <div style={styles.mobileShareShell}>
+          <div style={styles.mobileEmptyCard}>Loading public mobile view...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isPublicShareMode) {
+    if (!publicShareData || publicShareData.error) {
+      return (
+        <div style={styles.mobileSharePage}>
+          <div style={styles.mobileShareShell}>
+            <div style={styles.mobileEmptyCard}>
+              This public mobile link could not be opened. It may have expired or the public share table may not be set up yet.
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div style={styles.mobileSharePage}>
+        <div style={styles.mobileShareShell}>
+          <div style={styles.mobileReadonlyHeader}>
+            <div style={styles.mobileReadonlyPublicBadge}>Public View • No Login Required</div>
+            <div style={styles.mobileReadonlyHeaderTop}>
+              <div>
+                <div style={styles.mobileReadonlyCompany}>Command Construction Industries</div>
+                <div style={styles.mobileReadonlyTitle}>Weekly Schedule</div>
+                <div style={styles.mobileReadonlyDate}>
+                  {publicShareData.week_from && publicShareData.week_to
+                    ? `Week of ${formatLongDate(publicShareData.week_from)} – ${formatLongDate(publicShareData.week_to)}`
+                    : ''}
+                </div>
+              </div>
+
+              <div style={styles.mobileReadonlyBrandBlock}>
+                <img
+                  src="/command-logo.png"
+                  alt="Command Construction Industries Logo"
+                  style={styles.mobileReadonlyLogo}
+                />
+                <div style={styles.mobileReadonlyQuote}>
+                  “The road to success is always under construction.”
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.mobileReadonlyDivider} />
+          </div>
+
+          {renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true })}
+        </div>
+      </div>
+    )
+  }
+
   if (loading && !session) {
     return (
       <div style={styles.page} className="print-root">
@@ -3341,7 +3483,7 @@ async function copyContactList() {
 
             <div style={styles.mobileShareTools}>
               <div style={styles.mobileShareLinkBox}>
-                {createMobileShareUrl() || 'Select a week first to generate a link.'}
+                Use <strong>Copy Mobile Link</strong> or <strong>Copy SMS Message</strong> to generate a short public link. The link is created when you click the button, so the screen does not show a giant URL anymore.
               </div>
             </div>
 
