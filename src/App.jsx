@@ -4139,7 +4139,8 @@ const styles = {
     margin: '0 auto',
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '20px',
+    columnGap: '20px',
+    rowGap: '28px',
     alignItems: 'stretch',
   },
   sectionContent: {
@@ -4690,7 +4691,7 @@ const styles = {
     borderTop: '1px solid #f3ede3',
     paddingTop: '12px',
     paddingRight: '4px',
-    marginTop: '6px',
+    marginTop: '8px',
   },
   listItem: {
     display: 'flex',
