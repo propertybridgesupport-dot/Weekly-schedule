@@ -4139,14 +4139,13 @@ const styles = {
     margin: '0 auto',
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    columnGap: '18px',
-    rowGap: '24px',
+    gap: '20px',
     alignItems: 'stretch',
   },
   sectionContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '14px',
     flex: 1,
     minHeight: 0,
   },
@@ -4258,7 +4257,7 @@ const styles = {
     background: '#ffffff',
     border: '1px solid #eadfce',
     borderRadius: '14px',
-    padding: '16px',
+    padding: '18px',
     boxShadow: '0 6px 18px rgba(15, 23, 42, 0.04)',
     display: 'flex',
     flexDirection: 'column',
@@ -4371,6 +4370,7 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
+    gridTemplateColumns: '1fr',
     gap: '10px',
   },
   metaGrid: {
@@ -4690,7 +4690,7 @@ const styles = {
     borderTop: '1px solid #f3ede3',
     paddingTop: '12px',
     paddingRight: '4px',
-    marginTop: '4px',
+    marginTop: '6px',
   },
   listItem: {
     display: 'flex',
