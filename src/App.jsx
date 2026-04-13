@@ -2442,8 +2442,8 @@ async function copyContactList() {
       ) : null}
 
       {activeTab === 'master' && (
-        <div style={styles.grid}>
-          <SectionCard title="Jobs">
+        <div style={styles.masterGrid}>
+          <SectionCard title="Jobs" style={styles.masterCardJobs}>
             <label style={styles.label}>Job Number</label>
             <div style={styles.jobNumberRow}>
               <select
@@ -2536,7 +2536,7 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Project Managers">
+          <SectionCard title="Project Managers" style={styles.masterCardProjectManagers}>
             <input
               placeholder="Project Manager Name"
               value={pmName}
@@ -2577,7 +2577,7 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Superintendents">
+          <SectionCard title="Superintendents" style={styles.masterCardSuperintendents}>
             <input
               placeholder="Superintendent Name"
               value={superintendentName}
@@ -2623,7 +2623,7 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Surveyors">
+          <SectionCard title="Surveyors" style={styles.masterCardSurveyors}>
             <input
               placeholder="Surveyor Name"
               value={surveyorName}
@@ -2667,7 +2667,7 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Foremen">
+          <SectionCard title="Foremen" style={styles.masterCardForemen}>
             <input
               placeholder="Foreman Name"
               value={foremanName}
@@ -2709,7 +2709,7 @@ async function copyContactList() {
           </SectionCard>
 
 
-          <SectionCard title="Contacts">
+          <SectionCard title="Contacts" style={styles.masterCardContacts}>
             <div style={styles.smallText}>
               Add each person once here. Text and email groups both pull from this master contact list.
             </div>
@@ -2780,7 +2780,7 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Text Groups">
+          <SectionCard title="Text Groups" style={styles.masterCardTextGroups}>
             <div style={styles.smallText}>
               Create texting groups and check the contacts you want included. Only contacts with phone numbers are shown here.
             </div>
@@ -2854,7 +2854,7 @@ async function copyContactList() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Email Groups">
+          <SectionCard title="Email Groups" style={styles.masterCardEmailGroups}>
             <div style={styles.smallText}>
               Create email groups and select contacts with email addresses from the master contact list.
             </div>
@@ -3466,24 +3466,11 @@ async function copyContactList() {
                 <button onClick={copyMobileShareLink} style={styles.buttonSecondary}>
                   Copy Mobile Link
                 </button>
-                <select
-                  value={selectedContactGroupId}
-                  onChange={(e) => setSelectedContactGroupId(e.target.value)}
-                  style={styles.jobPrefixSelect}
-                >
-                  <option value="">Select Text Group</option>
-                  {contactGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => sendTextToGroup(selectedContactGroupId)}
-                  disabled={!selectedContactGroupId}
-                  style={!selectedContactGroupId ? styles.buttonDisabledSecondary : styles.buttonSecondary}
-                >
-                  Text Selected Group
+                <button onClick={copyMobileSmsMessage} style={styles.buttonSecondary}>
+                  Copy SMS Message
+                </button>
+                <button onClick={sendMobileTextToAll} style={styles.buttonSecondary}>
+                  Send via Text
                 </button>
               </div>
             </div>
@@ -3516,7 +3503,7 @@ async function copyContactList() {
 
             <div style={styles.mobileShareTools}>
               <div style={styles.mobileShareLinkBox}>
-                <strong>Copy Mobile Link</strong> copies the short public view link so you can paste it anywhere. <strong>Text Selected Group</strong> opens your text app with that same link already filled in for the group you choose.
+                Use <strong>Copy Mobile Link</strong> or <strong>Copy SMS Message</strong> to generate a short public link. The link is created when you click the button, so the screen does not show a giant URL anymore.
               </div>
             </div>
 
@@ -3554,7 +3541,90 @@ async function copyContactList() {
             </div>
           </div>
 
+          <div style={styles.sectionCard}>
+            <div style={styles.assignmentHeader}>
+              <h2 style={styles.sectionTitle}>Mobile Share Groups</h2>
+              <div style={styles.topBarButtons}>
+                <button onClick={copyContactList} style={styles.buttonSecondary}>
+                  Copy Contact List
+                </button>
+                <button onClick={sendMobileTextToAll} style={styles.buttonSecondary}>
+                  Text All Contacts
+                </button>
+              </div>
+            </div>
 
+            <div style={styles.formGrid}>
+              <select
+                value={selectedContactGroupId}
+                onChange={(e) => setSelectedContactGroupId(e.target.value)}
+                style={styles.select}
+              >
+                <option value="">Select Group</option>
+                {contactGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+              <div style={styles.formButtonRow}>
+                <button
+                  onClick={() => sendTextToGroup(selectedContactGroupId)}
+                  style={styles.button}
+                >
+                  Text Selected Group
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.listWrap}>
+              {contactGroups.length === 0 ? (
+                <div style={styles.smallText}>No contact groups saved yet.</div>
+              ) : (
+                contactGroups.map((group) => {
+                  const groupContacts = contacts.filter((contact) =>
+                    (group.contact_group_memberships || []).some(
+                      (membership) => membership.contact_id === contact.id
+                    )
+                  )
+                  return (
+                    <div key={group.id} style={styles.emailGroupBlock}>
+                      <div style={styles.emailGroupHeader}>
+                        <strong>{group.name}</strong>
+                        <button onClick={() => sendTextToGroup(group.id)} style={styles.smallButton}>
+                          Text Group
+                        </button>
+                      </div>
+                      {groupContacts.length === 0 ? (
+                        <div style={styles.smallText}>No contacts in this group yet.</div>
+                      ) : (
+                        groupContacts.map((contact) => (
+                          <div key={contact.id} style={styles.listItem}>
+                            <div>
+                              {contact.name}
+                              {contact.phone ? ` — ${contact.phone}` : ''}
+                              {contact.email ? ` — ${contact.email}` : ''}
+                            </div>
+                            <div style={styles.itemButtonRow}>
+                              {contact.phone ? (
+                                <button onClick={() => sendMobileTextToContact(contact)} style={styles.smallButton}>
+                                  Text
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            <div style={styles.mobileNoticeBox}>
+              <strong>Important:</strong> “Send via Text” opens your device text app with the read-only weekly link already filled in. It does not send messages silently in the background.
+            </div>
+          </div>
         </div>
       )}
 
@@ -3894,9 +3964,9 @@ async function copyContactList() {
   )
 }
 
-function SectionCard({ title, children }) {
+function SectionCard({ title, children, style }) {
   return (
-    <div style={styles.sectionCard}>
+    <div style={{ ...styles.sectionCard, ...(style || {}) }}>
       <h2 style={styles.sectionTitle}>{title}</h2>
       {children}
     </div>
@@ -4031,6 +4101,39 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
     gap: '20px',
+  },
+  masterGrid: {
+    maxWidth: '1320px',
+    margin: '0 auto',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: '20px',
+    alignItems: 'start',
+  },
+  masterCardJobs: {
+    gridColumn: 'span 2',
+    order: 1,
+  },
+  masterCardProjectManagers: {
+    order: 2,
+  },
+  masterCardSuperintendents: {
+    order: 4,
+  },
+  masterCardForemen: {
+    order: 5,
+  },
+  masterCardSurveyors: {
+    order: 6,
+  },
+  masterCardContacts: {
+    order: 7,
+  },
+  masterCardTextGroups: {
+    order: 8,
+  },
+  masterCardEmailGroups: {
+    order: 9,
   },
   singleColumnWrap: {
     maxWidth: '1200px',
