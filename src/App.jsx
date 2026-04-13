@@ -2476,6 +2476,7 @@ async function copyContactList() {
             <input
               placeholder="Job Name"
               value={jobName}
+              spellCheck={true}
               onChange={(e) => setJobName(e.target.value)}
               style={styles.input}
             />
@@ -2540,6 +2541,7 @@ async function copyContactList() {
             <input
               placeholder="Project Manager Name"
               value={pmName}
+              spellCheck={true}
               onChange={(e) => setPmName(e.target.value)}
               style={styles.input}
             />
@@ -2581,6 +2583,7 @@ async function copyContactList() {
             <input
               placeholder="Superintendent Name"
               value={superintendentName}
+              spellCheck={true}
               onChange={(e) => setSuperintendentName(e.target.value)}
               style={styles.input}
             />
@@ -2627,6 +2630,7 @@ async function copyContactList() {
             <input
               placeholder="Surveyor Name"
               value={surveyorName}
+              spellCheck={true}
               onChange={(e) => setSurveyorName(e.target.value)}
               style={styles.input}
             />
@@ -2671,6 +2675,7 @@ async function copyContactList() {
             <input
               placeholder="Foreman Name"
               value={foremanName}
+              spellCheck={true}
               onChange={(e) => setForemanName(e.target.value)}
               style={styles.input}
             />
@@ -2718,6 +2723,7 @@ async function copyContactList() {
               <input
                 placeholder="Contact name"
                 value={newContactName}
+                spellCheck={true}
                 onChange={(e) => setNewContactName(e.target.value)}
                 style={styles.input}
               />
@@ -2789,6 +2795,7 @@ async function copyContactList() {
               <input
                 placeholder="New text group name"
                 value={newContactGroupName}
+                spellCheck={true}
                 onChange={(e) => setNewContactGroupName(e.target.value)}
                 style={styles.input}
               />
@@ -3009,6 +3016,7 @@ async function copyContactList() {
               <textarea
                 value={scheduleForm.notes}
                 onChange={(e) => updateScheduleForm('notes', e.target.value)}
+                spellCheck={true}
                 style={styles.textarea}
                 placeholder="Overall notes for this job or week..."
               />
@@ -3095,6 +3103,7 @@ async function copyContactList() {
                     <input
                       type="text"
                       value={assignment.split_note}
+                      spellCheck={true}
                       onChange={(e) =>
                         updateForemanAssignment(
                           assignment.localId,
@@ -3112,6 +3121,7 @@ async function copyContactList() {
                   <label style={styles.label}>Work Description</label>
                   <textarea
                     value={assignment.work_description}
+                    spellCheck={true}
                     onChange={(e) =>
                       updateForemanAssignment(
                         assignment.localId,
@@ -3194,6 +3204,7 @@ async function copyContactList() {
                   <label style={styles.label}>Surveyor Note</label>
                   <textarea
                     value={assignment.note}
+                    spellCheck={true}
                     onChange={(e) =>
                       updateSurveyorAssignment(
                         assignment.localId,
