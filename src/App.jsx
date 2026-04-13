@@ -4139,7 +4139,8 @@ const styles = {
     margin: '0 auto',
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '20px',
+    columnGap: '20px',
+    rowGap: '20px',
     alignItems: 'stretch',
   },
   sectionContent: {
