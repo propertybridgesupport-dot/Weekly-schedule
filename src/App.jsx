@@ -4144,11 +4144,10 @@ const styles = {
     alignItems: 'start',
   },
   sectionContent: {
-    flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    minHeight: 0,
     gap: '12px',
+    minHeight: 0,
   },
   masterCardJobs: {
     gridColumn: 'span 2',
@@ -4250,7 +4249,6 @@ const styles = {
     borderRadius: '14px',
     padding: '16px',
     boxShadow: '0 6px 18px rgba(15, 23, 42, 0.04)',
-    height: '100%',
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
@@ -4361,7 +4359,6 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr',
     gap: '10px',
   },
   metaGrid: {
@@ -4537,7 +4534,7 @@ const styles = {
     flexWrap: 'wrap',
     gap: '8px',
     marginTop: '2px',
-    marginBottom: '4px',
+    marginBottom: '6px',
   },
   itemButtonRow: {
     display: 'flex',
@@ -4674,14 +4671,12 @@ const styles = {
     resize: 'vertical',
   },
   listWrap: {
-    flex: 1,
-    minHeight: 260,
-    maxHeight: 260,
+    maxHeight: '260px',
     overflowY: 'auto',
     borderTop: '1px solid #f3ede3',
-    marginTop: '6px',
     paddingTop: '12px',
     paddingRight: '4px',
+    marginTop: '4px',
   },
   listItem: {
     display: 'flex',
