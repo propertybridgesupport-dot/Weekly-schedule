@@ -4154,34 +4154,42 @@ const styles = {
     gridColumn: 'span 2',
     order: 1,
     alignSelf: 'stretch',
+    minHeight: 470,
   },
   masterCardProjectManagers: {
     order: 2,
     alignSelf: 'stretch',
+    minHeight: 470,
   },
   masterCardSuperintendents: {
     order: 4,
     alignSelf: 'stretch',
+    minHeight: 340,
   },
   masterCardForemen: {
     order: 5,
     alignSelf: 'stretch',
+    minHeight: 340,
   },
   masterCardSurveyors: {
     order: 6,
     alignSelf: 'stretch',
+    minHeight: 340,
   },
   masterCardContacts: {
     order: 7,
     alignSelf: 'stretch',
+    minHeight: 430,
   },
   masterCardTextGroups: {
     order: 8,
     alignSelf: 'stretch',
+    minHeight: 430,
   },
   masterCardEmailGroups: {
     order: 9,
     alignSelf: 'stretch',
+    minHeight: 430,
   },
 
 
@@ -4676,7 +4684,8 @@ const styles = {
   },
   listWrap: {
     flex: 1,
-    minHeight: 0,
+    minHeight: 220,
+    maxHeight: 220,
     overflowY: 'auto',
     borderTop: '1px solid #f3ede3',
     paddingTop: '12px',
