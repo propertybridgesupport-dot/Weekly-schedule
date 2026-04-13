@@ -4139,15 +4139,16 @@ const styles = {
     margin: '0 auto',
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '18px',
-    alignItems: 'stretch',
+    columnGap: '18px',
+    rowGap: '24px',
+    alignItems: 'start',
   },
   sectionContent: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
-    gap: '10px',
+    gap: '12px',
   },
   masterCardJobs: {
     gridColumn: 'span 2',
@@ -4158,21 +4159,27 @@ const styles = {
   },
   masterCardSuperintendents: {
     order: 4,
+    alignSelf: 'start',
   },
   masterCardForemen: {
     order: 5,
+    alignSelf: 'start',
   },
   masterCardSurveyors: {
     order: 6,
+    alignSelf: 'start',
   },
   masterCardContacts: {
     order: 7,
+    alignSelf: 'start',
   },
   masterCardTextGroups: {
     order: 8,
+    alignSelf: 'start',
   },
   masterCardEmailGroups: {
     order: 9,
+    alignSelf: 'start',
   },
 
 
@@ -4247,6 +4254,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
+    overflow: 'hidden',
   },
   assignmentCard: {
     border: '1px solid #ead7c2',
@@ -4353,8 +4361,8 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '14px',
+    gridTemplateColumns: '1fr',
+    gap: '10px',
   },
   metaGrid: {
     display: 'grid',
@@ -4450,24 +4458,24 @@ const styles = {
 
   contactCheckboxRow: {
     display: 'flex',
-    gap: '10px',
     alignItems: 'flex-start',
+    gap: '8px',
     padding: '8px 0',
-    borderBottom: '1px solid #efe7db',
-    fontSize: '14px',
+    borderBottom: '1px solid #f5efe5',
+    fontSize: '13px',
+    lineHeight: 1.35,
   },
   emailGroupBlock: {
-    border: '1px solid #e5e7eb',
-    borderRadius: '10px',
-    padding: '10px',
-    marginBottom: '12px',
+    display: 'grid',
+    gap: '10px',
   },
   emailGroupHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: '10px',
-    marginBottom: '8px',
+    paddingBottom: '8px',
+    borderBottom: '1px solid #f5efe5',
   },
   printJobTitle: {
     fontSize: '20px',
@@ -4526,9 +4534,10 @@ const styles = {
   },
   formButtonRow: {
     display: 'flex',
-    gap: '10px',
     flexWrap: 'wrap',
-    marginTop: '8px',
+    gap: '8px',
+    marginTop: '2px',
+    marginBottom: '4px',
   },
   itemButtonRow: {
     display: 'flex',
@@ -4544,7 +4553,7 @@ const styles = {
   sectionTitle: {
     fontSize: '18px',
     fontWeight: '700',
-    marginBottom: '12px',
+    margin: '0 0 14px 0',
     color: '#111827',
   },
   text: {
@@ -4670,7 +4679,9 @@ const styles = {
     maxHeight: 260,
     overflowY: 'auto',
     borderTop: '1px solid #f3ede3',
-    paddingTop: '10px',
+    marginTop: '6px',
+    paddingTop: '12px',
+    paddingRight: '4px',
   },
   listItem: {
     display: 'flex',
