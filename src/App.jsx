@@ -2448,7 +2448,8 @@ async function copyContactList() {
 
       {activeTab === 'master' && (
         <div style={styles.masterGrid}>
-          <SectionCard title="Jobs" style={styles.masterCardJobs}>
+          <div style={styles.masterRow}>
+            <SectionCard title="Jobs" style={styles.masterCardJobs}>
             <label style={styles.label}>Job Number</label>
             <div style={styles.jobNumberRow}>
               <select
@@ -2540,8 +2541,7 @@ async function copyContactList() {
               ))}
             </div>
           </SectionCard>
-
-          <SectionCard title="Project Managers" style={styles.masterCardProjectManagers}>
+            <SectionCard title="Project Managers" style={styles.masterCardProjectManagers}>
             <input
               placeholder="Project Manager Name"
               value={pmName}
@@ -2581,8 +2581,10 @@ async function copyContactList() {
               ))}
             </div>
           </SectionCard>
+          </div>
 
-          <SectionCard title="Superintendents" style={styles.masterCardSuperintendents}>
+          <div style={styles.masterRow}>
+            <SectionCard title="Superintendents" style={styles.masterCardSuperintendents}>
             <input
               placeholder="Superintendent Name"
               value={superintendentName}
@@ -2627,8 +2629,47 @@ async function copyContactList() {
               ))}
             </div>
           </SectionCard>
+            <SectionCard title="Foremen" style={styles.masterCardForemen}>
+            <input
+              placeholder="Foreman Name"
+              value={foremanName}
+              onChange={(e) => setForemanName(e.target.value)}
+              style={styles.input}
+            />
+            <div style={styles.formButtonRow}>
+              <button onClick={saveForeman} style={styles.button}>
+                {editingForemanId ? 'Update Foreman' : 'Add Foreman'}
+              </button>
+              {editingForemanId && (
+                <button onClick={resetForemanForm} style={styles.buttonSecondary}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
-          <SectionCard title="Surveyors" style={styles.masterCardSurveyors}>
+            <div style={styles.listWrap}>
+              {foremen.map((person) => (
+                <div key={person.id} style={styles.listItem}>
+                  <div>{person.name}</div>
+                  <div style={styles.itemButtonRow}>
+                    <button
+                      onClick={() => editForeman(person)}
+                      style={styles.smallButton}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteForeman(person.id)}
+                      style={styles.smallDangerButton}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+            <SectionCard title="Surveyors" style={styles.masterCardSurveyors}>
             <input
               placeholder="Surveyor Name"
               value={surveyorName}
@@ -2671,50 +2712,10 @@ async function copyContactList() {
               ))}
             </div>
           </SectionCard>
+          </div>
 
-          <SectionCard title="Foremen" style={styles.masterCardForemen}>
-            <input
-              placeholder="Foreman Name"
-              value={foremanName}
-              onChange={(e) => setForemanName(e.target.value)}
-              style={styles.input}
-            />
-            <div style={styles.formButtonRow}>
-              <button onClick={saveForeman} style={styles.button}>
-                {editingForemanId ? 'Update Foreman' : 'Add Foreman'}
-              </button>
-              {editingForemanId && (
-                <button onClick={resetForemanForm} style={styles.buttonSecondary}>
-                  Cancel Edit
-                </button>
-              )}
-            </div>
-
-            <div style={styles.listWrap}>
-              {foremen.map((person) => (
-                <div key={person.id} style={styles.listItem}>
-                  <div>{person.name}</div>
-                  <div style={styles.itemButtonRow}>
-                    <button
-                      onClick={() => editForeman(person)}
-                      style={styles.smallButton}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deleteForeman(person.id)}
-                      style={styles.smallDangerButton}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-
-          <SectionCard title="Contacts" style={styles.masterCardContacts}>
+          <div style={styles.masterRow}>
+            <SectionCard title="Contacts" style={styles.masterCardContacts}>
             <div style={styles.smallText}>
               Add each person once here. Text and email groups both pull from this master contact list.
             </div>
@@ -2784,8 +2785,7 @@ async function copyContactList() {
               )}
             </div>
           </SectionCard>
-
-          <SectionCard title="Text Groups" style={styles.masterCardTextGroups}>
+            <SectionCard title="Text Groups" style={styles.masterCardTextGroups}>
             <div style={styles.smallText}>
               Create texting groups and check the contacts you want included. Only contacts with phone numbers are shown here.
             </div>
@@ -2873,7 +2873,7 @@ async function copyContactList() {
               })()}
             </div>
           </SectionCard>
-          <SectionCard title="Email Groups" style={styles.masterCardEmailGroups}>
+            <SectionCard title="Email Groups" style={styles.masterCardEmailGroups}>
             <div style={styles.smallText}>
               Create email groups and select contacts with email addresses from the master contact list.
             </div>
@@ -2954,6 +2954,7 @@ async function copyContactList() {
               )}
             </div>
           </SectionCard>
+          </div>
         </div>
       )}
 
@@ -4137,10 +4138,13 @@ const styles = {
   masterGrid: {
     maxWidth: '1320px',
     margin: '0 auto',
+    display: 'block',
+  },
+  masterRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
     columnGap: '20px',
-    rowGap: '20px',
+    marginBottom: '20px',
     alignItems: 'stretch',
   },
   sectionContent: {
@@ -4152,50 +4156,28 @@ const styles = {
   },
   masterCardJobs: {
     gridColumn: 'span 2',
-    order: 1,
-    alignSelf: 'stretch',
     minHeight: 470,
   },
   masterCardProjectManagers: {
-    order: 2,
-    alignSelf: 'stretch',
     minHeight: 470,
   },
   masterCardSuperintendents: {
-    order: 4,
-    alignSelf: 'stretch',
     minHeight: 340,
-    marginTop: '20px',
   },
   masterCardForemen: {
-    order: 5,
-    alignSelf: 'stretch',
     minHeight: 340,
-    marginTop: '20px',
   },
   masterCardSurveyors: {
-    order: 6,
-    alignSelf: 'stretch',
     minHeight: 340,
-    marginTop: '20px',
   },
   masterCardContacts: {
-    order: 7,
-    alignSelf: 'stretch',
     minHeight: 430,
-    marginTop: '20px',
   },
   masterCardTextGroups: {
-    order: 8,
-    alignSelf: 'stretch',
     minHeight: 430,
-    marginTop: '20px',
   },
   masterCardEmailGroups: {
-    order: 9,
-    alignSelf: 'stretch',
     minHeight: 430,
-    marginTop: '20px',
   },
 
 
@@ -4271,6 +4253,7 @@ const styles = {
     height: '100%',
     minHeight: 0,
     overflow: 'hidden',
+    boxSizing: 'border-box',
   },
   assignmentCard: {
     border: '1px solid #ead7c2',
