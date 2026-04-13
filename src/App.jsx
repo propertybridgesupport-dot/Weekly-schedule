@@ -4141,44 +4141,47 @@ const styles = {
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
     columnGap: '18px',
     rowGap: '24px',
-    alignItems: 'start',
+    alignItems: 'stretch',
   },
   sectionContent: {
     display: 'flex',
     flexDirection: 'column',
     gap: '12px',
+    flex: 1,
     minHeight: 0,
   },
   masterCardJobs: {
     gridColumn: 'span 2',
     order: 1,
+    alignSelf: 'stretch',
   },
   masterCardProjectManagers: {
     order: 2,
+    alignSelf: 'stretch',
   },
   masterCardSuperintendents: {
     order: 4,
-    alignSelf: 'start',
+    alignSelf: 'stretch',
   },
   masterCardForemen: {
     order: 5,
-    alignSelf: 'start',
+    alignSelf: 'stretch',
   },
   masterCardSurveyors: {
     order: 6,
-    alignSelf: 'start',
+    alignSelf: 'stretch',
   },
   masterCardContacts: {
     order: 7,
-    alignSelf: 'start',
+    alignSelf: 'stretch',
   },
   masterCardTextGroups: {
     order: 8,
-    alignSelf: 'start',
+    alignSelf: 'stretch',
   },
   masterCardEmailGroups: {
     order: 9,
-    alignSelf: 'start',
+    alignSelf: 'stretch',
   },
 
 
@@ -4251,6 +4254,7 @@ const styles = {
     boxShadow: '0 6px 18px rgba(15, 23, 42, 0.04)',
     display: 'flex',
     flexDirection: 'column',
+    height: '100%',
     minHeight: 0,
     overflow: 'hidden',
   },
@@ -4671,7 +4675,8 @@ const styles = {
     resize: 'vertical',
   },
   listWrap: {
-    maxHeight: '260px',
+    flex: 1,
+    minHeight: 0,
     overflowY: 'auto',
     borderTop: '1px solid #f3ede3',
     paddingTop: '12px',
