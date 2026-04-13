@@ -4140,7 +4140,7 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
     columnGap: '20px',
-    rowGap: '28px',
+    rowGap: '24px',
     alignItems: 'stretch',
   },
   sectionContent: {
@@ -4165,31 +4165,37 @@ const styles = {
     order: 4,
     alignSelf: 'stretch',
     minHeight: 340,
+    marginTop: '18px',
   },
   masterCardForemen: {
     order: 5,
     alignSelf: 'stretch',
     minHeight: 340,
+    marginTop: '18px',
   },
   masterCardSurveyors: {
     order: 6,
     alignSelf: 'stretch',
     minHeight: 340,
+    marginTop: '18px',
   },
   masterCardContacts: {
     order: 7,
     alignSelf: 'stretch',
     minHeight: 430,
+    marginTop: '18px',
   },
   masterCardTextGroups: {
     order: 8,
     alignSelf: 'stretch',
     minHeight: 430,
+    marginTop: '18px',
   },
   masterCardEmailGroups: {
     order: 9,
     alignSelf: 'stretch',
     minHeight: 430,
+    marginTop: '18px',
   },
 
 
@@ -4691,7 +4697,7 @@ const styles = {
     borderTop: '1px solid #f3ede3',
     paddingTop: '12px',
     paddingRight: '4px',
-    marginTop: '8px',
+    marginTop: '6px',
   },
   listItem: {
     display: 'flex',
