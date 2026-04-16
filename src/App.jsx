@@ -370,14 +370,46 @@ const [printLayout, setPrintLayout] = useState('report')
   }, [scheduleItems])
 
   const weekScheduleItems = useMemo(() => {
-    return scheduleItems.filter((item) => {
-      return (
-        !selectedWeekFrom ||
-        !selectedWeekTo ||
-        item.from_date <= selectedWeekTo
-      )
+    if (!selectedWeekTo) return scheduleItems
+
+    const eligibleItems = scheduleItems.filter((item) => {
+      return !item.from_date || item.from_date <= selectedWeekTo
     })
-  }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
+
+    const latestByJob = {}
+
+    eligibleItems.forEach((item) => {
+      const jobId = item.job_id || item.jobs?.id || item.id
+
+      if (!latestByJob[jobId]) {
+        latestByJob[jobId] = item
+        return
+      }
+
+      const currentLatest = latestByJob[jobId]
+      const itemFrom = item.from_date || ''
+      const latestFrom = currentLatest.from_date || ''
+
+      if (itemFrom > latestFrom) {
+        latestByJob[jobId] = item
+        return
+      }
+
+      if (itemFrom === latestFrom) {
+        const itemTo = item.to_date || ''
+        const latestTo = currentLatest.to_date || ''
+        if (itemTo > latestTo) {
+          latestByJob[jobId] = item
+        }
+      }
+    })
+
+    return Object.values(latestByJob).sort((a, b) => {
+      const aNum = extractJobNumberValue(a.jobs?.job_number)
+      const bNum = extractJobNumberValue(b.jobs?.job_number)
+      return aNum - bNum
+    })
+  }, [scheduleItems, selectedWeekTo])
 
   const activeWeekScheduleItems = useMemo(() => {
     return weekScheduleItems.filter((item) => {
