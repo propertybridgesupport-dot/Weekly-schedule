@@ -99,6 +99,11 @@ function decodeMobileShareSnapshot(rawValue) {
   }
 }
 
+function buildEmailWeekLabel(selectedWeekFrom, selectedWeekTo) {
+  if (!selectedWeekFrom || !selectedWeekTo) return ''
+  return `${formatLongDate(selectedWeekFrom)} – ${formatLongDate(selectedWeekTo)}`
+}
+
 function buildMobileShareSnapshot(items, selectedWeekFrom, selectedWeekTo) {
   const payload = {
     weekFrom: selectedWeekFrom,
@@ -1911,9 +1916,12 @@ async function copyContactList() {
       return
     }
 
-    const subject = encodeURIComponent(`Weekly Schedule PDF - ${group.name}`)
+    const weekLabel = buildEmailWeekLabel(selectedWeekFrom, selectedWeekTo)
+    const subject = encodeURIComponent(
+      weekLabel ? `Weekly Schedule - ${weekLabel}` : 'Weekly Schedule'
+    )
     const body = encodeURIComponent(
-      'Please find the weekly schedule attached. Use the Print / PDF button in the app first to save the PDF, then attach it to this email.'
+      'Your email app was opened with the weekly schedule subject line filled in. For security reasons, browser apps cannot auto-attach a PDF file directly to a new Outlook message. Please save the PDF from Print / Save PDF first, then attach it to the email.'
     )
 
     window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
