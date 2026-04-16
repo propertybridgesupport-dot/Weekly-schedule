@@ -194,6 +194,7 @@ const [reportNotes, setReportNotes] = useState('')
   const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
   const [notesStyle, setNotesStyle] = useState('accent')
+  const [showActiveOnly, setShowActiveOnly] = useState(false)
 
   const [jobPrefix, setJobPrefix] = useState('CC')
   const [jobNumberPart2, setJobNumberPart2] = useState('')
@@ -373,12 +374,12 @@ const [printLayout, setPrintLayout] = useState('report')
       return (
         !selectedWeekFrom ||
         !selectedWeekTo ||
-        (item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo)
+        item.from_date <= selectedWeekTo
       )
     })
   }, [scheduleItems, selectedWeekFrom, selectedWeekTo])
 
-  const gridScheduleItems = useMemo(() => {
+  const activeWeekScheduleItems = useMemo(() => {
     return weekScheduleItems.filter((item) => {
       const hasJobNote = Boolean((item.notes || '').trim())
       const hasForemanAssignments = Boolean(item.schedule_item_foremen?.length)
@@ -387,6 +388,14 @@ const [printLayout, setPrintLayout] = useState('report')
       return hasJobNote || hasForemanAssignments || hasSurveyorAssignments
     })
   }, [weekScheduleItems])
+
+  const displayedWeekScheduleItems = useMemo(() => {
+    return showActiveOnly ? activeWeekScheduleItems : weekScheduleItems
+  }, [showActiveOnly, activeWeekScheduleItems, weekScheduleItems])
+
+  const gridScheduleItems = useMemo(() => {
+    return activeWeekScheduleItems
+  }, [activeWeekScheduleItems])
   const nextWeekRange = useMemo(() => getNextWeekRangeFromSelectedWeek(), [selectedWeekFrom, selectedWeekTo])
 
   const nextWeekHasItems = useMemo(() => {
@@ -3309,11 +3318,30 @@ async function copyContactList() {
               </div>
             </div>
 
-            {filteredScheduleItems.length === 0 ? (
-              <p style={styles.text}>No jobs with notes or assignments for this week.</p>
+            <div style={styles.weeklyFilterBar}>
+              <label style={styles.toggleLabel}>
+                <input
+                  type="checkbox"
+                  checked={showActiveOnly}
+                  onChange={(e) => setShowActiveOnly(e.target.checked)}
+                />
+                <span>Show active only</span>
+              </label>
+              <div style={styles.smallText}>
+                Showing {displayedWeekScheduleItems.length} job{displayedWeekScheduleItems.length === 1 ? '' : 's'}
+                {showActiveOnly ? ' with notes or assignments' : ' rolling forward until deleted'}.
+              </div>
+            </div>
+
+            {displayedWeekScheduleItems.length === 0 ? (
+              <p style={styles.text}>
+                {showActiveOnly
+                  ? 'No active jobs with notes or assignments for this week.'
+                  : 'No jobs found for this week yet.'}
+              </p>
             ) : (
               <div style={styles.scheduleList}>
-                {weekScheduleItems.map((item) => (
+                {displayedWeekScheduleItems.map((item) => (
                   <div key={item.id} id={`schedule-item-${item.id}`} style={styles.scheduleCard}>
                     <div style={styles.scheduleHeader}>
                       <div>
