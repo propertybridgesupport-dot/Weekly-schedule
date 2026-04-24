@@ -187,6 +187,9 @@ export default function App() {
   const [quickNote, setQuickNote] = useState('')
   const [fieldNotes, setFieldNotes] = useState([])
   const [fieldNotesSearch, setFieldNotesSearch] = useState('')
+  const [fieldNotesDateFilter, setFieldNotesDateFilter] = useState('last7')
+  const [showCompletedFieldNotes, setShowCompletedFieldNotes] = useState(false)
+  const [selectedFieldNoteIds, setSelectedFieldNoteIds] = useState(new Set())
   const [editingFieldNoteId, setEditingFieldNoteId] = useState(null)
   const [editingFieldNoteText, setEditingFieldNoteText] = useState('')
   const [contacts, setContacts] = useState([])
@@ -1373,26 +1376,91 @@ async function copyContactList() {
     return pieces.map((piece) => piece.replace(/^[, ]+|[, ]+$/g, '')).filter(Boolean)
   }
 
+  function isFieldNoteDone(note) {
+    return Boolean(note?.is_done || note?.done || note?.completed)
+  }
+
+  function isFieldNotePinned(note) {
+    return Boolean(note?.pinned || note?.is_pinned)
+  }
+
+  function getFieldNoteDateKey(note) {
+    const createdAt = getFieldNoteCreatedAt(note)
+    if (!createdAt) return 'No date'
+    return toIsoDate(new Date(createdAt))
+  }
+
+  function getReadableFieldNoteDate(dateKey) {
+    if (!dateKey || dateKey === 'No date') return 'No date'
+    const today = toIsoDate(new Date())
+    const yesterdayDate = new Date()
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterday = toIsoDate(yesterdayDate)
+
+    if (dateKey === today) return 'Today'
+    if (dateKey === yesterday) return 'Yesterday'
+    return formatLongDate(dateKey)
+  }
+
+  function fieldNoteMatchesDateFilter(note) {
+    if (fieldNotesDateFilter === 'all') return true
+
+    const createdAt = getFieldNoteCreatedAt(note)
+    if (!createdAt) return fieldNotesDateFilter === 'all'
+
+    const createdDate = new Date(createdAt)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const noteDay = new Date(createdDate)
+    noteDay.setHours(0, 0, 0, 0)
+
+    const daysAgo = Math.floor((today - noteDay) / (1000 * 60 * 60 * 24))
+
+    if (fieldNotesDateFilter === 'today') return daysAgo === 0
+    if (fieldNotesDateFilter === 'yesterday') return daysAgo === 1
+    if (fieldNotesDateFilter === 'week') return daysAgo >= 0 && daysAgo <= 6
+    if (fieldNotesDateFilter === 'last7') return daysAgo >= 0 && daysAgo <= 7
+    if (fieldNotesDateFilter === 'last30') return daysAgo >= 0 && daysAgo <= 30
+    return true
+  }
+
   const organizedFieldNotes = useMemo(() => {
     const search = fieldNotesSearch.trim().toLowerCase()
-    const visibleNotes = (fieldNotes || []).filter((note) => {
-      const text = getFieldNoteText(note)
-      if (!search) return true
-      return text.toLowerCase().includes(search)
-    })
+    const visibleNotes = (fieldNotes || [])
+      .filter((note) => {
+        const text = getFieldNoteText(note)
+        if (search && !text.toLowerCase().includes(search)) return false
+        if (!showCompletedFieldNotes && isFieldNoteDone(note)) return false
+        return fieldNoteMatchesDateFilter(note)
+      })
+      .sort((a, b) => {
+        const pinnedDiff = Number(isFieldNotePinned(b)) - Number(isFieldNotePinned(a))
+        if (pinnedDiff) return pinnedDiff
+        return new Date(getFieldNoteCreatedAt(b) || 0) - new Date(getFieldNoteCreatedAt(a) || 0)
+      })
 
     const groups = {
       today: [],
       issues: [],
       byJob: {},
+      byDate: {},
+      completed: [],
       unsorted: [],
+      visibleEntries: [],
     }
 
     visibleNotes.forEach((note) => {
       const text = getFieldNoteText(note)
       const info = classifyFieldNote(text)
       const entry = { note, text, info }
+      groups.visibleEntries.push(entry)
 
+      const dateKey = getFieldNoteDateKey(note)
+      if (!groups.byDate[dateKey]) groups.byDate[dateKey] = []
+      groups.byDate[dateKey].push(entry)
+
+      if (isFieldNoteDone(note)) groups.completed.push(entry)
       if (info.isToday) groups.today.push(entry)
       if (info.type === 'Issue') groups.issues.push(entry)
 
@@ -1405,7 +1473,7 @@ async function copyContactList() {
     })
 
     return groups
-  }, [fieldNotes, fieldNotesSearch, jobs, foremen, superintendents])
+  }, [fieldNotes, fieldNotesSearch, fieldNotesDateFilter, showCompletedFieldNotes, jobs, foremen, superintendents])
 
   async function saveQuickNote() {
     const noteText = quickNote.trim()
@@ -1449,6 +1517,112 @@ async function copyContactList() {
 
     await loadFieldNotes()
     showSuccess('Field note deleted.')
+  }
+
+
+  function toggleSelectedFieldNote(noteId) {
+    if (!noteId) return
+    setSelectedFieldNoteIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(noteId)) {
+        next.delete(noteId)
+      } else {
+        next.add(noteId)
+      }
+      return next
+    })
+  }
+
+  function clearSelectedFieldNotes() {
+    setSelectedFieldNoteIds(new Set())
+  }
+
+  function selectVisibleFieldNotes() {
+    const ids = organizedFieldNotes.visibleEntries
+      .map((entry) => entry.note?.id)
+      .filter(Boolean)
+    setSelectedFieldNoteIds(new Set(ids))
+  }
+
+  async function deleteSelectedFieldNotes() {
+    const ids = Array.from(selectedFieldNoteIds)
+    if (!ids.length) {
+      showError('Select at least one note first.')
+      return
+    }
+
+    const confirmed = window.confirm(`Delete ${ids.length} selected field note${ids.length === 1 ? '' : 's'}?`)
+    if (!confirmed) return
+
+    setActionLoading('deleteSelectedFieldNotes')
+    const { error } = await supabase.from('field_notes').delete().in('id', ids)
+    if (error) {
+      showError(error.message)
+      setActionLoading('')
+      return
+    }
+
+    clearSelectedFieldNotes()
+    await loadFieldNotes()
+    showSuccess(`${ids.length} field note${ids.length === 1 ? '' : 's'} deleted.`)
+    setActionLoading('')
+  }
+
+  async function markSelectedFieldNotesDone(isDone = true) {
+    const ids = Array.from(selectedFieldNoteIds)
+    if (!ids.length) {
+      showError('Select at least one note first.')
+      return
+    }
+
+    setActionLoading('markSelectedFieldNotesDone')
+    const { error } = await supabase
+      .from('field_notes')
+      .update({ is_done: isDone, completed_at: isDone ? new Date().toISOString() : null })
+      .in('id', ids)
+
+    if (error) {
+      showError(error.message)
+      setActionLoading('')
+      return
+    }
+
+    clearSelectedFieldNotes()
+    await loadFieldNotes()
+    showSuccess(isDone ? 'Selected notes marked done.' : 'Selected notes reopened.')
+    setActionLoading('')
+  }
+
+  async function toggleFieldNoteDone(note) {
+    if (!note?.id) return
+    const nextDone = !isFieldNoteDone(note)
+    const { error } = await supabase
+      .from('field_notes')
+      .update({ is_done: nextDone, completed_at: nextDone ? new Date().toISOString() : null })
+      .eq('id', note.id)
+
+    if (error) {
+      showError(error.message)
+      return
+    }
+
+    await loadFieldNotes()
+    showSuccess(nextDone ? 'Note marked done.' : 'Note reopened.')
+  }
+
+  async function toggleFieldNotePinned(note) {
+    if (!note?.id) return
+    const { error } = await supabase
+      .from('field_notes')
+      .update({ pinned: !isFieldNotePinned(note) })
+      .eq('id', note.id)
+
+    if (error) {
+      showError(error.message)
+      return
+    }
+
+    await loadFieldNotes()
   }
 
   function startEditFieldNote(note) {
@@ -1496,6 +1670,9 @@ async function copyContactList() {
     const info = entry.info
     const createdAt = getFieldNoteCreatedAt(note)
     const isEditing = note.id && editingFieldNoteId === note.id
+    const isSelected = note.id && selectedFieldNoteIds.has(note.id)
+    const isDone = isFieldNoteDone(note)
+    const isPinned = isFieldNotePinned(note)
 
     return (
       <div key={note.id || `${text}-${createdAt}`} style={styles.fieldNoteCard}>
@@ -1521,14 +1698,28 @@ async function copyContactList() {
           </>
         ) : (
           <>
-            <div style={styles.fieldNoteText}>{text}</div>
+            <div style={styles.fieldNoteTopRow}>
+              {!options.hideDelete && note.id ? (
+                <input
+                  type="checkbox"
+                  checked={Boolean(isSelected)}
+                  onChange={() => toggleSelectedFieldNote(note.id)}
+                  style={styles.fieldNoteCheckbox}
+                  aria-label="Select field note"
+                />
+              ) : null}
+              <div style={isDone ? styles.fieldNoteTextDone : styles.fieldNoteText}>{isPinned ? '⭐ ' : ''}{text}</div>
+            </div>
             <div style={styles.fieldNoteMetaRow}>
               <span style={styles.fieldNotePill}>{info.type}</span>
+              {isDone ? <span style={styles.fieldNoteDonePill}>Done</span> : null}
               {info.personLabel ? <span style={styles.fieldNotePill}>Person: {info.personLabel}</span> : null}
               {createdAt ? <span style={styles.fieldNoteDate}>{new Date(createdAt).toLocaleString()}</span> : null}
             </div>
             {!options.hideDelete && note.id ? (
               <div style={styles.fieldNotesActionRow}>
+                <button onClick={() => toggleFieldNotePinned(note)} style={styles.smallButton}>{isPinned ? 'Unpin' : 'Pin'}</button>
+                <button onClick={() => toggleFieldNoteDone(note)} style={styles.smallButton}>{isDone ? 'Reopen' : 'Done'}</button>
                 <button onClick={() => startEditFieldNote(note)} style={styles.smallButton}>Edit</button>
                 <button onClick={() => deleteFieldNote(note.id)} style={styles.smallDangerButton}>Delete</button>
               </div>
@@ -1541,6 +1732,8 @@ async function copyContactList() {
 
   function renderFieldNotesPanel({ quickMode = false } = {}) {
     const jobEntries = Object.entries(organizedFieldNotes.byJob)
+    const dateEntries = Object.entries(organizedFieldNotes.byDate).sort(([a], [b]) => b.localeCompare(a))
+    const selectedCount = selectedFieldNoteIds.size
 
     return (
       <div style={quickMode ? styles.quickDumpPage : styles.fieldNotesPage}>
@@ -1599,6 +1792,40 @@ async function copyContactList() {
                 />
               </div>
 
+              <div style={styles.fieldNotesToolbar}>
+                <select
+                  value={fieldNotesDateFilter}
+                  onChange={(e) => { setFieldNotesDateFilter(e.target.value); clearSelectedFieldNotes() }}
+                  style={styles.inputSmall}
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="week">This Week</option>
+                  <option value="last7">Last 7 Days</option>
+                  <option value="last30">Last 30 Days</option>
+                  <option value="all">All Notes</option>
+                </select>
+
+                <label style={styles.fieldNotesCheckLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showCompletedFieldNotes}
+                    onChange={(e) => { setShowCompletedFieldNotes(e.target.checked); clearSelectedFieldNotes() }}
+                  />
+                  Show done
+                </label>
+
+                <button onClick={selectVisibleFieldNotes} style={styles.smallButton}>Select Visible</button>
+                <button onClick={clearSelectedFieldNotes} style={styles.smallButton}>Clear Selection</button>
+                <button onClick={() => markSelectedFieldNotesDone(true)} style={styles.smallButton}>Mark Done</button>
+                <button onClick={() => markSelectedFieldNotesDone(false)} style={styles.smallButton}>Reopen</button>
+                <button onClick={deleteSelectedFieldNotes} style={styles.smallDangerButton}>Delete Selected</button>
+              </div>
+
+              <div style={styles.fieldNotesHelper}>
+                Showing {organizedFieldNotes.visibleEntries.length} note{organizedFieldNotes.visibleEntries.length === 1 ? '' : 's'} · {selectedCount} selected
+              </div>
+
               {organizedFieldNotes.today.length ? (
                 <div style={styles.fieldNoteGroup}>
                   <h3 style={styles.fieldNoteGroupTitle}>Today / Immediate</h3>
@@ -1619,6 +1846,18 @@ async function copyContactList() {
                   {jobEntries.map(([jobLabel, entries]) => (
                     <div key={jobLabel} style={styles.fieldNoteJobBlock}>
                       <div style={styles.fieldNoteJobTitle}>{jobLabel}</div>
+                      {entries.map((entry) => renderFieldNoteCard(entry))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {dateEntries.length ? (
+                <div style={styles.fieldNoteGroup}>
+                  <h3 style={styles.fieldNoteGroupTitle}>Daily Notebook</h3>
+                  {dateEntries.map(([dateKey, entries]) => (
+                    <div key={dateKey} style={styles.fieldNoteJobBlock}>
+                      <div style={styles.fieldNoteJobTitle}>{getReadableFieldNoteDate(dateKey)}</div>
                       {entries.map((entry) => renderFieldNoteCard(entry))}
                     </div>
                   ))}
@@ -5166,6 +5405,57 @@ const styles = {
     padding: '24px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
+
+  fieldNotesToolbar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    alignItems: 'center',
+    margin: '12px 0',
+  },
+  fieldNotesCheckLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '13px',
+    color: '#334155',
+  },
+  inputSmall: {
+    padding: '9px 10px',
+    border: '1px solid #d7c8ad',
+    borderRadius: '8px',
+    background: '#fffdf8',
+    color: '#0f172a',
+    minWidth: '130px',
+  },
+  fieldNoteTopRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+  },
+  fieldNoteCheckbox: {
+    marginTop: '3px',
+    width: '18px',
+    height: '18px',
+  },
+  fieldNoteTextDone: {
+    fontSize: '14px',
+    lineHeight: 1.45,
+    color: '#64748b',
+    textDecoration: 'line-through',
+    flex: 1,
+  },
+  fieldNoteDonePill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    borderRadius: '999px',
+    padding: '4px 9px',
+    background: '#dcfce7',
+    color: '#166534',
+    fontSize: '12px',
+    fontWeight: 700,
+  },
+
   loginCard: {
     maxWidth: '500px',
     margin: '60px auto',
