@@ -1249,7 +1249,10 @@ async function copyContactList() {
   }
 
   function escapeRegExp(value) {
-    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\  function matchTextFromList(text, list, fields = ['name']) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  function matchTextFromList(text, list, fields = ['name']) {
     const lowered = String(text || '').toLowerCase()
     return (list || []).find((item) =>
       fields.some((field) => {
