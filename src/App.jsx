@@ -1901,7 +1901,7 @@ async function copyContactList() {
     }
   }
 
-  function emailSchedule(group) {
+  async function emailSchedule(group) {
     if (!group || !group.email_group_recipients?.length) {
       showError('This email group has no recipients.')
       return
@@ -1917,13 +1917,20 @@ async function copyContactList() {
     }
 
     const weekLabel = buildEmailWeekLabel(selectedWeekFrom, selectedWeekTo)
-    const subject = encodeURIComponent(
-      weekLabel ? `Weekly Schedule - ${weekLabel}` : 'Weekly Schedule'
-    )
+    const subjectText = weekLabel ? `Weekly Schedule - ${weekLabel}` : 'Weekly Schedule'
 
-    // Leave the body parameter off completely so Outlook can apply
-    // the selected account's default signature to the new message.
-    window.location.href = `mailto:${recipients.join(',')}?subject=${subject}`
+    const emailInfo = `To: ${recipients.join('; ')}\nSubject: ${subjectText}`
+
+    // Outlook does not reliably apply default signatures to emails opened from
+    // mailto links. The reliable workflow is to open a new Outlook email first
+    // so the selected account's default signature appears, then paste the copied
+    // recipients/subject.
+    try {
+      await navigator.clipboard.writeText(emailInfo)
+      showSuccess('Email recipients and subject copied. Open a new Outlook email so your signature appears, then paste.')
+    } catch (error) {
+      showError(emailInfo)
+    }
   }
 
   function renderDayContents(item, dayKey) {
@@ -3774,7 +3781,7 @@ async function copyContactList() {
       onClick={() => emailSchedule(selectedEmailGroup)}
       style={styles.buttonSecondary}
     >
-      Email Selected Group
+      Copy Email Info
     </button>
 
     <button onClick={openMobileShareView} style={styles.buttonSecondary}>
