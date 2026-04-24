@@ -1262,9 +1262,6 @@ async function copyContactList() {
     ) || null
   }
 
-  function classifyFieldNote(noteText) {
-')
-  }
 
   function cleanFieldNoteText(value) {
     let cleaned = String(value || '')
