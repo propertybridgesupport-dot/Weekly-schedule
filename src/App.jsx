@@ -187,8 +187,9 @@ export default function App() {
   const [quickNote, setQuickNote] = useState('')
   const [fieldNotes, setFieldNotes] = useState([])
   const [fieldNotesSearch, setFieldNotesSearch] = useState('')
+  const [fieldNotesView, setFieldNotesView] = useState('daily')
   const [fieldNotesDateFilter, setFieldNotesDateFilter] = useState('last7')
-  const [showCompletedFieldNotes, setShowCompletedFieldNotes] = useState(false)
+  const [fieldNotesShowDone, setFieldNotesShowDone] = useState(false)
   const [selectedFieldNoteIds, setSelectedFieldNoteIds] = useState(new Set())
   const [editingFieldNoteId, setEditingFieldNoteId] = useState(null)
   const [editingFieldNoteText, setEditingFieldNoteText] = useState('')
@@ -1019,6 +1020,7 @@ async function copyContactList() {
     setContacts([])
     setContactGroups([])
     setFieldNotes([])
+    setSelectedFieldNoteIds(new Set())
     setMessage('Signed out.')
     showSuccess('Signed out.')
   }
@@ -1206,6 +1208,73 @@ async function copyContactList() {
     return note?.created_at || note?.createdAt || note?.inserted_at || ''
   }
 
+  function getFieldNoteDateKey(note) {
+    const createdAt = getFieldNoteCreatedAt(note)
+    if (!createdAt) return 'No Date'
+    return toIsoDate(new Date(createdAt))
+  }
+
+  function getFieldNoteDateLabel(dateKey) {
+    if (!dateKey || dateKey === 'No Date') return 'No Date'
+    const todayKey = toIsoDate(new Date())
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayKey = toIsoDate(yesterday)
+
+    if (dateKey === todayKey) return 'Today'
+    if (dateKey === yesterdayKey) return 'Yesterday'
+
+    return new Date(`${dateKey}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
+
+  function fieldNoteMatchesDateFilter(note) {
+    if (fieldNotesDateFilter === 'all') return true
+
+    const createdAt = getFieldNoteCreatedAt(note)
+    if (!createdAt) return true
+
+    const noteDate = new Date(createdAt)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const noteDay = new Date(noteDate)
+    noteDay.setHours(0, 0, 0, 0)
+
+    const yesterday = new Date(today)
+    yesterday.setDate(today.getDate() - 1)
+
+    const selectedWeek = getMondaySundayRange(today)
+
+    if (fieldNotesDateFilter === 'today') return noteDay.getTime() === today.getTime()
+    if (fieldNotesDateFilter === 'yesterday') return noteDay.getTime() === yesterday.getTime()
+    if (fieldNotesDateFilter === 'thisWeek') {
+      const noteKey = toIsoDate(noteDay)
+      return noteKey >= selectedWeek.from && noteKey <= selectedWeek.to
+    }
+    if (fieldNotesDateFilter === 'last30') {
+      const cutoff = new Date(today)
+      cutoff.setDate(today.getDate() - 30)
+      return noteDay >= cutoff
+    }
+
+    const cutoff = new Date(today)
+    cutoff.setDate(today.getDate() - 7)
+    return noteDay >= cutoff
+  }
+
+  function noteIsDone(note) {
+    return note?.is_done === true || note?.is_done === 'true'
+  }
+
+  function noteIsPinned(note) {
+    return note?.pinned === true || note?.pinned === 'true'
+  }
+
   function matchTextFromList(text, list, fields = ['name']) {
     const lowered = String(text || '').toLowerCase()
     return (list || []).find((item) =>
@@ -1376,91 +1445,40 @@ async function copyContactList() {
     return pieces.map((piece) => piece.replace(/^[, ]+|[, ]+$/g, '')).filter(Boolean)
   }
 
-  function isFieldNoteDone(note) {
-    return Boolean(note?.is_done || note?.done || note?.completed)
-  }
-
-  function isFieldNotePinned(note) {
-    return Boolean(note?.pinned || note?.is_pinned)
-  }
-
-  function getFieldNoteDateKey(note) {
-    const createdAt = getFieldNoteCreatedAt(note)
-    if (!createdAt) return 'No date'
-    return toIsoDate(new Date(createdAt))
-  }
-
-  function getReadableFieldNoteDate(dateKey) {
-    if (!dateKey || dateKey === 'No date') return 'No date'
-    const today = toIsoDate(new Date())
-    const yesterdayDate = new Date()
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
-    const yesterday = toIsoDate(yesterdayDate)
-
-    if (dateKey === today) return 'Today'
-    if (dateKey === yesterday) return 'Yesterday'
-    return formatLongDate(dateKey)
-  }
-
-  function fieldNoteMatchesDateFilter(note) {
-    if (fieldNotesDateFilter === 'all') return true
-
-    const createdAt = getFieldNoteCreatedAt(note)
-    if (!createdAt) return fieldNotesDateFilter === 'all'
-
-    const createdDate = new Date(createdAt)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const noteDay = new Date(createdDate)
-    noteDay.setHours(0, 0, 0, 0)
-
-    const daysAgo = Math.floor((today - noteDay) / (1000 * 60 * 60 * 24))
-
-    if (fieldNotesDateFilter === 'today') return daysAgo === 0
-    if (fieldNotesDateFilter === 'yesterday') return daysAgo === 1
-    if (fieldNotesDateFilter === 'week') return daysAgo >= 0 && daysAgo <= 6
-    if (fieldNotesDateFilter === 'last7') return daysAgo >= 0 && daysAgo <= 7
-    if (fieldNotesDateFilter === 'last30') return daysAgo >= 0 && daysAgo <= 30
-    return true
-  }
-
   const organizedFieldNotes = useMemo(() => {
     const search = fieldNotesSearch.trim().toLowerCase()
-    const visibleNotes = (fieldNotes || [])
-      .filter((note) => {
-        const text = getFieldNoteText(note)
-        if (search && !text.toLowerCase().includes(search)) return false
-        if (!showCompletedFieldNotes && isFieldNoteDone(note)) return false
-        return fieldNoteMatchesDateFilter(note)
-      })
-      .sort((a, b) => {
-        const pinnedDiff = Number(isFieldNotePinned(b)) - Number(isFieldNotePinned(a))
-        if (pinnedDiff) return pinnedDiff
-        return new Date(getFieldNoteCreatedAt(b) || 0) - new Date(getFieldNoteCreatedAt(a) || 0)
-      })
+    const visibleNotes = (fieldNotes || []).filter((note) => {
+      const text = getFieldNoteText(note)
+      const done = noteIsDone(note)
+
+      if (!fieldNotesShowDone && done) return false
+      if (!fieldNoteMatchesDateFilter(note)) return false
+      if (!search) return true
+      return text.toLowerCase().includes(search)
+    })
 
     const groups = {
       today: [],
       issues: [],
       byJob: {},
-      byDate: {},
-      completed: [],
       unsorted: [],
-      visibleEntries: [],
+      daily: {},
+      pinned: [],
+      all: [],
     }
 
     visibleNotes.forEach((note) => {
       const text = getFieldNoteText(note)
       const info = classifyFieldNote(text)
       const entry = { note, text, info }
-      groups.visibleEntries.push(entry)
-
       const dateKey = getFieldNoteDateKey(note)
-      if (!groups.byDate[dateKey]) groups.byDate[dateKey] = []
-      groups.byDate[dateKey].push(entry)
 
-      if (isFieldNoteDone(note)) groups.completed.push(entry)
+      groups.all.push(entry)
+
+      if (!groups.daily[dateKey]) groups.daily[dateKey] = []
+      groups.daily[dateKey].push(entry)
+
+      if (noteIsPinned(note)) groups.pinned.push(entry)
       if (info.isToday) groups.today.push(entry)
       if (info.type === 'Issue') groups.issues.push(entry)
 
@@ -1473,7 +1491,7 @@ async function copyContactList() {
     })
 
     return groups
-  }, [fieldNotes, fieldNotesSearch, fieldNotesDateFilter, showCompletedFieldNotes, jobs, foremen, superintendents])
+  }, [fieldNotes, fieldNotesSearch, fieldNotesDateFilter, fieldNotesShowDone, jobs, foremen, superintendents])
 
   async function saveQuickNote() {
     const noteText = quickNote.trim()
@@ -1521,7 +1539,6 @@ async function copyContactList() {
 
 
   function toggleSelectedFieldNote(noteId) {
-    if (!noteId) return
     setSelectedFieldNoteIds((prev) => {
       const next = new Set(prev)
       if (next.has(noteId)) {
@@ -1538,91 +1555,90 @@ async function copyContactList() {
   }
 
   function selectVisibleFieldNotes() {
-    const ids = organizedFieldNotes.visibleEntries
-      .map((entry) => entry.note?.id)
-      .filter(Boolean)
-    setSelectedFieldNoteIds(new Set(ids))
+    setSelectedFieldNoteIds(new Set(organizedFieldNotes.all.map((entry) => entry.note.id).filter(Boolean)))
+  }
+
+  async function updateFieldNoteStatus(noteId, updates, successText = 'Field note updated.') {
+    const { error } = await supabase
+      .from('field_notes')
+      .update(updates)
+      .eq('id', noteId)
+
+    if (error) {
+      showError(error.message)
+      return
+    }
+
+    await loadFieldNotes()
+    showSuccess(successText)
+  }
+
+  async function toggleFieldNoteDone(note) {
+    const done = noteIsDone(note)
+    await updateFieldNoteStatus(
+      note.id,
+      { is_done: !done, completed_at: !done ? new Date().toISOString() : null },
+      !done ? 'Field note marked done.' : 'Field note reopened.'
+    )
+  }
+
+  async function toggleFieldNotePinned(note) {
+    const pinned = noteIsPinned(note)
+    await updateFieldNoteStatus(note.id, { pinned: !pinned }, !pinned ? 'Field note pinned.' : 'Field note unpinned.')
+  }
+
+  async function bulkUpdateSelectedFieldNotes(mode) {
+    const ids = Array.from(selectedFieldNoteIds).filter(Boolean)
+    if (!ids.length) {
+      showError('Select at least one field note first.')
+      return
+    }
+
+    let updates = {}
+    let successText = 'Selected notes updated.'
+
+    if (mode === 'done') {
+      updates = { is_done: true, completed_at: new Date().toISOString() }
+      successText = `${ids.length} selected note${ids.length === 1 ? '' : 's'} marked done.`
+    } else if (mode === 'reopen') {
+      updates = { is_done: false, completed_at: null }
+      successText = `${ids.length} selected note${ids.length === 1 ? '' : 's'} reopened.`
+    }
+
+    const { error } = await supabase
+      .from('field_notes')
+      .update(updates)
+      .in('id', ids)
+
+    if (error) {
+      showError(error.message)
+      return
+    }
+
+    clearSelectedFieldNotes()
+    await loadFieldNotes()
+    showSuccess(successText)
   }
 
   async function deleteSelectedFieldNotes() {
-    const ids = Array.from(selectedFieldNoteIds)
+    const ids = Array.from(selectedFieldNoteIds).filter(Boolean)
     if (!ids.length) {
-      showError('Select at least one note first.')
+      showError('Select at least one field note first.')
       return
     }
 
     const confirmed = window.confirm(`Delete ${ids.length} selected field note${ids.length === 1 ? '' : 's'}?`)
     if (!confirmed) return
 
-    setActionLoading('deleteSelectedFieldNotes')
     const { error } = await supabase.from('field_notes').delete().in('id', ids)
     if (error) {
       showError(error.message)
-      setActionLoading('')
       return
     }
 
     clearSelectedFieldNotes()
     await loadFieldNotes()
-    showSuccess(`${ids.length} field note${ids.length === 1 ? '' : 's'} deleted.`)
-    setActionLoading('')
-  }
-
-  async function markSelectedFieldNotesDone(isDone = true) {
-    const ids = Array.from(selectedFieldNoteIds)
-    if (!ids.length) {
-      showError('Select at least one note first.')
-      return
-    }
-
-    setActionLoading('markSelectedFieldNotesDone')
-    const { error } = await supabase
-      .from('field_notes')
-      .update({ is_done: isDone, completed_at: isDone ? new Date().toISOString() : null })
-      .in('id', ids)
-
-    if (error) {
-      showError(error.message)
-      setActionLoading('')
-      return
-    }
-
-    clearSelectedFieldNotes()
-    await loadFieldNotes()
-    showSuccess(isDone ? 'Selected notes marked done.' : 'Selected notes reopened.')
-    setActionLoading('')
-  }
-
-  async function toggleFieldNoteDone(note) {
-    if (!note?.id) return
-    const nextDone = !isFieldNoteDone(note)
-    const { error } = await supabase
-      .from('field_notes')
-      .update({ is_done: nextDone, completed_at: nextDone ? new Date().toISOString() : null })
-      .eq('id', note.id)
-
-    if (error) {
-      showError(error.message)
-      return
-    }
-
-    await loadFieldNotes()
-    showSuccess(nextDone ? 'Note marked done.' : 'Note reopened.')
-  }
-
-  async function toggleFieldNotePinned(note) {
-    if (!note?.id) return
-    const { error } = await supabase
-      .from('field_notes')
-      .update({ pinned: !isFieldNotePinned(note) })
-      .eq('id', note.id)
-
-    if (error) {
-      showError(error.message)
-      return
-    }
-
-    await loadFieldNotes()
+    showSuccess(`${ids.length} selected note${ids.length === 1 ? '' : 's'} deleted.`)
   }
 
   function startEditFieldNote(note) {
@@ -1670,12 +1686,12 @@ async function copyContactList() {
     const info = entry.info
     const createdAt = getFieldNoteCreatedAt(note)
     const isEditing = note.id && editingFieldNoteId === note.id
+    const isDone = noteIsDone(note)
+    const isPinned = noteIsPinned(note)
     const isSelected = note.id && selectedFieldNoteIds.has(note.id)
-    const isDone = isFieldNoteDone(note)
-    const isPinned = isFieldNotePinned(note)
 
     return (
-      <div key={note.id || `${text}-${createdAt}`} style={styles.fieldNoteCard}>
+      <div key={note.id || `${text}-${createdAt}`} style={isDone ? styles.fieldNoteCardDone : styles.fieldNoteCard}>
         {isEditing ? (
           <>
             <textarea
@@ -1698,8 +1714,8 @@ async function copyContactList() {
           </>
         ) : (
           <>
-            <div style={styles.fieldNoteTopRow}>
-              {!options.hideDelete && note.id ? (
+            <div style={styles.fieldNoteTopLine}>
+              {!options.hideSelect && note.id ? (
                 <input
                   type="checkbox"
                   checked={Boolean(isSelected)}
@@ -1708,11 +1724,14 @@ async function copyContactList() {
                   aria-label="Select field note"
                 />
               ) : null}
-              <div style={isDone ? styles.fieldNoteTextDone : styles.fieldNoteText}>{isPinned ? '⭐ ' : ''}{text}</div>
+              <div style={isDone ? styles.fieldNoteTextDone : styles.fieldNoteText}>
+                {isPinned ? <span style={styles.fieldNoteStar}>★ </span> : null}{text}
+              </div>
             </div>
             <div style={styles.fieldNoteMetaRow}>
               <span style={styles.fieldNotePill}>{info.type}</span>
               {isDone ? <span style={styles.fieldNoteDonePill}>Done</span> : null}
+              {isPinned ? <span style={styles.fieldNotePinPill}>Pinned</span> : null}
               {info.personLabel ? <span style={styles.fieldNotePill}>Person: {info.personLabel}</span> : null}
               {createdAt ? <span style={styles.fieldNoteDate}>{new Date(createdAt).toLocaleString()}</span> : null}
             </div>
@@ -1730,9 +1749,14 @@ async function copyContactList() {
     )
   }
 
+  function renderFieldNoteList(entries, emptyText = 'No notes found.') {
+    if (!entries.length) return <p style={styles.text}>{emptyText}</p>
+    return entries.map((entry) => renderFieldNoteCard(entry))
+  }
+
   function renderFieldNotesPanel({ quickMode = false } = {}) {
     const jobEntries = Object.entries(organizedFieldNotes.byJob)
-    const dateEntries = Object.entries(organizedFieldNotes.byDate).sort(([a], [b]) => b.localeCompare(a))
+    const dailyEntries = Object.entries(organizedFieldNotes.daily).sort(([a], [b]) => b.localeCompare(a))
     const selectedCount = selectedFieldNoteIds.size
 
     return (
@@ -1773,107 +1797,128 @@ async function copyContactList() {
             <h2 style={styles.sectionTitle}>Recent Notes</h2>
             {(fieldNotes || []).slice(0, 6).length ? (
               (fieldNotes || []).slice(0, 6).map((note) =>
-                renderFieldNoteCard({ note, text: getFieldNoteText(note), info: classifyFieldNote(getFieldNoteText(note)) }, { hideDelete: true })
+                renderFieldNoteCard({ note, text: getFieldNoteText(note), info: classifyFieldNote(getFieldNoteText(note)) }, { hideDelete: true, hideSelect: true })
               )
             ) : (
               <p style={styles.text}>No notes yet.</p>
             )}
           </div>
         ) : (
-          <>
-            <div style={styles.card}>
-              <div style={styles.fieldNotesHeaderRow}>
-                <h2 style={styles.sectionTitle}>Organized Field Notes</h2>
-                <input
-                  value={fieldNotesSearch}
-                  onChange={(e) => setFieldNotesSearch(e.target.value)}
-                  placeholder="Search notes..."
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.fieldNotesToolbar}>
-                <select
-                  value={fieldNotesDateFilter}
-                  onChange={(e) => { setFieldNotesDateFilter(e.target.value); clearSelectedFieldNotes() }}
-                  style={styles.inputSmall}
-                >
-                  <option value="today">Today</option>
-                  <option value="yesterday">Yesterday</option>
-                  <option value="week">This Week</option>
-                  <option value="last7">Last 7 Days</option>
-                  <option value="last30">Last 30 Days</option>
-                  <option value="all">All Notes</option>
-                </select>
-
-                <label style={styles.fieldNotesCheckLabel}>
-                  <input
-                    type="checkbox"
-                    checked={showCompletedFieldNotes}
-                    onChange={(e) => { setShowCompletedFieldNotes(e.target.checked); clearSelectedFieldNotes() }}
-                  />
-                  Show done
-                </label>
-
-                <button onClick={selectVisibleFieldNotes} style={styles.smallButton}>Select Visible</button>
-                <button onClick={clearSelectedFieldNotes} style={styles.smallButton}>Clear Selection</button>
-                <button onClick={() => markSelectedFieldNotesDone(true)} style={styles.smallButton}>Mark Done</button>
-                <button onClick={() => markSelectedFieldNotesDone(false)} style={styles.smallButton}>Reopen</button>
-                <button onClick={deleteSelectedFieldNotes} style={styles.smallDangerButton}>Delete Selected</button>
-              </div>
-
-              <div style={styles.fieldNotesHelper}>
-                Showing {organizedFieldNotes.visibleEntries.length} note{organizedFieldNotes.visibleEntries.length === 1 ? '' : 's'} · {selectedCount} selected
-              </div>
-
-              {organizedFieldNotes.today.length ? (
-                <div style={styles.fieldNoteGroup}>
-                  <h3 style={styles.fieldNoteGroupTitle}>Today / Immediate</h3>
-                  {organizedFieldNotes.today.map((entry) => renderFieldNoteCard(entry))}
-                </div>
-              ) : null}
-
-              {organizedFieldNotes.issues.length ? (
-                <div style={styles.fieldNoteGroup}>
-                  <h3 style={styles.fieldNoteGroupTitle}>Issues</h3>
-                  {organizedFieldNotes.issues.map((entry) => renderFieldNoteCard(entry))}
-                </div>
-              ) : null}
-
-              {jobEntries.length ? (
-                <div style={styles.fieldNoteGroup}>
-                  <h3 style={styles.fieldNoteGroupTitle}>By Job</h3>
-                  {jobEntries.map(([jobLabel, entries]) => (
-                    <div key={jobLabel} style={styles.fieldNoteJobBlock}>
-                      <div style={styles.fieldNoteJobTitle}>{jobLabel}</div>
-                      {entries.map((entry) => renderFieldNoteCard(entry))}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {dateEntries.length ? (
-                <div style={styles.fieldNoteGroup}>
-                  <h3 style={styles.fieldNoteGroupTitle}>Daily Notebook</h3>
-                  {dateEntries.map(([dateKey, entries]) => (
-                    <div key={dateKey} style={styles.fieldNoteJobBlock}>
-                      <div style={styles.fieldNoteJobTitle}>{getReadableFieldNoteDate(dateKey)}</div>
-                      {entries.map((entry) => renderFieldNoteCard(entry))}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <div style={styles.fieldNoteGroup}>
-                <h3 style={styles.fieldNoteGroupTitle}>Unsorted / Brain Dump</h3>
-                {organizedFieldNotes.unsorted.length ? (
-                  organizedFieldNotes.unsorted.map((entry) => renderFieldNoteCard(entry))
-                ) : (
-                  <p style={styles.text}>No unsorted notes right now.</p>
-                )}
-              </div>
+          <div style={styles.card}>
+            <div style={styles.fieldNotesHeaderRow}>
+              <h2 style={styles.sectionTitle}>Field Notes Notebook</h2>
+              <input
+                value={fieldNotesSearch}
+                onChange={(e) => setFieldNotesSearch(e.target.value)}
+                placeholder="Search notes..."
+                style={styles.input}
+              />
             </div>
-          </>
+
+            <div style={styles.fieldNotesToolbar}>
+              <select value={fieldNotesDateFilter} onChange={(e) => setFieldNotesDateFilter(e.target.value)} style={styles.compactSelect}>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="thisWeek">This Week</option>
+                <option value="last7">Last 7 Days</option>
+                <option value="last30">Last 30 Days</option>
+                <option value="all">All Notes</option>
+              </select>
+              <label style={styles.inlineCheckLabel}>
+                <input type="checkbox" checked={fieldNotesShowDone} onChange={(e) => setFieldNotesShowDone(e.target.checked)} />
+                Show done
+              </label>
+              <button onClick={selectVisibleFieldNotes} style={styles.smallButton}>Select Visible</button>
+              <button onClick={clearSelectedFieldNotes} style={styles.smallButton}>Clear Selection</button>
+              <button onClick={() => bulkUpdateSelectedFieldNotes('done')} style={styles.smallButton}>Mark Done</button>
+              <button onClick={() => bulkUpdateSelectedFieldNotes('reopen')} style={styles.smallButton}>Reopen</button>
+              <button onClick={deleteSelectedFieldNotes} style={styles.smallDangerButton}>Delete Selected</button>
+            </div>
+            <div style={styles.fieldNoteCountLine}>Showing {organizedFieldNotes.all.length} note{organizedFieldNotes.all.length === 1 ? '' : 's'} · {selectedCount} selected</div>
+
+            <div style={styles.fieldNotesSubTabs}>
+              {[
+                ['daily', 'Daily Notebook'],
+                ['jobs', 'By Job'],
+                ['issues', 'Issues'],
+                ['pinned', 'Pinned'],
+                ['unsorted', 'Unsorted'],
+                ['all', 'All Notes'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setFieldNotesView(value)}
+                  style={fieldNotesView === value ? styles.fieldNotesSubTabActive : styles.fieldNotesSubTab}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {fieldNotesView === 'daily' ? (
+              <div style={styles.fieldNotesTwoColumnGrid}>
+                <div>
+                  <h3 style={styles.fieldNoteGroupTitle}>Daily Notebook</h3>
+                  {dailyEntries.length ? dailyEntries.map(([dateKey, entries]) => (
+                    <div key={dateKey} style={styles.fieldNoteDateBlock}>
+                      <div style={styles.fieldNoteDateTitle}>{getFieldNoteDateLabel(dateKey)}</div>
+                      {entries.map((entry) => renderFieldNoteCard(entry))}
+                    </div>
+                  )) : <p style={styles.text}>No notes found for this date range.</p>}
+                </div>
+                <div>
+                  <h3 style={styles.fieldNoteGroupTitle}>Pinned / Important</h3>
+                  {renderFieldNoteList(organizedFieldNotes.pinned, 'No pinned notes right now.')}
+                  <h3 style={styles.fieldNoteGroupTitle}>Unsorted</h3>
+                  {renderFieldNoteList(organizedFieldNotes.unsorted.slice(0, 6), 'No unsorted notes right now.')}
+                </div>
+              </div>
+            ) : null}
+
+            {fieldNotesView === 'jobs' ? (
+              <div>
+                <h3 style={styles.fieldNoteGroupTitle}>By Job</h3>
+                {jobEntries.length ? (
+                  <div style={styles.fieldNotesJobGrid}>
+                    {jobEntries.map(([jobLabel, entries]) => (
+                      <div key={jobLabel} style={styles.fieldNoteJobBlock}>
+                        <div style={styles.fieldNoteJobTitle}>{jobLabel}</div>
+                        {entries.map((entry) => renderFieldNoteCard(entry))}
+                      </div>
+                    ))}
+                  </div>
+                ) : <p style={styles.text}>No job-matched notes found.</p>}
+              </div>
+            ) : null}
+
+            {fieldNotesView === 'issues' ? (
+              <div>
+                <h3 style={styles.fieldNoteGroupTitle}>Issues</h3>
+                {renderFieldNoteList(organizedFieldNotes.issues, 'No issues found.')}
+              </div>
+            ) : null}
+
+            {fieldNotesView === 'pinned' ? (
+              <div>
+                <h3 style={styles.fieldNoteGroupTitle}>Pinned Notes</h3>
+                {renderFieldNoteList(organizedFieldNotes.pinned, 'No pinned notes right now.')}
+              </div>
+            ) : null}
+
+            {fieldNotesView === 'unsorted' ? (
+              <div>
+                <h3 style={styles.fieldNoteGroupTitle}>Unsorted / Brain Dump</h3>
+                {renderFieldNoteList(organizedFieldNotes.unsorted, 'No unsorted notes right now.')}
+              </div>
+            ) : null}
+
+            {fieldNotesView === 'all' ? (
+              <div>
+                <h3 style={styles.fieldNoteGroupTitle}>All Notes</h3>
+                {renderFieldNoteList(organizedFieldNotes.all, 'No notes found.')}
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
     )
@@ -3401,52 +3446,56 @@ async function copyContactList() {
 
           <div style={styles.headerDivider} />
 
-          <div style={styles.topBarButtons}>
-            <button
-              className="nav-button"
-              onClick={() => handleTabChange('weekly')}
-              style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
-            >
-              Weekly Schedule
-            </button>
-            <button
-              className="nav-button"
-              onClick={() => handleTabChange('grid')}
-              style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
-            >
-              Weekly Grid
-            </button>
-            <button
-              className="nav-button"
-              onClick={() => handleTabChange('mobile')}
-              style={activeTab === 'mobile' ? styles.button : styles.buttonSecondary}
-            >
-              Mobile View
-            </button>
-            <button
-              className="nav-button"
-              onClick={() => handleTabChange('print')}
-              style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
-            >
-              Print / PDF
-            </button>
-            <button
-              className="nav-button"
-              onClick={() => handleTabChange('fieldNotes')}
-              style={activeTab === 'fieldNotes' ? styles.button : styles.buttonSecondary}
-            >
-              Field Dump
-            </button>
-            <button
-              className="nav-button"
-              onClick={() => handleTabChange('master')}
-              style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
-            >
-              Master Data
-            </button>
-            <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
-              Sign Out
-            </button>
+          <div style={styles.headerNavRow}>
+            <div style={styles.headerNavLeft}>
+              <button
+                className="nav-button"
+                onClick={() => handleTabChange('weekly')}
+                style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
+              >
+                Weekly Schedule
+              </button>
+              <button
+                className="nav-button"
+                onClick={() => handleTabChange('grid')}
+                style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
+              >
+                Weekly Grid
+              </button>
+              <button
+                className="nav-button"
+                onClick={() => handleTabChange('mobile')}
+                style={activeTab === 'mobile' ? styles.button : styles.buttonSecondary}
+              >
+                Mobile View
+              </button>
+              <button
+                className="nav-button"
+                onClick={() => handleTabChange('print')}
+                style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
+              >
+                Print / PDF
+              </button>
+              <button
+                className="nav-button"
+                onClick={() => handleTabChange('master')}
+                style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
+              >
+                Master Data
+              </button>
+              <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
+                Sign Out
+              </button>
+            </div>
+            <div style={styles.headerNavRight}>
+              <button
+                className="nav-button"
+                onClick={() => handleTabChange('fieldNotes')}
+                style={activeTab === 'fieldNotes' ? styles.button : styles.buttonSecondary}
+              >
+                Field Dump
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -5405,57 +5454,6 @@ const styles = {
     padding: '24px',
     boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
   },
-
-  fieldNotesToolbar: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-    alignItems: 'center',
-    margin: '12px 0',
-  },
-  fieldNotesCheckLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontSize: '13px',
-    color: '#334155',
-  },
-  inputSmall: {
-    padding: '9px 10px',
-    border: '1px solid #d7c8ad',
-    borderRadius: '8px',
-    background: '#fffdf8',
-    color: '#0f172a',
-    minWidth: '130px',
-  },
-  fieldNoteTopRow: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-  },
-  fieldNoteCheckbox: {
-    marginTop: '3px',
-    width: '18px',
-    height: '18px',
-  },
-  fieldNoteTextDone: {
-    fontSize: '14px',
-    lineHeight: 1.45,
-    color: '#64748b',
-    textDecoration: 'line-through',
-    flex: 1,
-  },
-  fieldNoteDonePill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    borderRadius: '999px',
-    padding: '4px 9px',
-    background: '#dcfce7',
-    color: '#166534',
-    fontSize: '12px',
-    fontWeight: 700,
-  },
-
   loginCard: {
     maxWidth: '500px',
     margin: '60px auto',
@@ -5629,6 +5627,24 @@ const styles = {
     display: 'flex',
     gap: '10px',
     flexWrap: 'wrap',
+  },
+  headerNavRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '18px',
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  headerNavLeft: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
+  headerNavRight: {
+    display: 'flex',
+    gap: '10px',
+    marginLeft: 'auto',
   },
   headerTopRow: {
     display: 'flex',
@@ -6895,7 +6911,7 @@ mobileEmptyCard: {
     background: '#fffaf2',
   },
   fieldNotesPage: {
-    maxWidth: '1200px',
+    maxWidth: '1320px',
     margin: '0 auto',
     display: 'grid',
     gap: '16px',
@@ -6961,6 +6977,86 @@ mobileEmptyCard: {
     marginTop: '12px',
     flexWrap: 'wrap',
   },
+  fieldNotesToolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+    margin: '12px 0 8px 0',
+  },
+  compactSelect: {
+    border: '1px solid #d8c7ad',
+    borderRadius: '8px',
+    padding: '6px 8px',
+    background: '#fffdf8',
+    color: '#111827',
+    fontSize: '12px',
+  },
+  inlineCheckLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    fontSize: '12px',
+    color: '#374151',
+  },
+  fieldNoteCountLine: {
+    color: '#6b7280',
+    fontSize: '12px',
+    marginBottom: '12px',
+  },
+  fieldNotesSubTabs: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    margin: '12px 0 16px 0',
+    borderBottom: '1px solid #ead7bd',
+    paddingBottom: '10px',
+  },
+  fieldNotesSubTab: {
+    border: '1px solid #d8c7ad',
+    background: '#fffdf8',
+    color: '#374151',
+    borderRadius: '999px',
+    padding: '7px 11px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '700',
+  },
+  fieldNotesSubTabActive: {
+    border: '1px solid #dd7a00',
+    background: '#dd7a00',
+    color: '#ffffff',
+    borderRadius: '999px',
+    padding: '7px 11px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '700',
+  },
+  fieldNotesTwoColumnGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.55fr) minmax(280px, 0.85fr)',
+    gap: '16px',
+    alignItems: 'start',
+  },
+  fieldNotesJobGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: '14px',
+    alignItems: 'start',
+  },
+  fieldNoteDateBlock: {
+    marginBottom: '16px',
+    padding: '10px',
+    borderRadius: '12px',
+    background: '#fffaf2',
+    border: '1px solid #ead7bd',
+  },
+  fieldNoteDateTitle: {
+    fontWeight: '800',
+    color: '#0f172a',
+    margin: '0 0 8px 0',
+    fontSize: '15px',
+  },
   fieldNoteGroup: {
     marginTop: '18px',
   },
@@ -6991,6 +7087,26 @@ mobileEmptyCard: {
     border: '1px solid #ead7bd',
     boxShadow: '0 5px 12px rgba(15, 23, 42, 0.06)',
   },
+  fieldNoteCardDone: {
+    padding: '12px',
+    marginBottom: '10px',
+    borderRadius: '12px',
+    background: '#f8fafc',
+    border: '1px solid #e5e7eb',
+    opacity: 0.72,
+  },
+  fieldNoteTopLine: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '8px',
+  },
+  fieldNoteCheckbox: {
+    marginTop: '3px',
+  },
+  fieldNoteStar: {
+    color: '#dd7a00',
+    fontWeight: '900',
+  },
   fieldNoteEditArea: {
     width: '100%',
     minHeight: '96px',
@@ -7009,6 +7125,15 @@ mobileEmptyCard: {
     lineHeight: '1.4',
     color: '#1f2937',
     whiteSpace: 'pre-wrap',
+    flex: 1,
+  },
+  fieldNoteTextDone: {
+    fontSize: '15px',
+    lineHeight: '1.4',
+    color: '#6b7280',
+    whiteSpace: 'pre-wrap',
+    textDecoration: 'line-through',
+    flex: 1,
   },
   fieldNoteMetaRow: {
     display: 'flex',
@@ -7020,6 +7145,22 @@ mobileEmptyCard: {
   fieldNotePill: {
     background: '#f5ead8',
     color: '#7a3d00',
+    borderRadius: '999px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    fontWeight: '700',
+  },
+  fieldNoteDonePill: {
+    background: '#dcfce7',
+    color: '#166534',
+    borderRadius: '999px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    fontWeight: '700',
+  },
+  fieldNotePinPill: {
+    background: '#fff7ed',
+    color: '#c2410c',
     borderRadius: '999px',
     padding: '4px 8px',
     fontSize: '12px',
