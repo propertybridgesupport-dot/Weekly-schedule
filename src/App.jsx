@@ -1920,11 +1920,10 @@ async function copyContactList() {
     const subject = encodeURIComponent(
       weekLabel ? `Weekly Schedule - ${weekLabel}` : 'Weekly Schedule'
     )
-    const body = encodeURIComponent(
-      'Your email app was opened with the weekly schedule subject line filled in. For security reasons, browser apps cannot auto-attach a PDF file directly to a new Outlook message. Please save the PDF from Print / Save PDF first, then attach it to the email.'
-    )
 
-    window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
+    // Leave the body parameter off completely so Outlook can apply
+    // the selected account's default signature to the new message.
+    window.location.href = `mailto:${recipients.join(',')}?subject=${subject}`
   }
 
   function renderDayContents(item, dayKey) {
