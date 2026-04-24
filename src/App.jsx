@@ -3245,10 +3245,44 @@ async function copyContactList() {
 
       {showScheduleEditor && activeTab === 'weekly' && (
         <div style={styles.singleColumnWrap}>
+          <div style={styles.stickySaveBar} className="no-print">
+            <div>
+              <div style={styles.stickySaveTitle}>
+                {editingScheduleItemId ? 'Editing Scheduled Job' : 'Adding Schedule Item'}
+              </div>
+              <div style={hasUnsavedChanges ? styles.unsavedStatusPill : styles.savedStatusPill}>
+                <span style={hasUnsavedChanges ? styles.unsavedStatusDot : styles.savedStatusDot}></span>
+                {hasUnsavedChanges ? 'Unsaved changes' : 'No unsaved changes'}
+              </div>
+            </div>
+
+            <div style={styles.stickySaveActions}>
+              <button
+                onClick={resetScheduleForm}
+                style={styles.buttonSecondary}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveScheduleItem}
+                disabled={isActionBusy('saveSchedule')}
+                style={isActionBusy('saveSchedule') ? styles.buttonDisabled : styles.button}
+              >
+                {isActionBusy('saveSchedule') ? (editingScheduleItemId ? 'Updating...' : 'Saving...') : (editingScheduleItemId ? 'Update Schedule Item' : 'Save Schedule Item')}
+              </button>
+            </div>
+          </div>
+
           <div style={styles.sectionCard}>
-            <h2 style={styles.sectionTitle}>
-              {editingScheduleItemId ? 'Edit Scheduled Job' : 'Add Job to Weekly Schedule'}
-            </h2>
+            <div style={styles.editorTitleRow}>
+              <h2 style={styles.sectionTitle}>
+                {editingScheduleItemId ? 'Edit Scheduled Job' : 'Add Job to Weekly Schedule'}
+              </h2>
+              <div style={hasUnsavedChanges ? styles.unsavedStatusPill : styles.savedStatusPill}>
+                <span style={hasUnsavedChanges ? styles.unsavedStatusDot : styles.savedStatusDot}></span>
+                {hasUnsavedChanges ? 'Unsaved changes' : 'Saved'}
+              </div>
+            </div>
 
             {hasUnsavedChanges ? (
               <div style={styles.unsavedChangesNotice}>
@@ -4873,6 +4907,81 @@ const styles = {
     gap: '12px',
     flexWrap: 'wrap',
     marginBottom: '14px',
+  },
+  stickySaveBar: {
+    position: 'sticky',
+    top: '8px',
+    zIndex: 60,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+    background: '#fffdf8',
+    border: '1px solid #eadfce',
+    borderRadius: '14px',
+    padding: '12px 14px',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.12)',
+  },
+  stickySaveTitle: {
+    fontSize: '14px',
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: '4px',
+  },
+  stickySaveActions: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  editorTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap',
+    marginBottom: '14px',
+  },
+  unsavedStatusPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '7px',
+    width: 'fit-content',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    background: '#fff7ed',
+    border: '1px solid #fdba74',
+    color: '#9a3412',
+    fontSize: '12px',
+    fontWeight: '800',
+  },
+  savedStatusPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '7px',
+    width: 'fit-content',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    background: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    color: '#047857',
+    fontSize: '12px',
+    fontWeight: '800',
+  },
+  unsavedStatusDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '999px',
+    background: '#f97316',
+    display: 'inline-block',
+  },
+  savedStatusDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '999px',
+    background: '#10b981',
+    display: 'inline-block',
   },
   bottomButtons: {
     display: 'flex',
