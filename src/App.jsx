@@ -3776,14 +3776,6 @@ async function copyContactList() {
     >
       Email Selected Group
     </button>
-
-    <button onClick={openMobileShareView} style={styles.buttonSecondary}>
-      Open Mobile View
-    </button>
-
-    <button onClick={copyMobileShareLink} style={styles.buttonSecondary}>
-      Copy Mobile Link
-    </button>
   </div>
 </div>
 
