@@ -178,11 +178,15 @@ export default function App() {
   const viewerWeekFromParam = searchParams?.get('weekFrom') || ''
   const viewerWeekToParam = searchParams?.get('weekTo') || ''
   const mobileLayoutParam = searchParams?.get('mobileLayout') || 'jobs'
+  const isQuickDump = searchParams?.get('quickDump') === '1'
 
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Checking login...')
   const [activeTab, setActiveTab] = useState('weekly')
+  const [quickNote, setQuickNote] = useState('')
+  const [fieldNotes, setFieldNotes] = useState([])
+  const [fieldNotesSearch, setFieldNotesSearch] = useState('')
   const [contacts, setContacts] = useState([])
   const [contactGroups, setContactGroups] = useState([])
   const [newContactName, setNewContactName] = useState('')
@@ -1009,6 +1013,7 @@ async function copyContactList() {
     setEmailGroups([])
     setContacts([])
     setContactGroups([])
+    setFieldNotes([])
     setMessage('Signed out.')
     showSuccess('Signed out.')
   }
@@ -1173,12 +1178,260 @@ async function copyContactList() {
     setScheduleItems(sorted)
   }
 
+
+  async function loadFieldNotes() {
+    const { data, error } = await supabase
+      .from('field_notes')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Could not load field notes.', error)
+      return
+    }
+
+    setFieldNotes(data || [])
+  }
+
+  function getFieldNoteText(note) {
+    return String(note?.note || note?.text || note?.content || '').trim()
+  }
+
+  function getFieldNoteCreatedAt(note) {
+    return note?.created_at || note?.createdAt || note?.inserted_at || ''
+  }
+
+  function matchTextFromList(text, list, fields = ['name']) {
+    const lowered = String(text || '').toLowerCase()
+    return (list || []).find((item) =>
+      fields.some((field) => {
+        const value = String(item?.[field] || '').trim().toLowerCase()
+        return value && lowered.includes(value)
+      })
+    ) || null
+  }
+
+  function classifyFieldNote(noteText) {
+    const text = String(noteText || '')
+    const lowered = text.toLowerCase()
+    const matchedJob = matchTextFromList(text, jobs, ['job_number', 'job_name'])
+    const matchedForeman = matchTextFromList(text, foremen, ['name'])
+    const matchedSuperintendent = matchTextFromList(text, superintendents, ['name'])
+
+    let type = 'General Note'
+    if (/\b(call|text|email|follow up|remind|check with)\b/i.test(text)) type = 'Reminder'
+    if (/\b(need|order|move|schedule|send|get|pickup|pick up|deliver|line up)\b/i.test(text)) type = 'Task'
+    if (/\b(problem|issue|late|behind|missing|conflict|failed|hold up|hold-up|stuck)\b/i.test(text)) type = 'Issue'
+    if (/\b(manpower|crew|guys|men|foreman|labor|operator|superintendent)\b/i.test(text)) type = 'Manpower'
+
+    return {
+      type,
+      jobLabel: matchedJob ? `${matchedJob.job_number || ''}${matchedJob.job_number && matchedJob.job_name ? ' — ' : ''}${matchedJob.job_name || ''}` : 'Unsorted Job',
+      personLabel: matchedForeman?.name || matchedSuperintendent?.name || '',
+      isToday: /\b(today|this morning|this afternoon|tonight)\b/i.test(lowered),
+    }
+  }
+
+  const organizedFieldNotes = useMemo(() => {
+    const search = fieldNotesSearch.trim().toLowerCase()
+    const visibleNotes = (fieldNotes || []).filter((note) => {
+      const text = getFieldNoteText(note)
+      if (!search) return true
+      return text.toLowerCase().includes(search)
+    })
+
+    const groups = {
+      today: [],
+      issues: [],
+      byJob: {},
+      unsorted: [],
+    }
+
+    visibleNotes.forEach((note) => {
+      const text = getFieldNoteText(note)
+      const info = classifyFieldNote(text)
+      const entry = { note, text, info }
+
+      if (info.isToday) groups.today.push(entry)
+      if (info.type === 'Issue') groups.issues.push(entry)
+
+      if (info.jobLabel && info.jobLabel !== 'Unsorted Job') {
+        if (!groups.byJob[info.jobLabel]) groups.byJob[info.jobLabel] = []
+        groups.byJob[info.jobLabel].push(entry)
+      } else {
+        groups.unsorted.push(entry)
+      }
+    })
+
+    return groups
+  }, [fieldNotes, fieldNotesSearch, jobs, foremen, superintendents])
+
+  async function saveQuickNote() {
+    const noteText = quickNote.trim()
+    if (!noteText) {
+      showError('Type or dictate a note first.')
+      return
+    }
+
+    setActionLoading('saveQuickNote')
+
+    const { error } = await supabase.from('field_notes').insert({
+      note: noteText,
+      created_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      showError(error.message)
+      setActionLoading('')
+      return
+    }
+
+    setQuickNote('')
+    await loadFieldNotes()
+    showSuccess('Field note saved.')
+    setActionLoading('')
+  }
+
+  async function deleteFieldNote(noteId) {
+    const confirmed = window.confirm('Delete this field note?')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('field_notes').delete().eq('id', noteId)
+    if (error) {
+      showError(error.message)
+      return
+    }
+
+    await loadFieldNotes()
+    showSuccess('Field note deleted.')
+  }
+
+  function renderFieldNoteCard(entry, options = {}) {
+    const note = entry.note
+    const text = entry.text
+    const info = entry.info
+    const createdAt = getFieldNoteCreatedAt(note)
+
+    return (
+      <div key={note.id || `${text}-${createdAt}`} style={styles.fieldNoteCard}>
+        <div style={styles.fieldNoteText}>{text}</div>
+        <div style={styles.fieldNoteMetaRow}>
+          <span style={styles.fieldNotePill}>{info.type}</span>
+          {info.personLabel ? <span style={styles.fieldNotePill}>Person: {info.personLabel}</span> : null}
+          {createdAt ? <span style={styles.fieldNoteDate}>{new Date(createdAt).toLocaleString()}</span> : null}
+        </div>
+        {!options.hideDelete && note.id ? (
+          <button onClick={() => deleteFieldNote(note.id)} style={styles.smallDangerButton}>Delete</button>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderFieldNotesPanel({ quickMode = false } = {}) {
+    const jobEntries = Object.entries(organizedFieldNotes.byJob)
+
+    return (
+      <div style={quickMode ? styles.quickDumpPage : styles.fieldNotesPage}>
+        <div style={quickMode ? styles.quickDumpCard : styles.card}>
+          <div style={styles.fieldNotesHeaderRow}>
+            <div>
+              <h1 style={quickMode ? styles.quickDumpTitle : styles.sectionTitle}>Field Dump</h1>
+              <p style={styles.fieldNotesHelper}>
+                Tap the box, use the keyboard microphone, talk, and save. The app will help sort notes by job, issue, and reminder words.
+              </p>
+            </div>
+            {quickMode ? null : (
+              <button onClick={() => setActiveTab('weekly')} style={styles.buttonSecondary}>Back to Schedule</button>
+            )}
+          </div>
+
+          <textarea
+            autoFocus={quickMode}
+            value={quickNote}
+            onChange={(e) => setQuickNote(e.target.value)}
+            placeholder="Tap here, then tap the keyboard mic and talk..."
+            style={quickMode ? styles.quickDumpTextArea : styles.fieldNotesTextArea}
+          />
+
+          <div style={styles.fieldNotesActionRow}>
+            <button onClick={saveQuickNote} disabled={isActionBusy('saveQuickNote')} style={isActionBusy('saveQuickNote') ? styles.buttonDisabled : styles.button}>
+              {isActionBusy('saveQuickNote') ? 'Saving...' : 'Save Field Note'}
+            </button>
+            <button onClick={() => setQuickNote('')} style={styles.buttonSecondary}>Clear</button>
+          </div>
+        </div>
+
+        {quickMode ? (
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>Recent Notes</h2>
+            {(fieldNotes || []).slice(0, 6).length ? (
+              (fieldNotes || []).slice(0, 6).map((note) =>
+                renderFieldNoteCard({ note, text: getFieldNoteText(note), info: classifyFieldNote(getFieldNoteText(note)) }, { hideDelete: true })
+              )
+            ) : (
+              <p style={styles.text}>No notes yet.</p>
+            )}
+          </div>
+        ) : (
+          <>
+            <div style={styles.card}>
+              <div style={styles.fieldNotesHeaderRow}>
+                <h2 style={styles.sectionTitle}>Organized Field Notes</h2>
+                <input
+                  value={fieldNotesSearch}
+                  onChange={(e) => setFieldNotesSearch(e.target.value)}
+                  placeholder="Search notes..."
+                  style={styles.input}
+                />
+              </div>
+
+              {organizedFieldNotes.today.length ? (
+                <div style={styles.fieldNoteGroup}>
+                  <h3 style={styles.fieldNoteGroupTitle}>Today / Immediate</h3>
+                  {organizedFieldNotes.today.map((entry) => renderFieldNoteCard(entry))}
+                </div>
+              ) : null}
+
+              {organizedFieldNotes.issues.length ? (
+                <div style={styles.fieldNoteGroup}>
+                  <h3 style={styles.fieldNoteGroupTitle}>Issues</h3>
+                  {organizedFieldNotes.issues.map((entry) => renderFieldNoteCard(entry))}
+                </div>
+              ) : null}
+
+              {jobEntries.length ? (
+                <div style={styles.fieldNoteGroup}>
+                  <h3 style={styles.fieldNoteGroupTitle}>By Job</h3>
+                  {jobEntries.map(([jobLabel, entries]) => (
+                    <div key={jobLabel} style={styles.fieldNoteJobBlock}>
+                      <div style={styles.fieldNoteJobTitle}>{jobLabel}</div>
+                      {entries.map((entry) => renderFieldNoteCard(entry))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div style={styles.fieldNoteGroup}>
+                <h3 style={styles.fieldNoteGroupTitle}>Unsorted / Brain Dump</h3>
+                {organizedFieldNotes.unsorted.length ? (
+                  organizedFieldNotes.unsorted.map((entry) => renderFieldNoteCard(entry))
+                ) : (
+                  <p style={styles.text}>No unsorted notes right now.</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   async function loadAllData() {
     setLoading(true)
     setMessage('Loading data from Supabase...')
 
     try {
-      await Promise.all([loadMasterData(), loadScheduleItems()])
+      await Promise.all([loadMasterData(), loadScheduleItems(), loadFieldNotes()])
       setLastUpdatedAt(new Date().toISOString())
       setMessage('Data loaded successfully.')
     } catch (err) {
@@ -2545,6 +2798,20 @@ async function copyContactList() {
     )
   }
 
+  if (isQuickDump) {
+    return (
+      <div style={styles.page}>
+        {banner ? (
+          <div style={banner.type === 'success' ? styles.bannerSuccess : styles.bannerError} className="no-print">
+            <div>{banner.text}</div>
+            <button onClick={() => setBanner(null)} style={styles.bannerCloseButton}>Dismiss</button>
+          </div>
+        ) : null}
+        {renderFieldNotesPanel({ quickMode: true })}
+      </div>
+    )
+  }
+
   return (
     <div style={styles.page}>
 <style>{`
@@ -2712,6 +2979,13 @@ async function copyContactList() {
             </button>
             <button
               className="nav-button"
+              onClick={() => handleTabChange('fieldNotes')}
+              style={activeTab === 'fieldNotes' ? styles.button : styles.buttonSecondary}
+            >
+              Field Dump
+            </button>
+            <button
+              className="nav-button"
               onClick={() => handleTabChange('master')}
               style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
             >
@@ -2730,6 +3004,8 @@ async function copyContactList() {
           <button onClick={() => setBanner(null)} style={styles.bannerCloseButton}>Dismiss</button>
         </div>
       ) : null}
+
+      {activeTab === 'fieldNotes' && renderFieldNotesPanel()}
 
       {activeTab === 'master' && (
         <div style={styles.masterGrid}>
@@ -6113,6 +6389,140 @@ mobileEmptyCard: {
     border: '1px solid #ead7bd',
     borderRadius: '10px',
     background: '#fffaf2',
+  },
+  fieldNotesPage: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    display: 'grid',
+    gap: '16px',
+  },
+  quickDumpPage: {
+    maxWidth: '760px',
+    margin: '0 auto',
+    display: 'grid',
+    gap: '16px',
+  },
+  quickDumpCard: {
+    background: '#ffffff',
+    borderRadius: '18px',
+    padding: '22px',
+    boxShadow: '0 14px 30px rgba(15, 23, 42, 0.14)',
+    borderTop: '4px solid #dd7a00',
+  },
+  quickDumpTitle: {
+    margin: '0 0 6px 0',
+    fontSize: '28px',
+    color: '#0f172a',
+  },
+  quickDumpTextArea: {
+    width: '100%',
+    minHeight: '190px',
+    fontSize: '20px',
+    lineHeight: '1.35',
+    padding: '16px',
+    borderRadius: '14px',
+    border: '1px solid #d8c7ad',
+    boxSizing: 'border-box',
+    outlineColor: '#dd7a00',
+    background: '#fffdf8',
+  },
+  fieldNotesHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '14px',
+    flexWrap: 'wrap',
+  },
+  fieldNotesHelper: {
+    margin: '4px 0 14px 0',
+    color: '#5b6472',
+    fontSize: '14px',
+    lineHeight: '1.45',
+  },
+  fieldNotesTextArea: {
+    width: '100%',
+    minHeight: '130px',
+    fontSize: '17px',
+    lineHeight: '1.4',
+    padding: '14px',
+    borderRadius: '12px',
+    border: '1px solid #d8c7ad',
+    boxSizing: 'border-box',
+    outlineColor: '#dd7a00',
+    background: '#fffdf8',
+  },
+  fieldNotesActionRow: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '12px',
+    flexWrap: 'wrap',
+  },
+  fieldNoteGroup: {
+    marginTop: '18px',
+  },
+  fieldNoteGroupTitle: {
+    margin: '0 0 10px 0',
+    color: '#0f172a',
+    fontSize: '17px',
+    borderBottom: '1px solid #ead7bd',
+    paddingBottom: '6px',
+  },
+  fieldNoteJobBlock: {
+    marginBottom: '14px',
+    padding: '10px',
+    borderRadius: '12px',
+    background: '#fffaf2',
+    border: '1px solid #ead7bd',
+  },
+  fieldNoteJobTitle: {
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '8px',
+  },
+  fieldNoteCard: {
+    padding: '12px',
+    marginBottom: '10px',
+    borderRadius: '12px',
+    background: '#ffffff',
+    border: '1px solid #ead7bd',
+    boxShadow: '0 5px 12px rgba(15, 23, 42, 0.06)',
+  },
+  fieldNoteText: {
+    fontSize: '15px',
+    lineHeight: '1.4',
+    color: '#1f2937',
+    whiteSpace: 'pre-wrap',
+  },
+  fieldNoteMetaRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: '8px',
+  },
+  fieldNotePill: {
+    background: '#f5ead8',
+    color: '#7a3d00',
+    borderRadius: '999px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    fontWeight: '700',
+  },
+  fieldNoteDate: {
+    color: '#6b7280',
+    fontSize: '12px',
+  },
+  smallDangerButton: {
+    marginTop: '8px',
+    border: '1px solid #efb3b3',
+    background: '#fff5f5',
+    color: '#9b1c1c',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '700',
   }
+
 
 }
