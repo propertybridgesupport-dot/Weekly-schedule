@@ -217,6 +217,7 @@ const [reportNotes, setReportNotes] = useState('')
   const [weeklySearchText, setWeeklySearchText] = useState('')
   const [jumpToScheduleItemId, setJumpToScheduleItemId] = useState('')
   const [mobileLayout, setMobileLayout] = useState('jobs')
+  const [mobileShareLayout, setMobileShareLayout] = useState(mobileLayoutParam === 'foremen' ? 'foremen' : 'jobs')
   const [showPrintActiveOnly, setShowPrintActiveOnly] = useState(false)
   const [collapsedScheduleItemIds, setCollapsedScheduleItemIds] = useState(new Set())
 
@@ -2335,6 +2336,31 @@ async function copyContactList() {
     )
   }
 
+  function renderMobileReadonlyLayoutToggle() {
+    return (
+      <div style={styles.mobileReadonlyToggleWrap}>
+        <div style={styles.mobileReadonlyToggleLabel}>View schedule by:</div>
+        <div style={styles.mobileReadonlyToggleGroup}>
+          <button
+            type="button"
+            onClick={() => setMobileShareLayout('jobs')}
+            style={mobileShareLayout === 'jobs' ? styles.mobileReadonlyToggleButtonActive : styles.mobileReadonlyToggleButton}
+          >
+            Job
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileShareLayout('foremen')}
+            style={mobileShareLayout === 'foremen' ? styles.mobileReadonlyToggleButtonActive : styles.mobileReadonlyToggleButton}
+          >
+            Foreman
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+
   if (isViewerMode && session) {
     return (
       <div style={styles.mobileSharePage}>
@@ -2367,7 +2393,9 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {mobileLayoutParam === 'foremen' ? renderReadonlyForemanGroups(weekScheduleItems) : renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
+          {renderMobileReadonlyLayoutToggle()}
+
+          {mobileShareLayout === 'foremen' ? renderReadonlyForemanGroups(weekScheduleItems) : renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
         </div>
       </div>
     )
@@ -2405,7 +2433,9 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {mobileLayoutParam === 'foremen' ? renderReadonlyForemanGroups(mobileShareSnapshot.items || []) : renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true })}
+          {renderMobileReadonlyLayoutToggle()}
+
+          {mobileShareLayout === 'foremen' ? renderReadonlyForemanGroups(mobileShareSnapshot.items || []) : renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true })}
         </div>
       </div>
     )
@@ -2465,7 +2495,9 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {mobileLayoutParam === 'foremen' ? renderReadonlyForemanGroups(publicShareData.snapshot?.items || []) : renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true })}
+          {renderMobileReadonlyLayoutToggle()}
+
+          {mobileShareLayout === 'foremen' ? renderReadonlyForemanGroups(publicShareData.snapshot?.items || []) : renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true })}
         </div>
       </div>
     )
@@ -5667,6 +5699,49 @@ mobileReadonlyQuote: {
 mobileReadonlyDivider: {
   borderTop: '1px solid rgba(248, 231, 199, 0.24)',
   marginTop: '10px',
+},
+mobileReadonlyToggleWrap: {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '10px',
+  flexWrap: 'wrap',
+  marginBottom: '14px',
+  padding: '10px 12px',
+  background: '#fffaf3',
+  border: '1px solid #e6dccf',
+  borderRadius: '12px',
+},
+mobileReadonlyToggleLabel: {
+  fontSize: '13px',
+  fontWeight: '700',
+  color: '#374151',
+},
+mobileReadonlyToggleGroup: {
+  display: 'flex',
+  gap: '8px',
+  flexWrap: 'wrap',
+},
+mobileReadonlyToggleButton: {
+  background: '#ffffff',
+  color: '#9a3412',
+  border: '1px solid #fdba74',
+  borderRadius: '999px',
+  padding: '7px 12px',
+  fontSize: '13px',
+  fontWeight: '700',
+  cursor: 'pointer',
+},
+mobileReadonlyToggleButtonActive: {
+  background: '#f0b35d',
+  color: '#111827',
+  border: '1px solid #dd7a00',
+  borderRadius: '999px',
+  padding: '7px 12px',
+  fontSize: '13px',
+  fontWeight: '800',
+  cursor: 'pointer',
+  boxShadow: '0 4px 10px rgba(221,122,0,0.18)',
 },
 mobileReadonlyList: {
   display: 'flex',
