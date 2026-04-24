@@ -3866,6 +3866,20 @@ async function copyContactList() {
                           {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
                         </div>
 
+                        {(item.jobs?.start_date || item.jobs?.stop_date) ? (
+                          <div style={styles.printCompactDates}>
+                            {item.jobs?.start_date ? (
+                              <span><strong>Job Start:</strong> {formatDate(item.jobs.start_date)}</span>
+                            ) : null}
+                            {item.jobs?.start_date && item.jobs?.stop_date ? (
+                              <span style={{ margin: '0 8px' }}>|</span>
+                            ) : null}
+                            {item.jobs?.stop_date ? (
+                              <span><strong>Job Stop:</strong> {formatDate(item.jobs.stop_date)}</span>
+                            ) : null}
+                          </div>
+                        ) : null}
+
                         <div style={styles.printIndentedBlock}>
                           <div style={styles.printCompactMetaRow}>
                             <div style={styles.printMetaItem}>
