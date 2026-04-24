@@ -229,6 +229,7 @@ const [reportNotes, setReportNotes] = useState('')
   const [password, setPassword] = useState('')
 const [printLayout, setPrintLayout] = useState('report')
   const [editingScheduleItemId, setEditingScheduleItemId] = useState(null)
+  const [showScheduleEditor, setShowScheduleEditor] = useState(false)
 
   const [scheduleForm, setScheduleForm] = useState({
     from_date: '',
@@ -1489,6 +1490,7 @@ async function copyContactList() {
 
   function resetScheduleForm() {
     setEditingScheduleItemId(null)
+    setShowScheduleEditor(false)
     setScheduleForm({
       from_date: '',
       to_date: '',
@@ -1552,7 +1554,8 @@ async function copyContactList() {
       setSurveyorAssignments([emptySurveyorAssignment()])
     }
 
-    setActiveTab('schedule')
+    setShowScheduleEditor(true)
+    setActiveTab('weekly')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -2470,13 +2473,6 @@ async function copyContactList() {
             >
               Master Data
             </button>
-            <button
-              className="nav-button"
-              onClick={() => setActiveTab('schedule')}
-              style={activeTab === 'schedule' ? styles.button : styles.buttonSecondary}
-            >
-              Schedule Entry
-            </button>
             <button className="nav-button" onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
               {loading ? 'Refreshing...' : 'Reload Data'}
             </button>
@@ -3006,11 +3002,11 @@ async function copyContactList() {
         </div>
       )}
 
-      {activeTab === 'schedule' && (
+      {showScheduleEditor && activeTab === 'weekly' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.sectionCard}>
             <h2 style={styles.sectionTitle}>
-              {editingScheduleItemId ? 'Edit Schedule Entry' : 'Schedule Entry'}
+              {editingScheduleItemId ? 'Edit Scheduled Job' : 'Add Job to Weekly Schedule'}
             </h2>
 
             <div style={styles.formGrid}>
@@ -3294,7 +3290,7 @@ async function copyContactList() {
                 {isActionBusy('saveSchedule') ? (editingScheduleItemId ? 'Updating...' : 'Saving...') : (editingScheduleItemId ? 'Update Schedule Item' : 'Save Schedule Item')}
               </button>
               <button onClick={resetScheduleForm} style={styles.buttonSecondary}>
-                Clear Form
+                Cancel / Clear Form
               </button>
             </div>
           </div>
@@ -3307,6 +3303,16 @@ async function copyContactList() {
             <div style={styles.assignmentHeader}>
               <h2 style={styles.sectionTitle}>Weekly Schedule View</h2>
               <div style={styles.topBarButtons}>
+                <button
+                  onClick={() => {
+                    resetScheduleForm()
+                    setShowScheduleEditor(true)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  style={styles.button}
+                >
+                  Add Job to This Week
+                </button>
                 <button
                   onClick={duplicateCurrentWeek}
                   disabled={isActionBusy('duplicateWeek') || nextWeekHasItems}
