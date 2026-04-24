@@ -62,6 +62,18 @@ function getMondaySundayRange(baseDate = new Date()) {
   }
 }
 
+function getTodayDayKeyForWeek(selectedWeekFrom, selectedWeekTo) {
+  if (!selectedWeekFrom || !selectedWeekTo) return ''
+
+  const todayIso = toIsoDate(new Date())
+  if (todayIso < selectedWeekFrom || todayIso > selectedWeekTo) return ''
+
+  const startOfWeek = new Date(`${selectedWeekFrom}T00:00:00`)
+  const today = new Date(`${todayIso}T00:00:00`)
+  const offset = Math.round((today - startOfWeek) / (1000 * 60 * 60 * 24))
+  return WEEKDAY_KEYS[offset] || ''
+}
+
 function getInitialWeekRange() {
   const currentWeek = getMondaySundayRange()
 
@@ -237,6 +249,7 @@ const [reportNotes, setReportNotes] = useState('')
 const [printLayout, setPrintLayout] = useState('report')
   const [editingScheduleItemId, setEditingScheduleItemId] = useState(null)
   const [showScheduleEditor, setShowScheduleEditor] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const [scheduleForm, setScheduleForm] = useState({
     from_date: '',
@@ -349,11 +362,43 @@ const [printLayout, setPrintLayout] = useState('report')
     return () => clearTimeout(timer)
   }, [activeTab, restoreWeeklyPosition, scheduleItems, selectedWeekFrom, selectedWeekTo, returnToItemId, returnToScrollY])
 
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChanges) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  function confirmDiscardUnsavedChanges() {
+    if (!hasUnsavedChanges) return true
+    return window.confirm('You have unsaved changes. Leave without saving?')
+  }
+
+  function handleTabChange(nextTab) {
+    if (nextTab === activeTab) return
+    if (!confirmDiscardUnsavedChanges()) return
+    setActiveTab(nextTab)
+  }
+
+  function goToCurrentWeek() {
+    if (!confirmDiscardUnsavedChanges()) return
+    const currentWeek = getMondaySundayRange()
+    setSelectedWeekFrom(currentWeek.from)
+    setSelectedWeekTo(currentWeek.to)
+    setJumpToScheduleItemId('')
+  }
+
   function applyWeekFromAnyDate(value) {
     if (!value) return
+    if (!confirmDiscardUnsavedChanges()) return
     const nextRange = getMondaySundayRange(new Date(`${value}T00:00:00`))
     setSelectedWeekFrom(nextRange.from)
     setSelectedWeekTo(nextRange.to)
+    setJumpToScheduleItemId('')
   }
 
   function shiftIsoDate(value, days = 7) {
@@ -484,7 +529,12 @@ const [printLayout, setPrintLayout] = useState('report')
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
 
+  const todayDayKey = useMemo(() => {
+    return getTodayDayKeyForWeek(selectedWeekFrom, selectedWeekTo)
+  }, [selectedWeekFrom, selectedWeekTo])
+
   function openAddScheduleEditor() {
+    if (!confirmDiscardUnsavedChanges()) return
     resetScheduleForm()
     setShowScheduleEditor(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1534,6 +1584,7 @@ async function copyContactList() {
   }
 
   function updateScheduleForm(field, value) {
+    setHasUnsavedChanges(true)
     setScheduleForm((prev) => ({
       ...prev,
       [field]: value,
@@ -1541,6 +1592,7 @@ async function copyContactList() {
   }
 
   function updateForemanAssignment(localId, field, value) {
+    setHasUnsavedChanges(true)
     setForemanAssignments((prev) =>
       prev.map((item) =>
         item.localId === localId ? { ...item, [field]: value } : item
@@ -1549,10 +1601,12 @@ async function copyContactList() {
   }
 
   function addForemanAssignmentRow() {
+    setHasUnsavedChanges(true)
     setForemanAssignments((prev) => [...prev, emptyForemanAssignment()])
   }
 
   function removeForemanAssignmentRow(localId) {
+    setHasUnsavedChanges(true)
     setForemanAssignments((prev) => {
       const updated = prev.filter((item) => item.localId !== localId)
       return updated.length ? updated : [emptyForemanAssignment()]
@@ -1560,6 +1614,7 @@ async function copyContactList() {
   }
 
   function updateSurveyorAssignment(localId, field, value) {
+    setHasUnsavedChanges(true)
     setSurveyorAssignments((prev) =>
       prev.map((item) =>
         item.localId === localId ? { ...item, [field]: value } : item
@@ -1568,10 +1623,12 @@ async function copyContactList() {
   }
 
   function addSurveyorAssignmentRow() {
+    setHasUnsavedChanges(true)
     setSurveyorAssignments((prev) => [...prev, emptySurveyorAssignment()])
   }
 
   function removeSurveyorAssignmentRow(localId) {
+    setHasUnsavedChanges(true)
     setSurveyorAssignments((prev) => {
       const updated = prev.filter((item) => item.localId !== localId)
       return updated.length ? updated : [emptySurveyorAssignment()]
@@ -1579,6 +1636,7 @@ async function copyContactList() {
   }
 
   function resetScheduleForm() {
+    setHasUnsavedChanges(false)
     setEditingScheduleItemId(null)
     setShowScheduleEditor(false)
     setScheduleForm({
@@ -1595,6 +1653,8 @@ async function copyContactList() {
   }
 
   function editScheduleItem(item) {
+    if (!confirmDiscardUnsavedChanges()) return
+    setHasUnsavedChanges(false)
     setReturnToScrollY(window.scrollY)
     setReturnToItemId(item.id)
     setEditingScheduleItemId(item.id)
@@ -2592,35 +2652,35 @@ async function copyContactList() {
           <div style={styles.topBarButtons}>
             <button
               className="nav-button"
-              onClick={() => setActiveTab('weekly')}
+              onClick={() => handleTabChange('weekly')}
               style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
             >
               Weekly Schedule
             </button>
             <button
               className="nav-button"
-              onClick={() => setActiveTab('grid')}
+              onClick={() => handleTabChange('grid')}
               style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
             >
               Weekly Grid
             </button>
             <button
               className="nav-button"
-              onClick={() => setActiveTab('mobile')}
+              onClick={() => handleTabChange('mobile')}
               style={activeTab === 'mobile' ? styles.button : styles.buttonSecondary}
             >
               Mobile View
             </button>
             <button
               className="nav-button"
-              onClick={() => setActiveTab('print')}
+              onClick={() => handleTabChange('print')}
               style={activeTab === 'print' ? styles.button : styles.buttonSecondary}
             >
               Print / PDF
             </button>
             <button
               className="nav-button"
-              onClick={() => setActiveTab('master')}
+              onClick={() => handleTabChange('master')}
               style={activeTab === 'master' ? styles.button : styles.buttonSecondary}
             >
               Master Data
@@ -3158,6 +3218,12 @@ async function copyContactList() {
               {editingScheduleItemId ? 'Edit Scheduled Job' : 'Add Job to Weekly Schedule'}
             </h2>
 
+            {hasUnsavedChanges ? (
+              <div style={styles.unsavedChangesNotice}>
+                You have unsaved changes. Save before switching weeks or leaving this screen.
+              </div>
+            ) : null}
+
             <div style={styles.formGrid}>
               <div>
                 <label style={styles.label}>Job</label>
@@ -3504,6 +3570,13 @@ async function copyContactList() {
                 />
               </div>
 
+              <div style={styles.todayButtonWrap}>
+                <label style={styles.label}>&nbsp;</label>
+                <button onClick={goToCurrentWeek} style={styles.buttonSecondary}>
+                  Today
+                </button>
+              </div>
+
               <div style={styles.lastUpdatedText}>
                 Last updated: {formatDateTime(lastUpdatedAt)}
               </div>
@@ -3745,8 +3818,11 @@ async function copyContactList() {
               <div style={styles.gridBoard}>
                 <div style={styles.gridHeaderCell}>Job</div>
                 {WEEKDAY_KEYS.map((dayKey) => (
-                  <div key={dayKey} style={styles.gridHeaderCell}>
-                    {WEEKDAY_LABELS[dayKey]}
+                  <div
+                    key={dayKey}
+                    style={todayDayKey === dayKey ? { ...styles.gridHeaderCell, ...styles.gridHeaderCellToday } : styles.gridHeaderCell}
+                  >
+                    {WEEKDAY_LABELS[dayKey]}{todayDayKey === dayKey ? ' • Today' : ''}
                   </div>
                 ))}
 
@@ -3767,7 +3843,10 @@ async function copyContactList() {
                     </div>
 
                     {WEEKDAY_KEYS.map((dayKey) => (
-                      <div key={`${item.id}-${dayKey}`} style={styles.gridDayCell}>
+                      <div
+                        key={`${item.id}-${dayKey}`}
+                        style={todayDayKey === dayKey ? { ...styles.gridDayCell, ...styles.gridDayCellToday } : styles.gridDayCell}
+                      >
                         {renderDayContents(item, dayKey)}
                       </div>
                     ))}
@@ -4284,8 +4363,11 @@ async function copyContactList() {
                   <div style={styles.printGridBoard} className="print-grid-board">
                     <div style={styles.printGridHeaderCell}>Job</div>
                     {WEEKDAY_KEYS.map((dayKey) => (
-                      <div key={dayKey} style={styles.printGridHeaderCell}>
-                        {WEEKDAY_LABELS[dayKey]}
+                      <div
+                        key={dayKey}
+                        style={todayDayKey === dayKey ? { ...styles.printGridHeaderCell, ...styles.printGridHeaderCellToday } : styles.printGridHeaderCell}
+                      >
+                        {WEEKDAY_LABELS[dayKey]}{todayDayKey === dayKey ? ' • Today' : ''}
                       </div>
                     ))}
 
@@ -4308,7 +4390,7 @@ async function copyContactList() {
                         {WEEKDAY_KEYS.map((dayKey) => (
                           <div
                             key={`${item.id}-${dayKey}`}
-                            style={styles.printGridDayCell}
+                            style={todayDayKey === dayKey ? { ...styles.printGridDayCell, ...styles.printGridDayCellToday } : styles.printGridDayCell}
                           >
                             {renderDayContents(item, dayKey)}
                           </div>
@@ -5715,6 +5797,21 @@ mobileEmptyCard: {
     fontSize: '12px',
     color: '#6b7280',
     fontStyle: 'italic',
+  },
+  todayButtonWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+  },
+  unsavedChangesNotice: {
+    marginBottom: '14px',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    border: '1px solid #fdba74',
+    background: '#fff7ed',
+    color: '#9a3412',
+    fontSize: '13px',
+    fontWeight: '700',
   },
   lastUpdatedText: {
     alignSelf: 'end',
