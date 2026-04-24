@@ -1219,9 +1219,9 @@ async function copyContactList() {
     const matchedSuperintendent = matchTextFromList(text, superintendents, ['name'])
 
     let type = 'General Note'
-    if (/\b(call|text|email|follow up|remind|check with)\b/i.test(text)) type = 'Reminder'
-    if (/\b(need|order|move|schedule|send|get|pickup|pick up|deliver|line up)\b/i.test(text)) type = 'Task'
-    if (/\b(problem|issue|late|behind|missing|conflict|failed|hold up|hold-up|stuck)\b/i.test(text)) type = 'Issue'
+    if (/\b(call|text|email|follow up|remind|check with|meeting|meet with)\b/i.test(text)) type = 'Reminder'
+    if (/\b(need|order|move|schedule|send|get|pickup|pick up|deliver|line up|pour|finish|finished|dress|dressing)\b/i.test(text)) type = 'Task'
+    if (/\b(problem|issue|late|behind|missing|conflict|failed|hold up|hold-up|stuck|overran|overrun)\b/i.test(text)) type = 'Issue'
     if (/\b(manpower|crew|guys|men|foreman|labor|operator|superintendent)\b/i.test(text)) type = 'Manpower'
 
     return {
@@ -1230,6 +1230,64 @@ async function copyContactList() {
       personLabel: matchedForeman?.name || matchedSuperintendent?.name || '',
       isToday: /\b(today|this morning|this afternoon|tonight)\b/i.test(lowered),
     }
+  }
+
+  function splitQuickNoteText(noteText) {
+    const rawText = String(noteText || '')
+      .replace(/\r/g, '\n')
+      .replace(/\s+then\s+/gi, '. ')
+      .replace(/\s+and then\s+/gi, '. ')
+      .replace(/\s+also\s+/gi, '. ')
+      .trim()
+
+    if (!rawText) return []
+
+    let pieces = rawText
+      .split(/(?:\n+|[.;•]+|\s+-\s+)/g)
+      .map((piece) => piece.trim())
+      .filter(Boolean)
+
+    const allJobTerms = (jobs || [])
+      .flatMap((job) => [job.job_number, job.job_name])
+      .map((value) => String(value || '').trim())
+      .filter((value) => value.length >= 3)
+      .sort((a, b) => b.length - a.length)
+
+    const splitOnKnownJobs = []
+    pieces.forEach((piece) => {
+      let nextPieces = [piece]
+
+      allJobTerms.forEach((term) => {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const jobPattern = new RegExp(`\\b(job\\s+)?${escaped}\\b`, 'ig')
+        nextPieces = nextPieces.flatMap((candidate) => {
+          const matches = [...candidate.matchAll(jobPattern)]
+          if (matches.length <= 1) return [candidate]
+
+          const chunks = []
+          matches.forEach((match, index) => {
+            const start = match.index || 0
+            const end = matches[index + 1]?.index ?? candidate.length
+            const chunk = candidate.slice(start, end).trim()
+            if (chunk) chunks.push(chunk)
+          })
+
+          const beforeFirst = candidate.slice(0, matches[0].index || 0).trim()
+          return beforeFirst ? [beforeFirst, ...chunks] : chunks
+        })
+      })
+
+      splitOnKnownJobs.push(...nextPieces)
+    })
+
+    pieces = splitOnKnownJobs
+      .flatMap((piece) => piece.split(/\s{2,}/g))
+      .map((piece) => piece.trim().replace(/^,\s*/, ''))
+      .filter((piece) => piece.length > 2)
+
+    if (pieces.length <= 1) return [rawText]
+
+    return pieces.map((piece) => piece.replace(/^[, ]+|[, ]+$/g, '')).filter(Boolean)
   }
 
   const organizedFieldNotes = useMemo(() => {
@@ -1275,10 +1333,14 @@ async function copyContactList() {
 
     setActionLoading('saveQuickNote')
 
-    const { error } = await supabase.from('field_notes').insert({
-      note: noteText,
-      created_at: new Date().toISOString(),
-    })
+    const splitNotes = splitQuickNoteText(noteText)
+    const createdAt = new Date().toISOString()
+    const rowsToInsert = splitNotes.map((note) => ({
+      note,
+      created_at: createdAt,
+    }))
+
+    const { error } = await supabase.from('field_notes').insert(rowsToInsert)
 
     if (error) {
       showError(error.message)
@@ -1288,7 +1350,7 @@ async function copyContactList() {
 
     setQuickNote('')
     await loadFieldNotes()
-    showSuccess('Field note saved.')
+    showSuccess(splitNotes.length > 1 ? `${splitNotes.length} field notes saved and separated.` : 'Field note saved.')
     setActionLoading('')
   }
 
@@ -1337,7 +1399,7 @@ async function copyContactList() {
             <div>
               <h1 style={quickMode ? styles.quickDumpTitle : styles.sectionTitle}>Field Dump</h1>
               <p style={styles.fieldNotesHelper}>
-                Tap the box, use the keyboard microphone, talk, and save. The app will help sort notes by job, issue, and reminder words.
+                Tap the box, use the keyboard microphone, talk, and save. For best sorting, speak one thought at a time and pause between jobs. The app will separate notes and sort by job, issue, and reminder words.
               </p>
             </div>
             {quickMode ? null : (
