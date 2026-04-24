@@ -200,6 +200,7 @@ const [reportNotes, setReportNotes] = useState('')
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
   const [notesStyle, setNotesStyle] = useState('accent')
   const [showActiveOnly, setShowActiveOnly] = useState(false)
+  const [collapsedScheduleItemIds, setCollapsedScheduleItemIds] = useState(new Set())
 
   const [jobPrefix, setJobPrefix] = useState('CC')
   const [jobNumberPart2, setJobNumberPart2] = useState('')
@@ -463,6 +464,36 @@ const [printLayout, setPrintLayout] = useState('report')
 
   const selectedEmailGroup =
     emailGroups.find((g) => g.id === selectedEmailGroupId) || null
+
+  function openAddScheduleEditor() {
+    resetScheduleForm()
+    setShowScheduleEditor(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function isScheduleCardCollapsed(id) {
+    return collapsedScheduleItemIds.has(id)
+  }
+
+  function toggleScheduleCardCollapsed(id) {
+    setCollapsedScheduleItemIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function collapseAllScheduleCards() {
+    setCollapsedScheduleItemIds(new Set(displayedWeekScheduleItems.map((item) => item.id)))
+  }
+
+  function expandAllScheduleCards() {
+    setCollapsedScheduleItemIds(new Set())
+  }
 
   function showBanner(type, text) {
     setBanner({ type, text, id: Date.now() })
@@ -2473,9 +2504,6 @@ async function copyContactList() {
             >
               Master Data
             </button>
-            <button className="nav-button" onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
-              {loading ? 'Refreshing...' : 'Reload Data'}
-            </button>
             <button className="nav-button" onClick={signOut} style={styles.buttonSecondary}>
               Sign Out
             </button>
@@ -3304,11 +3332,7 @@ async function copyContactList() {
               <h2 style={styles.sectionTitle}>Weekly Schedule View</h2>
               <div style={styles.topBarButtons}>
                 <button
-                  onClick={() => {
-                    resetScheduleForm()
-                    setShowScheduleEditor(true)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
+                  onClick={openAddScheduleEditor}
                   style={styles.button}
                 >
                   Add Job to This Week
@@ -3334,9 +3358,6 @@ async function copyContactList() {
                     : selectedWeekDuplicateCount
                       ? `Clean Up Duplicates (${selectedWeekDuplicateCount})`
                       : 'No Duplicates Found'}
-                </button>
-                <button onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
-                  {loading ? 'Refreshing...' : 'Refresh Schedule'}
                 </button>
               </div>
             </div>
@@ -3376,6 +3397,14 @@ async function copyContactList() {
                 Showing {displayedWeekScheduleItems.length} job{displayedWeekScheduleItems.length === 1 ? '' : 's'}
                 {showActiveOnly ? ' with notes or assignments' : ' rolling forward until deleted'}.
               </div>
+              <div style={styles.weeklyFilterActions}>
+                <button onClick={expandAllScheduleCards} style={styles.smallButton}>
+                  Expand All
+                </button>
+                <button onClick={collapseAllScheduleCards} style={styles.smallButton}>
+                  Collapse All
+                </button>
+              </div>
             </div>
 
             {displayedWeekScheduleItems.length === 0 ? (
@@ -3386,122 +3415,147 @@ async function copyContactList() {
               </p>
             ) : (
               <div style={styles.scheduleList}>
-                {displayedWeekScheduleItems.map((item) => (
-                  <div key={item.id} id={`schedule-item-${item.id}`} style={styles.scheduleCard}>
-                    <div style={styles.scheduleHeader}>
-                      <div>
-                        <div style={styles.scheduleJobTitle}>
-                          {item.jobs?.job_number || '—'} —{' '}
-                          {item.jobs?.job_name || 'No Job Name'}
+                {displayedWeekScheduleItems.map((item) => {
+                  const isCollapsed = isScheduleCardCollapsed(item.id)
+
+                  return (
+                    <div key={item.id} id={`schedule-item-${item.id}`} style={styles.scheduleCard}>
+                      <div style={styles.scheduleHeader}>
+                        <div>
+                          <div style={styles.scheduleJobTitle}>
+                            {item.jobs?.job_number || '—'} —{' '}
+                            {item.jobs?.job_name || 'No Job Name'}
+                          </div>
+                          <div style={styles.smallText}>
+                            Job Start: {formatDate(item.jobs?.start_date)} | Job Stop:{' '}
+                            {formatDate(item.jobs?.stop_date)}
+                          </div>
+                          {isCollapsed ? (
+                            <div style={styles.collapsedSummaryText}>
+                              Collapsed • {item.schedule_item_foremen?.length || 0} foreman assignment{(item.schedule_item_foremen?.length || 0) === 1 ? '' : 's'} • {item.schedule_item_surveyors?.length || 0} surveyor assignment{(item.schedule_item_surveyors?.length || 0) === 1 ? '' : 's'}
+                            </div>
+                          ) : null}
                         </div>
-                        <div style={styles.smallText}>
-                          Job Start: {formatDate(item.jobs?.start_date)} | Job Stop:{' '}
-                          {formatDate(item.jobs?.stop_date)}
+
+                        <div style={styles.itemButtonRow}>
+                          <button
+                            onClick={() => toggleScheduleCardCollapsed(item.id)}
+                            style={styles.smallButton}
+                          >
+                            {isCollapsed ? 'Expand' : 'Collapse'}
+                          </button>
+                          <button
+                            onClick={() => editScheduleItem(item)}
+                            style={styles.smallButton}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteScheduleItem(item.id)}
+                            style={styles.smallDangerButton}
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
 
-                      <div style={styles.itemButtonRow}>
-                        <button
-                          onClick={() => editScheduleItem(item)}
-                          style={styles.smallButton}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => deleteScheduleItem(item.id)}
-                          style={styles.smallDangerButton}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-
-                    <div style={styles.metaGrid}>
-                      <div>
-                        <strong>PM:</strong> {item.project_managers?.name || '—'}
-                      </div>
-                      <div>
-                        <strong>Superintendent:</strong>{' '}
-                        {item.superintendents?.name || '—'}
-                      </div>
-                      <div>
-                        <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
-                      </div>
-                    </div>
-
-                    {item.notes && (
-                      <div style={styles.notesBox}>
-                        <strong>Job Notes:</strong> {item.notes}
-                      </div>
-                    )}
-
-                    <div style={{ marginTop: '14px' }}>
-                      <strong>Foreman Assignments</strong>
-                    </div>
-
-                    {item.schedule_item_foremen?.length ? (
-                      <div style={{ marginTop: '10px' }}>
-                        {item.schedule_item_foremen.map((assignment) => (
-                          <div key={assignment.id} style={styles.foremanViewCard}>
+                      {!isCollapsed ? (
+                        <>
+                          <div style={styles.metaGrid}>
                             <div>
-                              <strong>Foreman:</strong>{' '}
-                              {assignment.foremen?.name || '—'}
+                              <strong>PM:</strong> {item.project_managers?.name || '—'}
                             </div>
                             <div>
-                              <strong>Dates:</strong>{' '}
-                              {formatDate(assignment.assignment_from_date)} to{' '}
-                              {formatDate(assignment.assignment_to_date)}
-                            </div>
-                            <div style={styles.assignmentDaysText}>
-                              {formatAssignmentWeekdays(
-                                assignment.assignment_from_date,
-                                assignment.assignment_to_date
-                              )}
+                              <strong>Superintendent:</strong>{' '}
+                              {item.superintendents?.name || '—'}
                             </div>
                             <div>
-                              <strong>Work:</strong>{' '}
-                              {assignment.work_description || '—'}
-                            </div>
-                            <div>
-                              <strong>Split Note:</strong>{' '}
-                              {assignment.split_note || '—'}
+                              <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={styles.text}>No foremen assigned yet.</p>
-                    )}
 
-                    <div style={{ marginTop: '14px' }}>
-                      <strong>Surveyor Assignments</strong>
-                    </div>
+                          {item.notes && (
+                            <div style={styles.notesBox}>
+                              <strong>Job Notes:</strong> {item.notes}
+                            </div>
+                          )}
 
-                    {item.schedule_item_surveyors?.length ? (
-                      <div style={{ marginTop: '10px' }}>
-                        {item.schedule_item_surveyors.map((assignment) => (
-                          <div key={assignment.id} style={styles.foremanViewCard}>
-                            <div>
-                              <strong>Surveyor:</strong>{' '}
-                              {assignment.surveyors?.name || '—'}
-                            </div>
-                            <div>
-                              <strong>Days:</strong>{' '}
-                              {formatSurveyorDays(assignment)}
-                            </div>
-                            <div>
-                              <strong>Note:</strong> {assignment.note || '—'}
-                            </div>
+                          <div style={{ marginTop: '14px' }}>
+                            <strong>Foreman Assignments</strong>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={styles.text}>No surveyor assignments yet.</p>
-                    )}
-                  </div>
-                ))}
+
+                          {item.schedule_item_foremen?.length ? (
+                            <div style={{ marginTop: '10px' }}>
+                              {item.schedule_item_foremen.map((assignment) => (
+                                <div key={assignment.id} style={styles.foremanViewCard}>
+                                  <div>
+                                    <strong>Foreman:</strong>{' '}
+                                    {assignment.foremen?.name || '—'}
+                                  </div>
+                                  <div>
+                                    <strong>Dates:</strong>{' '}
+                                    {formatDate(assignment.assignment_from_date)} to{' '}
+                                    {formatDate(assignment.assignment_to_date)}
+                                  </div>
+                                  <div style={styles.assignmentDaysText}>
+                                    {formatAssignmentWeekdays(
+                                      assignment.assignment_from_date,
+                                      assignment.assignment_to_date
+                                    )}
+                                  </div>
+                                  <div>
+                                    <strong>Work:</strong>{' '}
+                                    {assignment.work_description || '—'}
+                                  </div>
+                                  <div>
+                                    <strong>Split Note:</strong>{' '}
+                                    {assignment.split_note || '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p style={styles.text}>No foremen assigned yet.</p>
+                          )}
+
+                          <div style={{ marginTop: '14px' }}>
+                            <strong>Surveyor Assignments</strong>
+                          </div>
+
+                          {item.schedule_item_surveyors?.length ? (
+                            <div style={{ marginTop: '10px' }}>
+                              {item.schedule_item_surveyors.map((assignment) => (
+                                <div key={assignment.id} style={styles.foremanViewCard}>
+                                  <div>
+                                    <strong>Surveyor:</strong>{' '}
+                                    {assignment.surveyors?.name || '—'}
+                                  </div>
+                                  <div>
+                                    <strong>Days:</strong>{' '}
+                                    {formatSurveyorDays(assignment)}
+                                  </div>
+                                  <div>
+                                    <strong>Note:</strong> {assignment.note || '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p style={styles.text}>No surveyor assignments yet.</p>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
             )}
+
+            <div style={styles.weeklyBottomActionBar}>
+              <button onClick={openAddScheduleEditor} style={styles.button}>
+                Add Job to This Week
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -5368,5 +5422,24 @@ mobileEmptyCard: {
     fontWeight: '600',
     marginBottom: '10px',
   },
+  weeklyFilterActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginLeft: 'auto',
+  },
+  weeklyBottomActionBar: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: '18px',
+    paddingTop: '14px',
+    borderTop: '1px solid #e5e7eb',
+  },
+  collapsedSummaryText: {
+    marginTop: '6px',
+    fontSize: '12px',
+    color: '#6b7280',
+    fontStyle: 'italic',
+  }
 
 }
