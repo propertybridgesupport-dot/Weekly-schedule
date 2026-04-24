@@ -197,6 +197,7 @@ export default function App() {
   const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
   const [selectedTextGroupViewId, setSelectedTextGroupViewId] = useState('')
 const [reportNotes, setReportNotes] = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
   const [notesStyle, setNotesStyle] = useState('accent')
@@ -1127,6 +1128,7 @@ async function copyContactList() {
 
     try {
       await Promise.all([loadMasterData(), loadScheduleItems()])
+      setLastUpdatedAt(new Date().toISOString())
       setMessage('Data loaded successfully.')
     } catch (err) {
       console.error(err)
@@ -1843,6 +1845,7 @@ async function copyContactList() {
     }
 
     const nextWeek = getNextWeekRangeFromSelectedWeek()
+    const duplicatedItemIds = []
 
     if (!nextWeek.from || !nextWeek.to) {
       showError('Could not calculate the next week.')
@@ -1882,6 +1885,7 @@ async function copyContactList() {
           .single()
 
         if (newItemError) throw newItemError
+        duplicatedItemIds.push(newItem.id)
 
         const foremanRows = (item.schedule_item_foremen || []).map((assignment) => ({
           schedule_item_id: newItem.id,
@@ -1917,6 +1921,7 @@ async function copyContactList() {
       await loadAllData()
       setSelectedWeekFrom(nextWeek.from)
       setSelectedWeekTo(nextWeek.to)
+      setCollapsedScheduleItemIds(new Set(duplicatedItemIds))
       setMessage('Week duplicated successfully.')
       showSuccess('Selected week duplicated to next week.')
     } catch (error) {
@@ -2456,14 +2461,27 @@ async function copyContactList() {
     margin: ${printLayout === 'grid' ? '0.12in' : '0.18in'};
   }
 
+  button {
+    transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease, border-color 0.14s ease;
+  }
+
+  button:hover:not(:disabled) {
+    filter: brightness(0.98);
+    transform: translateY(-1px);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
   .nav-button {
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
   }
 
   .nav-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
-    border-color: #dd7a00 !important;
+    box-shadow: 0 8px 14px rgba(15, 23, 42, 0.14);
+    border-color: #c96f00 !important;
   }
 
   @media print {
@@ -3438,7 +3456,7 @@ async function copyContactList() {
                   onClick={openAddScheduleEditor}
                   style={styles.button}
                 >
-                  Add Job to This Week
+                  Add Schedule Item
                 </button>
                 <button
                   onClick={duplicateCurrentWeek}
@@ -3484,6 +3502,10 @@ async function copyContactList() {
                   onChange={(e) => applyWeekFromAnyDate(e.target.value)}
                   style={styles.input}
                 />
+              </div>
+
+              <div style={styles.lastUpdatedText}>
+                Last updated: {formatDateTime(lastUpdatedAt)}
               </div>
             </div>
 
@@ -3654,9 +3676,7 @@ async function copyContactList() {
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <p style={styles.text}>No foremen assigned yet.</p>
-                          )}
+                          ) : null}
 
                           <div style={{ marginTop: '14px' }}>
                             <strong>Surveyor Assignments</strong>
@@ -3680,9 +3700,7 @@ async function copyContactList() {
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <p style={styles.text}>No surveyor assignments yet.</p>
-                          )}
+                          ) : null}
                         </>
                       ) : null}
                     </div>
@@ -3693,7 +3711,7 @@ async function copyContactList() {
 
             <div style={styles.weeklyBottomActionBar}>
               <button onClick={openAddScheduleEditor} style={styles.button}>
-                Add Job to This Week
+                Add Schedule Item
               </button>
             </div>
           </div>
@@ -3708,6 +3726,13 @@ async function copyContactList() {
               <button onClick={loadAllData} disabled={loading} style={loading ? styles.buttonDisabledSecondary : styles.buttonSecondary}>
                 {loading ? 'Refreshing...' : 'Refresh Grid'}
               </button>
+            </div>
+
+            <div style={styles.roleLegend}>
+              <span style={styles.roleLegendLabel}>Legend:</span>
+              <span style={styles.roleLegendItem}><span style={styles.legendSwatchForeman}></span>Foreman</span>
+              <span style={styles.roleLegendItem}><span style={styles.legendSwatchSurveyor}></span>Surveyor</span>
+              <span style={styles.roleLegendItem}><span style={styles.legendSwatchNotes}></span>Job Notes</span>
             </div>
 
 {gridScheduleItems.length === 0 ? (
@@ -3809,6 +3834,13 @@ async function copyContactList() {
                   <option value="foremen">Group by Foreman</option>
                 </select>
               </div>
+            </div>
+
+            <div style={styles.roleLegend}>
+              <span style={styles.roleLegendLabel}>Legend:</span>
+              <span style={styles.roleLegendItem}><span style={styles.legendSwatchForeman}></span>Foreman</span>
+              <span style={styles.roleLegendItem}><span style={styles.legendSwatchSurveyor}></span>Surveyor</span>
+              <span style={styles.roleLegendItem}><span style={styles.legendSwatchNotes}></span>Job Notes</span>
             </div>
 
             <div style={styles.mobileNoticeBox}>
@@ -4198,26 +4230,24 @@ async function copyContactList() {
               </div>
             )}
 
-            {reportNotes && (
-  <div style={{ marginTop: '20px', pageBreakInside: 'avoid' }}>
-    <div style={styles.printSectionHeader}>Report Notes</div>
+            <div style={styles.printFieldNotesArea}>
+              <div style={styles.printSectionHeader}>Print Notes</div>
 
-    <div
-      style={
-        notesStyle === 'accent'
-          ? styles.printNotesAccent
-          : styles.printNotesBox
-      }
-    >
-      <div>{reportNotes}</div>
-
-      <div style={styles.reportNotesLine} />
-      <div style={styles.reportNotesLine} />
-      <div style={styles.reportNotesLine} />
-      <div style={styles.reportNotesLine} />
-    </div>
-  </div>
-              )}
+              <div
+                style={
+                  notesStyle === 'accent'
+                    ? styles.printNotesAccent
+                    : styles.printNotesBox
+                }
+              >
+                {reportNotes ? <div style={styles.printFieldNotesText}>{reportNotes}</div> : null}
+                <div style={styles.reportNotesLine} />
+                <div style={styles.reportNotesLine} />
+                <div style={styles.reportNotesLine} />
+                <div style={styles.reportNotesLine} />
+                <div style={styles.reportNotesLine} />
+              </div>
+            </div>
             </>
           ) : (
             <>
@@ -4393,6 +4423,22 @@ function formatLongDate(value) {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const yy = String(date.getFullYear()).slice(-2)
+  let hours = date.getHours()
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12 || 12
+
+  return `${mm}/${dd}/${yy} ${hours}:${minutes} ${ampm}`
 }
 
 function formatAssignmentWeekdays(fromDate, toDate) {
@@ -4941,13 +4987,13 @@ const styles = {
   },
   button: {
     marginTop: '8px',
-    background: '#dd7a00',
+    background: '#c96f00',
     color: '#ffffff',
-    border: '1px solid #dd7a00',
+    border: '1px solid #c96f00',
     borderRadius: '10px',
     padding: '10px 16px',
     cursor: 'pointer',
-    boxShadow: '0 8px 18px rgba(221,122,0,0.22)',
+    boxShadow: '0 6px 14px rgba(201,111,0,0.16)',
   },
   buttonSecondary: {
     background: '#fffdf8',
@@ -4978,9 +5024,9 @@ const styles = {
     opacity: 0.85,
   },
   buttonDanger: {
-    background: '#c9732f',
-    color: '#ffffff',
-    border: 'none',
+    background: '#fff7ed',
+    color: '#9a3412',
+    border: '1px solid #fdba74',
     borderRadius: '10px',
     padding: '8px 14px',
     cursor: 'pointer',
@@ -4995,9 +5041,9 @@ const styles = {
     fontSize: '12px',
   },
   smallDangerButton: {
-    background: '#c9732f',
-    color: '#ffffff',
-    border: 'none',
+    background: '#fff7ed',
+    color: '#9a3412',
+    border: '1px solid #fdba74',
     borderRadius: '8px',
     padding: '6px 10px',
     cursor: 'pointer',
@@ -5669,6 +5715,66 @@ mobileEmptyCard: {
     fontSize: '12px',
     color: '#6b7280',
     fontStyle: 'italic',
+  },
+  lastUpdatedText: {
+    alignSelf: 'end',
+    paddingBottom: '12px',
+    fontSize: '12px',
+    color: '#6b7280',
+    whiteSpace: 'nowrap',
+  },
+  roleLegend: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+    margin: '0 0 14px 0',
+    padding: '9px 12px',
+    background: '#fffdf8',
+    border: '1px solid #e8dbc8',
+    borderRadius: '12px',
+    fontSize: '12px',
+    color: '#374151',
+  },
+  roleLegendLabel: {
+    fontWeight: '700',
+    color: '#111827',
+  },
+  roleLegendItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  legendSwatchForeman: {
+    width: '13px',
+    height: '13px',
+    borderRadius: '4px',
+    background: '#eef2ff',
+    border: '1px solid #c7d2fe',
+    display: 'inline-block',
+  },
+  legendSwatchSurveyor: {
+    width: '13px',
+    height: '13px',
+    borderRadius: '4px',
+    background: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    display: 'inline-block',
+  },
+  legendSwatchNotes: {
+    width: '13px',
+    height: '13px',
+    borderRadius: '4px',
+    background: '#fff7ed',
+    border: '1px solid #fdba74',
+    display: 'inline-block',
+  },
+  printFieldNotesArea: {
+    marginTop: '18px',
+    pageBreakInside: 'avoid',
+  },
+  printFieldNotesText: {
+    marginBottom: '8px',
   }
 ,
   weeklyFilterTopRow: {
