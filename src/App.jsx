@@ -165,6 +165,7 @@ export default function App() {
   const isViewerMode = Boolean(searchParams?.get('viewer') === '1')
   const viewerWeekFromParam = searchParams?.get('weekFrom') || ''
   const viewerWeekToParam = searchParams?.get('weekTo') || ''
+  const mobileLayoutParam = searchParams?.get('mobileLayout') || 'jobs'
 
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -200,6 +201,10 @@ const [reportNotes, setReportNotes] = useState('')
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
   const [notesStyle, setNotesStyle] = useState('accent')
   const [showActiveOnly, setShowActiveOnly] = useState(false)
+  const [weeklySearchText, setWeeklySearchText] = useState('')
+  const [jumpToScheduleItemId, setJumpToScheduleItemId] = useState('')
+  const [mobileLayout, setMobileLayout] = useState('jobs')
+  const [showPrintActiveOnly, setShowPrintActiveOnly] = useState(false)
   const [collapsedScheduleItemIds, setCollapsedScheduleItemIds] = useState(new Set())
 
   const [jobPrefix, setJobPrefix] = useState('CC')
@@ -429,12 +434,25 @@ const [printLayout, setPrintLayout] = useState('report')
   }, [weekScheduleItems])
 
   const displayedWeekScheduleItems = useMemo(() => {
-    return showActiveOnly ? activeWeekScheduleItems : weekScheduleItems
-  }, [showActiveOnly, activeWeekScheduleItems, weekScheduleItems])
+    const baseItems = showActiveOnly ? activeWeekScheduleItems : weekScheduleItems
+    const search = weeklySearchText.trim().toLowerCase()
+
+    if (!search) return baseItems
+
+    return baseItems.filter((item) => getScheduleItemSearchText(item).includes(search))
+  }, [showActiveOnly, activeWeekScheduleItems, weekScheduleItems, weeklySearchText])
+
+  const printScheduleItems = useMemo(() => {
+    return showPrintActiveOnly ? activeWeekScheduleItems : weekScheduleItems
+  }, [showPrintActiveOnly, activeWeekScheduleItems, weekScheduleItems])
 
   const gridScheduleItems = useMemo(() => {
     return activeWeekScheduleItems
   }, [activeWeekScheduleItems])
+
+  const printGridScheduleItems = useMemo(() => {
+    return showPrintActiveOnly ? activeWeekScheduleItems : weekScheduleItems
+  }, [showPrintActiveOnly, activeWeekScheduleItems, weekScheduleItems])
   const nextWeekRange = useMemo(() => getNextWeekRangeFromSelectedWeek(), [selectedWeekFrom, selectedWeekTo])
 
   const nextWeekHasItems = useMemo(() => {
@@ -493,6 +511,44 @@ const [printLayout, setPrintLayout] = useState('report')
 
   function expandAllScheduleCards() {
     setCollapsedScheduleItemIds(new Set())
+  }
+
+  function jumpToScheduleItem(id) {
+    setJumpToScheduleItemId(id)
+    if (!id) return
+    const el = document.getElementById(`schedule-item-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  function renderCollapsedQuickPills(item) {
+    const pills = []
+    const foremanNames = (item.schedule_item_foremen || [])
+      .map((assignment) => assignment.foremen?.name)
+      .filter(Boolean)
+    const surveyorNames = (item.schedule_item_surveyors || [])
+      .map((assignment) => assignment.surveyors?.name)
+      .filter(Boolean)
+
+    if (item.project_managers?.name) pills.push(`PM: ${item.project_managers.name}`)
+    if (item.superintendents?.name) pills.push(`Super: ${item.superintendents.name}`)
+    if (item.surveyors?.name) pills.push(`Surveyor: ${item.surveyors.name}`)
+    if (foremanNames.length) pills.push(`Foremen: ${foremanNames.join(', ')}`)
+    if (surveyorNames.length) pills.push(`Surveyor Days: ${surveyorNames.join(', ')}`)
+    if (item.notes) pills.push('Has Job Notes')
+
+    if (!pills.length) {
+      pills.push('No assignments or notes yet')
+    }
+
+    return (
+      <div style={styles.collapsedPillRow}>
+        {pills.map((pill) => (
+          <span key={pill} style={styles.collapsedPill}>{pill}</span>
+        ))}
+      </div>
+    )
   }
 
   function showBanner(type, text) {
@@ -768,7 +824,7 @@ const [printLayout, setPrintLayout] = useState('report')
     }
 
     const base = `${window.location.origin}${window.location.pathname}`
-    return `${base}?publicShare=${token}`
+    return `${base}?publicShare=${token}&mobileLayout=${mobileLayout}`
   }
 
   function createAuthenticatedViewerUrl() {
@@ -779,6 +835,7 @@ const [printLayout, setPrintLayout] = useState('report')
       viewer: '1',
       weekFrom: selectedWeekFrom,
       weekTo: selectedWeekTo,
+      mobileLayout,
     })
     return `${base}?${params.toString()}`
   }
@@ -788,7 +845,7 @@ const [printLayout, setPrintLayout] = useState('report')
     const snapshot = buildMobileShareSnapshot(gridScheduleItems, selectedWeekFrom, selectedWeekTo)
     if (!snapshot) return ''
     const base = `${window.location.origin}${window.location.pathname}`
-    return `${base}?mobileShare=1&snapshot=${snapshot}`
+    return `${base}?mobileShare=1&mobileLayout=${mobileLayout}&snapshot=${snapshot}`
   }
 
   async function copyMobileShareLink() {
@@ -2167,6 +2224,52 @@ async function copyContactList() {
     )
   }
 
+  function renderReadonlyForemanGroups(items) {
+    const groups = buildForemanGroups(items)
+
+    return (
+      <div style={styles.mobileReadonlyListCompact}>
+        {groups.length === 0 ? (
+          <div style={styles.mobileEmptyCard}>No foreman assignments found for this week.</div>
+        ) : (
+          groups.map((group) => (
+            <div key={group.name} style={styles.mobileReadonlyCard}>
+              <div style={styles.mobileReadonlyJobTitle}>{group.name}</div>
+              <div style={styles.mobileReadonlyBody}>
+                {group.assignments.map((assignment) => (
+                  <div key={assignment.key} style={styles.mobileReadonlyAssignmentCard}>
+                    <div style={styles.mobileReadonlyAssignmentName}>
+                      {assignment.jobNumber} — {assignment.jobName}
+                    </div>
+                    <div style={styles.mobileReadonlyAssignmentLine}>
+                      {formatDate(assignment.fromDate)} to {formatDate(assignment.toDate)}
+                    </div>
+                    <div style={styles.mobileReadonlyAssignmentSubtle}>
+                      {formatAssignmentWeekdays(assignment.fromDate, assignment.toDate)}
+                    </div>
+                    <div style={styles.mobileReadonlyAssignmentLine}>
+                      <strong>Work:</strong> {assignment.work || '—'}
+                    </div>
+                    {assignment.splitNote ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}>
+                        <strong>Note:</strong> {assignment.splitNote}
+                      </div>
+                    ) : null}
+                    {assignment.jobNotes ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}>
+                        <strong>Job Notes:</strong> {assignment.jobNotes}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    )
+  }
+
   if (isViewerMode && session) {
     return (
       <div style={styles.mobileSharePage}>
@@ -2199,7 +2302,7 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
+          {mobileLayoutParam === 'foremen' ? renderReadonlyForemanGroups(weekScheduleItems) : renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
         </div>
       </div>
     )
@@ -2237,7 +2340,7 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true })}
+          {mobileLayoutParam === 'foremen' ? renderReadonlyForemanGroups(mobileShareSnapshot.items || []) : renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true })}
         </div>
       </div>
     )
@@ -2297,7 +2400,7 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true })}
+          {mobileLayoutParam === 'foremen' ? renderReadonlyForemanGroups(publicShareData.snapshot?.items || []) : renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true })}
         </div>
       </div>
     )
@@ -3385,25 +3488,59 @@ async function copyContactList() {
             </div>
 
             <div style={styles.weeklyFilterBar}>
-              <label style={styles.toggleLabel}>
-                <input
-                  type="checkbox"
-                  checked={showActiveOnly}
-                  onChange={(e) => setShowActiveOnly(e.target.checked)}
-                />
-                <span>Show active only</span>
-              </label>
+              <div style={styles.weeklyFilterTopRow}>
+                <label style={styles.toggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showActiveOnly}
+                    onChange={(e) => setShowActiveOnly(e.target.checked)}
+                  />
+                  <span>Show active only</span>
+                </label>
+
+                <div style={styles.weeklyFilterActions}>
+                  <button onClick={expandAllScheduleCards} style={styles.smallButton}>
+                    Expand All
+                  </button>
+                  <button onClick={collapseAllScheduleCards} style={styles.smallButton}>
+                    Collapse All
+                  </button>
+                </div>
+              </div>
+
+              <div style={styles.weeklyQuickToolsRow}>
+                <div style={styles.weeklySearchWrap}>
+                  <label style={styles.label}>Search schedule</label>
+                  <input
+                    type="text"
+                    value={weeklySearchText}
+                    onChange={(e) => setWeeklySearchText(e.target.value)}
+                    placeholder="Search job, foreman, super, surveyor, notes..."
+                    style={styles.input}
+                  />
+                </div>
+
+                <div style={styles.weeklyJumpWrap}>
+                  <label style={styles.label}>Jump to job</label>
+                  <select
+                    value={jumpToScheduleItemId}
+                    onChange={(e) => jumpToScheduleItem(e.target.value)}
+                    style={styles.select}
+                  >
+                    <option value="">Select job...</option>
+                    {displayedWeekScheduleItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div style={styles.smallText}>
                 Showing {displayedWeekScheduleItems.length} job{displayedWeekScheduleItems.length === 1 ? '' : 's'}
-                {showActiveOnly ? ' with notes or assignments' : ' rolling forward until deleted'}.
-              </div>
-              <div style={styles.weeklyFilterActions}>
-                <button onClick={expandAllScheduleCards} style={styles.smallButton}>
-                  Expand All
-                </button>
-                <button onClick={collapseAllScheduleCards} style={styles.smallButton}>
-                  Collapse All
-                </button>
+                {showActiveOnly ? ' with notes or assignments' : ' rolling forward until deleted'}
+                {weeklySearchText.trim() ? ' matching your search' : ''}.
               </div>
             </div>
 
@@ -3431,9 +3568,12 @@ async function copyContactList() {
                             {formatDate(item.jobs?.stop_date)}
                           </div>
                           {isCollapsed ? (
-                            <div style={styles.collapsedSummaryText}>
-                              Collapsed • {item.schedule_item_foremen?.length || 0} foreman assignment{(item.schedule_item_foremen?.length || 0) === 1 ? '' : 's'} • {item.schedule_item_surveyors?.length || 0} surveyor assignment{(item.schedule_item_surveyors?.length || 0) === 1 ? '' : 's'}
-                            </div>
+                            <>
+                              <div style={styles.collapsedSummaryText}>
+                                Collapsed • {item.schedule_item_foremen?.length || 0} foreman assignment{(item.schedule_item_foremen?.length || 0) === 1 ? '' : 's'} • {item.schedule_item_surveyors?.length || 0} surveyor assignment{(item.schedule_item_surveyors?.length || 0) === 1 ? '' : 's'}
+                              </div>
+                              {renderCollapsedQuickPills(item)}
+                            </>
                           ) : null}
                         </div>
 
@@ -3657,6 +3797,20 @@ async function copyContactList() {
               </div>
             </div>
 
+            <div style={styles.mobileLayoutRow}>
+              <div>
+                <label style={styles.label}>Mobile layout</label>
+                <select
+                  value={mobileLayout}
+                  onChange={(e) => setMobileLayout(e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="jobs">Group by Job</option>
+                  <option value="foremen">Group by Foreman</option>
+                </select>
+              </div>
+            </div>
+
             <div style={styles.mobileNoticeBox}>
               <strong>Sharing note:</strong> this opens the same branded schedule in a read-only view with no edit tabs. It is designed for employees to view from their phones without editing the schedule.
             </div>
@@ -3696,7 +3850,7 @@ async function copyContactList() {
                   <div style={styles.mobileReadonlyDivider} />
                 </div>
 
-                {renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
+                {mobileLayout === 'foremen' ? renderReadonlyForemanGroups(weekScheduleItems) : renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
               </div>
             </div>
           </div>
@@ -3861,6 +4015,22 @@ async function copyContactList() {
   </div>
 </div>
 
+<div style={styles.printOptionBar} className="no-print">
+  <label style={styles.toggleLabel}>
+    <input
+      type="checkbox"
+      checked={showPrintActiveOnly}
+      onChange={(e) => setShowPrintActiveOnly(e.target.checked)}
+    />
+    <span>Print active jobs only</span>
+  </label>
+  <div style={styles.smallText}>
+    {showPrintActiveOnly
+      ? 'Printing only jobs with notes or assignments.'
+      : 'Printing all jobs that roll forward into this week.'}
+  </div>
+</div>
+
 <div style={styles.printNotesInputWrap} className="no-print">
   <label style={styles.label}>Report Notes (optional)</label>
   <textarea
@@ -3907,11 +4077,11 @@ async function copyContactList() {
               </div>
 {printLayout === 'report' ? (
   <>
-    {filteredScheduleItems.length === 0 ? (
-      <p style={styles.text}>No schedule items saved yet.</p>
+    {printScheduleItems.length === 0 ? (
+      <p style={styles.text}>No schedule items found for this print view.</p>
     ) : (
       <div style={styles.printReportList} className="print-report-list">
-        {weekScheduleItems.map((item, index) => (
+        {printScheduleItems.map((item, index) => (
                     <React.Fragment key={item.id}>
                       <div style={styles.printReportCard} className="print-report-card">
                         <div style={styles.printCompactJobTitle}>
@@ -4020,7 +4190,7 @@ async function copyContactList() {
                         ) : null}
                         </div>
                       </div>
-                      {index !== weekScheduleItems.length - 1 ? (
+                      {index !== printScheduleItems.length - 1 ? (
                         <div style={styles.jobDivider} className="print-job-divider" />
                       ) : null}
                     </React.Fragment>
@@ -4073,7 +4243,7 @@ async function copyContactList() {
               </div>
             </div>
 
-            {gridScheduleItems.length === 0 ? (
+            {printGridScheduleItems.length === 0 ? (
                 <p style={styles.text}>
                   {selectedWeekFrom && selectedWeekTo
                     ? 'No jobs found for this week.'
@@ -4089,7 +4259,7 @@ async function copyContactList() {
                       </div>
                     ))}
 
-                    {gridScheduleItems.map((item) => (
+                    {printGridScheduleItems.map((item) => (
                       <React.Fragment key={item.id}>
                         <div style={styles.printGridJobCell}>
                           <div style={styles.printGridJobTitle}>
@@ -4128,6 +4298,65 @@ async function copyContactList() {
 
 </div>
   )
+}
+
+function buildForemanGroups(items) {
+  const groups = new Map()
+
+  items.forEach((item) => {
+    const assignments = item.foremen || item.schedule_item_foremen || []
+    assignments.forEach((assignment) => {
+      const name = (assignment.name ?? assignment.foremen?.name) || 'Unassigned Foreman'
+      if (!groups.has(name)) {
+        groups.set(name, [])
+      }
+      groups.get(name).push({
+        key: String(item.id || item.jobNumber || item.jobs?.job_number || '') + '-' + String(assignment.id || Math.random()),
+        jobNumber: (item.jobNumber ?? item.jobs?.job_number) || '—',
+        jobName: (item.jobName ?? item.jobs?.job_name) || 'No Job Name',
+        jobNotes: item.notes || '',
+        fromDate: assignment.fromDate ?? assignment.assignment_from_date,
+        toDate: assignment.toDate ?? assignment.assignment_to_date,
+        work: assignment.work ?? assignment.work_description,
+        splitNote: assignment.splitNote ?? assignment.split_note,
+      })
+    })
+  })
+
+  return Array.from(groups.entries())
+    .map(([name, assignments]) => ({ name, assignments }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function getScheduleItemSearchText(item) {
+  const parts = [
+    item.jobs?.job_number,
+    item.jobs?.job_name,
+    item.project_managers?.name,
+    item.superintendents?.name,
+    item.surveyors?.name,
+    item.notes,
+  ]
+
+  ;(item.schedule_item_foremen || []).forEach((assignment) => {
+    parts.push(
+      assignment.foremen?.name,
+      assignment.work_description,
+      assignment.split_note,
+      assignment.assignment_from_date,
+      assignment.assignment_to_date
+    )
+  })
+
+  ;(item.schedule_item_surveyors || []).forEach((assignment) => {
+    parts.push(
+      assignment.surveyors?.name,
+      assignment.note,
+      formatSurveyorDays(assignment)
+    )
+  })
+
+  return parts.filter(Boolean).join(' ').toLowerCase()
 }
 
 function SectionCard({ title, children, style }) {
@@ -5440,6 +5669,63 @@ mobileEmptyCard: {
     fontSize: '12px',
     color: '#6b7280',
     fontStyle: 'italic',
+  }
+,
+  weeklyFilterTopRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  weeklyQuickToolsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(260px, 1fr) minmax(240px, 420px)',
+    gap: '12px',
+    alignItems: 'end',
+    marginTop: '12px',
+  },
+  weeklySearchWrap: {
+    minWidth: 0,
+  },
+  weeklyJumpWrap: {
+    minWidth: 0,
+  },
+  collapsedPillRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+    marginTop: '8px',
+  },
+  collapsedPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    border: '1px solid #f0c987',
+    background: '#fff7ed',
+    color: '#7c2d12',
+    borderRadius: '999px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    fontWeight: '600',
+  },
+  mobileLayoutRow: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(240px, 340px)',
+    gap: '12px',
+    marginTop: '12px',
+    marginBottom: '12px',
+  },
+  printOptionBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+    marginTop: '12px',
+    marginBottom: '12px',
+    padding: '10px 12px',
+    border: '1px solid #ead7bd',
+    borderRadius: '10px',
+    background: '#fffaf2',
   }
 
 }
