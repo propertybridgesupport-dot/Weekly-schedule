@@ -187,6 +187,8 @@ export default function App() {
   const [quickNote, setQuickNote] = useState('')
   const [fieldNotes, setFieldNotes] = useState([])
   const [fieldNotesSearch, setFieldNotesSearch] = useState('')
+  const [editingFieldNoteId, setEditingFieldNoteId] = useState(null)
+  const [editingFieldNoteText, setEditingFieldNoteText] = useState('')
   const [contacts, setContacts] = useState([])
   const [contactGroups, setContactGroups] = useState([])
   const [newContactName, setNewContactName] = useState('')
@@ -1211,10 +1213,91 @@ async function copyContactList() {
     ) || null
   }
 
+  function normalizeTextForMatch(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  function getBestJobMatch(text) {
+    const normalizedText = normalizeTextForMatch(text)
+    if (!normalizedText) return null
+
+    const rankedMatches = (jobs || [])
+      .map((job) => {
+        const jobName = normalizeTextForMatch(job.job_name)
+        const jobNumber = normalizeTextForMatch(job.job_number)
+        let score = 0
+
+        if (jobName && normalizedText === jobName) score += 100
+        if (jobName && normalizedText.includes(jobName)) score += 80 + jobName.length
+        if (jobNumber && normalizedText.includes(jobNumber)) score += 70 + jobNumber.length
+
+        const nameWords = jobName.split(' ').filter((word) => word.length >= 4)
+        nameWords.forEach((word) => {
+          if (normalizedText.includes(word)) score += 12
+        })
+
+        return { job, score }
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+
+    return rankedMatches[0]?.job || null
+  }
+
+  function escapeRegExp(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\  function matchTextFromList(text, list, fields = ['name']) {
+    const lowered = String(text || '').toLowerCase()
+    return (list || []).find((item) =>
+      fields.some((field) => {
+        const value = String(item?.[field] || '').trim().toLowerCase()
+        return value && lowered.includes(value)
+      })
+    ) || null
+  }
+
+  function classifyFieldNote(noteText) {
+')
+  }
+
+  function cleanFieldNoteText(value) {
+    let cleaned = String(value || '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,.!?])/g, '$1')
+      .replace(/\bneat inspector\b/gi, 'meet inspector')
+      .replace(/\bmeat inspector\b/gi, 'meet inspector')
+      .replace(/\bmeet inspections\b/gi, 'meet inspector')
+      .replace(/\bcause way\b/gi, 'Causeway')
+      .replace(/\bwestbank\b/gi, 'West Bank')
+      .replace(/\bbaton rouge\b/gi, 'Baton Rouge')
+      .trim()
+
+    ;(jobs || []).forEach((job) => {
+      const jobName = String(job.job_name || '').trim()
+      if (!jobName || jobName.length < 3) return
+      cleaned = cleaned.replace(new RegExp('\\b' + escapeRegExp(jobName) + '\\b', 'gi'), jobName)
+    })
+
+    ;(foremen || []).forEach((person) => {
+      const name = String(person.name || '').trim()
+      if (!name || name.length < 3) return
+      cleaned = cleaned.replace(new RegExp('\\b' + escapeRegExp(name) + '\\b', 'gi'), name)
+    })
+
+    return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : ''
+  }
+
+  function cleanQuickNoteDraft() {
+    setQuickNote((prev) => cleanFieldNoteText(prev))
+  }
+
   function classifyFieldNote(noteText) {
     const text = String(noteText || '')
     const lowered = text.toLowerCase()
-    const matchedJob = matchTextFromList(text, jobs, ['job_number', 'job_name'])
+    const matchedJob = getBestJobMatch(text)
     const matchedForeman = matchTextFromList(text, foremen, ['name'])
     const matchedSuperintendent = matchTextFromList(text, superintendents, ['name'])
 
@@ -1336,7 +1419,7 @@ async function copyContactList() {
     const splitNotes = splitQuickNoteText(noteText)
     const createdAt = new Date().toISOString()
     const rowsToInsert = splitNotes.map((note) => ({
-      note,
+      note: cleanFieldNoteText(note),
       created_at: createdAt,
     }))
 
@@ -1368,23 +1451,90 @@ async function copyContactList() {
     showSuccess('Field note deleted.')
   }
 
+  function startEditFieldNote(note) {
+    setEditingFieldNoteId(note.id)
+    setEditingFieldNoteText(getFieldNoteText(note))
+  }
+
+  function cancelEditFieldNote() {
+    setEditingFieldNoteId(null)
+    setEditingFieldNoteText('')
+  }
+
+  async function saveEditedFieldNote(noteId) {
+    const cleanedText = cleanFieldNoteText(editingFieldNoteText)
+    if (!cleanedText) {
+      showError('Note cannot be blank.')
+      return
+    }
+
+    setActionLoading('editFieldNote-' + noteId)
+    const { error } = await supabase
+      .from('field_notes')
+      .update({ note: cleanedText })
+      .eq('id', noteId)
+
+    if (error) {
+      showError(error.message)
+      setActionLoading('')
+      return
+    }
+
+    cancelEditFieldNote()
+    await loadFieldNotes()
+    showSuccess('Field note updated.')
+    setActionLoading('')
+  }
+
+  function cleanEditingFieldNote() {
+    setEditingFieldNoteText((prev) => cleanFieldNoteText(prev))
+  }
+
   function renderFieldNoteCard(entry, options = {}) {
     const note = entry.note
     const text = entry.text
     const info = entry.info
     const createdAt = getFieldNoteCreatedAt(note)
+    const isEditing = note.id && editingFieldNoteId === note.id
 
     return (
       <div key={note.id || `${text}-${createdAt}`} style={styles.fieldNoteCard}>
-        <div style={styles.fieldNoteText}>{text}</div>
-        <div style={styles.fieldNoteMetaRow}>
-          <span style={styles.fieldNotePill}>{info.type}</span>
-          {info.personLabel ? <span style={styles.fieldNotePill}>Person: {info.personLabel}</span> : null}
-          {createdAt ? <span style={styles.fieldNoteDate}>{new Date(createdAt).toLocaleString()}</span> : null}
-        </div>
-        {!options.hideDelete && note.id ? (
-          <button onClick={() => deleteFieldNote(note.id)} style={styles.smallDangerButton}>Delete</button>
-        ) : null}
+        {isEditing ? (
+          <>
+            <textarea
+              value={editingFieldNoteText}
+              onChange={(e) => setEditingFieldNoteText(e.target.value)}
+              spellCheck={true}
+              style={styles.fieldNoteEditArea}
+            />
+            <div style={styles.fieldNotesActionRow}>
+              <button
+                onClick={() => saveEditedFieldNote(note.id)}
+                disabled={isActionBusy('editFieldNote-' + note.id)}
+                style={isActionBusy('editFieldNote-' + note.id) ? styles.buttonDisabled : styles.smallButton}
+              >
+                {isActionBusy('editFieldNote-' + note.id) ? 'Saving...' : 'Save'}
+              </button>
+              <button onClick={cleanEditingFieldNote} style={styles.smallButton}>Clean Text</button>
+              <button onClick={cancelEditFieldNote} style={styles.smallButton}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={styles.fieldNoteText}>{text}</div>
+            <div style={styles.fieldNoteMetaRow}>
+              <span style={styles.fieldNotePill}>{info.type}</span>
+              {info.personLabel ? <span style={styles.fieldNotePill}>Person: {info.personLabel}</span> : null}
+              {createdAt ? <span style={styles.fieldNoteDate}>{new Date(createdAt).toLocaleString()}</span> : null}
+            </div>
+            {!options.hideDelete && note.id ? (
+              <div style={styles.fieldNotesActionRow}>
+                <button onClick={() => startEditFieldNote(note)} style={styles.smallButton}>Edit</button>
+                <button onClick={() => deleteFieldNote(note.id)} style={styles.smallDangerButton}>Delete</button>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     )
   }
@@ -1412,6 +1562,7 @@ async function copyContactList() {
             value={quickNote}
             onChange={(e) => setQuickNote(e.target.value)}
             placeholder="Tap here, then tap the keyboard mic and talk..."
+            spellCheck={true}
             style={quickMode ? styles.quickDumpTextArea : styles.fieldNotesTextArea}
           />
 
@@ -1419,6 +1570,7 @@ async function copyContactList() {
             <button onClick={saveQuickNote} disabled={isActionBusy('saveQuickNote')} style={isActionBusy('saveQuickNote') ? styles.buttonDisabled : styles.button}>
               {isActionBusy('saveQuickNote') ? 'Saving...' : 'Save Field Note'}
             </button>
+            <button onClick={cleanQuickNoteDraft} style={styles.buttonSecondary}>Clean Text</button>
             <button onClick={() => setQuickNote('')} style={styles.buttonSecondary}>Clear</button>
           </div>
         </div>
@@ -6548,6 +6700,19 @@ mobileEmptyCard: {
     background: '#ffffff',
     border: '1px solid #ead7bd',
     boxShadow: '0 5px 12px rgba(15, 23, 42, 0.06)',
+  },
+  fieldNoteEditArea: {
+    width: '100%',
+    minHeight: '96px',
+    border: '1px solid #d8c8b4',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    background: '#fffdf9',
+    fontSize: '15px',
+    lineHeight: '1.4',
+    color: '#111827',
+    boxSizing: 'border-box',
+    resize: 'vertical',
   },
   fieldNoteText: {
     fontSize: '15px',
