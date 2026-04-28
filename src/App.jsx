@@ -227,7 +227,8 @@ const [reportNotes, setReportNotes] = useState('')
   const [weeklySearchText, setWeeklySearchText] = useState('')
   const [jumpToScheduleItemId, setJumpToScheduleItemId] = useState('')
   const [mobileLayout, setMobileLayout] = useState('jobs')
-  const [mobileShareLayout, setMobileShareLayout] = useState(mobileLayoutParam === 'foremen' ? 'foremen' : 'jobs')
+  const [mobileShareLayout, setMobileShareLayout] = useState(['foremen', 'superintendents', 'surveyors'].includes(mobileLayoutParam) ? mobileLayoutParam : 'jobs')
+  const [mobilePersonFilter, setMobilePersonFilter] = useState('')
   const [showPrintActiveOnly, setShowPrintActiveOnly] = useState(false)
   const [collapsedScheduleItemIds, setCollapsedScheduleItemIds] = useState(new Set())
 
@@ -3087,26 +3088,118 @@ async function copyContactList() {
     )
   }
 
-  function renderMobileReadonlyLayoutToggle() {
+
+  function getMobileRoleGroups(items, role) {
+    if (role === 'foremen') return buildForemanGroups(items)
+    if (role === 'superintendents') return buildSuperintendentGroups(items)
+    if (role === 'surveyors') return buildSurveyorGroups(items)
+    return []
+  }
+
+  function renderMobileRoleGroups(items, role) {
+    const groups = getMobileRoleGroups(items, role)
+    const filteredGroups = mobilePersonFilter
+      ? groups.filter((group) => group.name === mobilePersonFilter)
+      : groups
+
+    const emptyLabel = role === 'superintendents'
+      ? 'No superintendent assignments found for this week.'
+      : role === 'surveyors'
+        ? 'No surveyor assignments found for this week.'
+        : 'No foreman assignments found for this week.'
+
+    return (
+      <div style={styles.mobileReadonlyListCompact}>
+        {filteredGroups.length === 0 ? (
+          <div style={styles.mobileEmptyCard}>{emptyLabel}</div>
+        ) : (
+          filteredGroups.map((group) => (
+            <div key={group.name} style={styles.mobileReadonlyCard}>
+              <div style={styles.mobileReadonlyJobTitle}>{group.name}</div>
+              <div style={styles.mobileReadonlyBody}>
+                {group.assignments.map((assignment) => (
+                  <div key={assignment.key} style={styles.mobileReadonlyAssignmentCard}>
+                    <div style={styles.mobileReadonlyAssignmentName}>
+                      {assignment.jobNumber} — {assignment.jobName}
+                    </div>
+                    {assignment.dateLine ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}>{assignment.dateLine}</div>
+                    ) : null}
+                    {assignment.dayLine ? (
+                      <div style={styles.mobileReadonlyAssignmentSubtle}>{assignment.dayLine}</div>
+                    ) : null}
+                    {assignment.pm ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>PM:</strong> {assignment.pm}</div>
+                    ) : null}
+                    {assignment.superintendent && role !== 'superintendents' ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>Super:</strong> {assignment.superintendent}</div>
+                    ) : null}
+                    {assignment.surveyor && role !== 'surveyors' ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>Surveyor:</strong> {assignment.surveyor}</div>
+                    ) : null}
+                    {assignment.foremen ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>Foremen:</strong> {assignment.foremen}</div>
+                    ) : null}
+                    {assignment.work ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>Work:</strong> {assignment.work}</div>
+                    ) : null}
+                    {assignment.note ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>Note:</strong> {assignment.note}</div>
+                    ) : null}
+                    {assignment.jobNotes ? (
+                      <div style={styles.mobileReadonlyAssignmentLine}><strong>Job Notes:</strong> {assignment.jobNotes}</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    )
+  }
+
+  function renderMobileReadonlyLayoutToggle(items = []) {
+    const roleGroups = getMobileRoleGroups(items, mobileShareLayout)
+
+    function chooseMobileLayout(nextLayout) {
+      setMobileShareLayout(nextLayout)
+      setMobilePersonFilter('')
+    }
+
     return (
       <div style={styles.mobileReadonlyToggleWrap}>
         <div style={styles.mobileReadonlyToggleLabel}>View schedule by:</div>
         <div style={styles.mobileReadonlyToggleGroup}>
-          <button
-            type="button"
-            onClick={() => setMobileShareLayout('jobs')}
-            style={mobileShareLayout === 'jobs' ? styles.mobileReadonlyToggleButtonActive : styles.mobileReadonlyToggleButton}
-          >
-            Job
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileShareLayout('foremen')}
-            style={mobileShareLayout === 'foremen' ? styles.mobileReadonlyToggleButtonActive : styles.mobileReadonlyToggleButton}
-          >
-            Foreman
-          </button>
+          {[
+            ['jobs', 'Job'],
+            ['foremen', 'Foreman'],
+            ['superintendents', 'Superintendent'],
+            ['surveyors', 'Surveyor'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => chooseMobileLayout(value)}
+              style={mobileShareLayout === value ? styles.mobileReadonlyToggleButtonActive : styles.mobileReadonlyToggleButton}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {mobileShareLayout !== 'jobs' ? (
+          <select
+            value={mobilePersonFilter}
+            onChange={(e) => setMobilePersonFilter(e.target.value)}
+            style={styles.mobileReadonlyPersonSelect || styles.select}
+          >
+            <option value="">All {mobileShareLayout === 'foremen' ? 'Foremen' : mobileShareLayout === 'superintendents' ? 'Superintendents' : 'Surveyors'}</option>
+            {roleGroups.map((group) => (
+              <option key={group.name} value={group.name}>{group.name}</option>
+            ))}
+          </select>
+        ) : null}
       </div>
     )
   }
@@ -3144,9 +3237,9 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderMobileReadonlyLayoutToggle()}
+          {renderMobileReadonlyLayoutToggle(weekScheduleItems)}
 
-          {mobileShareLayout === 'foremen' ? renderReadonlyForemanGroups(weekScheduleItems) : renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
+          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(weekScheduleItems, { compact: true }) : renderMobileRoleGroups(weekScheduleItems, mobileShareLayout)}
         </div>
       </div>
     )
@@ -3184,9 +3277,9 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderMobileReadonlyLayoutToggle()}
+          {renderMobileReadonlyLayoutToggle(weekScheduleItems)}
 
-          {mobileShareLayout === 'foremen' ? renderReadonlyForemanGroups(mobileShareSnapshot.items || []) : renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true })}
+          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true }) : renderMobileRoleGroups(mobileShareSnapshot.items || [], mobileShareLayout)}
         </div>
       </div>
     )
@@ -3246,9 +3339,9 @@ async function copyContactList() {
             <div style={styles.mobileReadonlyDivider} />
           </div>
 
-          {renderMobileReadonlyLayoutToggle()}
+          {renderMobileReadonlyLayoutToggle(weekScheduleItems)}
 
-          {mobileShareLayout === 'foremen' ? renderReadonlyForemanGroups(publicShareData.snapshot?.items || []) : renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true })}
+          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true }) : renderMobileRoleGroups(publicShareData.snapshot?.items || [], mobileShareLayout)}
         </div>
       </div>
     )
@@ -4755,6 +4848,8 @@ async function copyContactList() {
                 >
                   <option value="jobs">Group by Job</option>
                   <option value="foremen">Group by Foreman</option>
+                  <option value="superintendents">Group by Superintendent</option>
+                  <option value="surveyors">Group by Surveyor</option>
                 </select>
               </div>
             </div>
@@ -4805,7 +4900,7 @@ async function copyContactList() {
                   <div style={styles.mobileReadonlyDivider} />
                 </div>
 
-                {mobileLayout === 'foremen' ? renderReadonlyForemanGroups(weekScheduleItems) : renderReadonlyScheduleCards(weekScheduleItems, { compact: true })}
+                {mobileLayout === 'jobs' ? renderReadonlyScheduleCards(weekScheduleItems, { compact: true }) : renderMobileRoleGroups(weekScheduleItems, mobileLayout)}
               </div>
             </div>
           </div>
@@ -5277,6 +5372,70 @@ function buildForemanGroups(items) {
         splitNote: assignment.splitNote ?? assignment.split_note,
       })
     })
+  })
+
+  return Array.from(groups.entries())
+    .map(([name, assignments]) => ({ name, assignments }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+
+function buildSuperintendentGroups(items) {
+  const groups = new Map()
+
+  items.forEach((item) => {
+    const name = (item.superintendent ?? item.superintendents?.name) || 'Unassigned Superintendent'
+    if (!groups.has(name)) groups.set(name, [])
+
+    const foremanNames = (item.foremen || item.schedule_item_foremen || [])
+      .map((assignment) => (assignment.name ?? assignment.foremen?.name) || '')
+      .filter(Boolean)
+      .join(', ')
+
+    groups.get(name).push({
+      key: String(item.id || item.jobNumber || item.jobs?.job_number || Math.random()),
+      jobNumber: (item.jobNumber ?? item.jobs?.job_number) || '—',
+      jobName: (item.jobName ?? item.jobs?.job_name) || 'No Job Name',
+      pm: item.projectManager ?? item.project_managers?.name ?? '',
+      surveyor: item.surveyor ?? item.surveyors?.name ?? '',
+      foremen: foremanNames,
+      jobNotes: item.notes || '',
+    })
+  })
+
+  return Array.from(groups.entries())
+    .map(([name, assignments]) => ({ name, assignments }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function buildSurveyorGroups(items) {
+  const groups = new Map()
+
+  function addToGroup(name, item, assignment = null) {
+    const groupName = name || 'Unassigned Surveyor'
+    if (!groups.has(groupName)) groups.set(groupName, [])
+
+    groups.get(groupName).push({
+      key: String(item.id || item.jobNumber || item.jobs?.job_number || '') + '-' + String(assignment?.id || groupName),
+      jobNumber: (item.jobNumber ?? item.jobs?.job_number) || '—',
+      jobName: (item.jobName ?? item.jobs?.job_name) || 'No Job Name',
+      pm: item.projectManager ?? item.project_managers?.name ?? '',
+      superintendent: item.superintendent ?? item.superintendents?.name ?? '',
+      dayLine: assignment ? formatSurveyorDays(assignment) : '',
+      note: assignment?.note || '',
+      jobNotes: item.notes || '',
+    })
+  }
+
+  items.forEach((item) => {
+    const assignments = item.surveyorAssignments || item.schedule_item_surveyors || []
+    if (assignments.length) {
+      assignments.forEach((assignment) => {
+        addToGroup((assignment.name ?? assignment.surveyors?.name) || (item.surveyor ?? item.surveyors?.name), item, assignment)
+      })
+    } else if (item.surveyor || item.surveyors?.name) {
+      addToGroup(item.surveyor ?? item.surveyors?.name, item, null)
+    }
   })
 
   return Array.from(groups.entries())
