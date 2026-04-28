@@ -1406,10 +1406,12 @@ async function copyContactList() {
     const matchedSuperintendent = matchTextFromList(text, superintendents, ['name'])
 
     let type = 'General Note'
+    if (isEquipmentMoveNoteText(text)) type = 'Equipment Move'
     if (/\b(call|text|email|follow up|remind|check with|meeting|meet with)\b/i.test(text)) type = 'Reminder'
     if (/\b(need|order|move|schedule|send|get|pickup|pick up|deliver|line up|pour|finish|finished|dress|dressing)\b/i.test(text)) type = 'Task'
     if (/\b(problem|issue|late|behind|missing|conflict|failed|hold up|hold-up|stuck|overran|overrun)\b/i.test(text)) type = 'Issue'
     if (/\b(manpower|crew|guys|men|foreman|labor|operator|superintendent)\b/i.test(text)) type = 'Manpower'
+    if (isEquipmentMoveNoteText(text)) type = 'Equipment Move'
 
     return {
       type,
@@ -1477,6 +1479,10 @@ async function copyContactList() {
     return pieces.map((piece) => piece.replace(/^[, ]+|[, ]+$/g, '')).filter(Boolean)
   }
 
+  function isEquipmentMoveNoteText(noteText) {
+    return /\b(equipment|move|moves|moved|moving|haul|hauling|trailer|trailering|transfer|transport|relocate|relocated|machine|machines|dozer|excavator|skid steer|skidsteer|loader|backhoe|roller|lift|boom lift|forklift|water truck|dump truck|lowboy|low boy)\b/i.test(String(noteText || ''))
+  }
+
   const organizedFieldNotes = useMemo(() => {
     const search = fieldNotesSearch.trim().toLowerCase()
     const visibleNotes = (fieldNotes || []).filter((note) => {
@@ -1496,6 +1502,7 @@ async function copyContactList() {
       unsorted: [],
       daily: {},
       pinned: [],
+      equipmentMoves: [],
       all: [],
     }
 
@@ -1511,6 +1518,7 @@ async function copyContactList() {
       groups.daily[dateKey].push(entry)
 
       if (noteIsPinned(note)) groups.pinned.push(entry)
+      if (isEquipmentMoveNoteText(text)) groups.equipmentMoves.push(entry)
       if (info.isToday) groups.today.push(entry)
       if (info.type === 'Issue') groups.issues.push(entry)
 
@@ -1873,9 +1881,7 @@ async function copyContactList() {
                 ['daily', 'Daily Notebook'],
                 ['jobs', 'By Job'],
                 ['issues', 'Issues'],
-                ['pinned', 'Pinned'],
-                ['unsorted', 'Unsorted'],
-                ['all', 'All Notes'],
+                ['equipment', 'Equipment Moves'],
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -1901,8 +1907,6 @@ async function copyContactList() {
                 <div>
                   <h3 style={styles.fieldNoteGroupTitle}>Pinned / Important</h3>
                   {renderFieldNoteList(organizedFieldNotes.pinned, 'No pinned notes right now.')}
-                  <h3 style={styles.fieldNoteGroupTitle}>Unsorted</h3>
-                  {renderFieldNoteList(organizedFieldNotes.unsorted.slice(0, 6), 'No unsorted notes right now.')}
                 </div>
               </div>
             ) : null}
@@ -1930,24 +1934,11 @@ async function copyContactList() {
               </div>
             ) : null}
 
-            {fieldNotesView === 'pinned' ? (
+            {fieldNotesView === 'equipment' ? (
               <div>
-                <h3 style={styles.fieldNoteGroupTitle}>Pinned Notes</h3>
-                {renderFieldNoteList(organizedFieldNotes.pinned, 'No pinned notes right now.')}
-              </div>
-            ) : null}
-
-            {fieldNotesView === 'unsorted' ? (
-              <div>
-                <h3 style={styles.fieldNoteGroupTitle}>Unsorted / Brain Dump</h3>
-                {renderFieldNoteList(organizedFieldNotes.unsorted, 'No unsorted notes right now.')}
-              </div>
-            ) : null}
-
-            {fieldNotesView === 'all' ? (
-              <div>
-                <h3 style={styles.fieldNoteGroupTitle}>All Notes</h3>
-                {renderFieldNoteList(organizedFieldNotes.all, 'No notes found.')}
+                <h3 style={styles.fieldNoteGroupTitle}>Equipment Moves</h3>
+                <p style={styles.fieldNotesHelper}>Notes with equipment, move, haul, trailer, transfer, dozer, excavator, skid steer, loader, or similar wording will show here automatically.</p>
+                {renderFieldNoteList(organizedFieldNotes.equipmentMoves, 'No equipment moves found for this date range.')}
               </div>
             ) : null}
           </div>
@@ -7101,33 +7092,37 @@ mobileEmptyCard: {
     background: '#fffaf2',
   },
   fieldNotesPage: {
+    width: '100%',
     maxWidth: '1320px',
     margin: '0 auto',
     display: 'grid',
     gap: '16px',
+    boxSizing: 'border-box',
   },
   quickDumpPage: {
+    width: '100%',
     maxWidth: '760px',
     margin: '0 auto',
     display: 'grid',
     gap: '16px',
+    boxSizing: 'border-box',
   },
   quickDumpCard: {
     background: '#ffffff',
     borderRadius: '18px',
-    padding: '22px',
+    padding: 'clamp(16px, 4vw, 22px)',
     boxShadow: '0 14px 30px rgba(15, 23, 42, 0.14)',
     borderTop: '4px solid #dd7a00',
   },
   quickDumpTitle: {
     margin: '0 0 6px 0',
-    fontSize: '28px',
+    fontSize: 'clamp(23px, 7vw, 28px)',
     color: '#0f172a',
   },
   quickDumpTextArea: {
     width: '100%',
-    minHeight: '190px',
-    fontSize: '20px',
+    minHeight: '170px',
+    fontSize: 'clamp(17px, 5vw, 20px)',
     lineHeight: '1.35',
     padding: '16px',
     borderRadius: '14px',
@@ -7224,13 +7219,13 @@ mobileEmptyCard: {
   },
   fieldNotesTwoColumnGrid: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.55fr) minmax(280px, 0.85fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
     gap: '16px',
     alignItems: 'start',
   },
   fieldNotesJobGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
     gap: '14px',
     alignItems: 'start',
   },
