@@ -481,6 +481,17 @@ const [printLayout, setPrintLayout] = useState('report')
     })
   }, [scheduleItems, selectedWeekTo])
 
+  useEffect(() => {
+    if (!session || !selectedWeekFrom || !selectedWeekTo) return
+    if (isPublicShareMode || isMobileShareMode || isViewerMode) return
+
+    const timer = window.setTimeout(() => {
+      refreshPublicSharesForSelectedWeek()
+    }, 600)
+
+    return () => window.clearTimeout(timer)
+  }, [session, selectedWeekFrom, selectedWeekTo, weekScheduleItems, isPublicShareMode, isMobileShareMode, isViewerMode])
+
   const activeWeekScheduleItems = useMemo(() => {
     return weekScheduleItems.filter((item) => {
       const hasJobNote = Boolean((item.notes || '').trim())
@@ -909,6 +920,26 @@ const [printLayout, setPrintLayout] = useState('report')
     if (!snapshot) return ''
     const base = `${window.location.origin}${window.location.pathname}`
     return `${base}?mobileShare=1&mobileLayout=${mobileLayout}&snapshot=${snapshot}`
+  }
+
+  async function refreshPublicSharesForSelectedWeek() {
+    if (!selectedWeekFrom || !selectedWeekTo) return
+
+    const encodedSnapshot = buildMobileShareSnapshot(weekScheduleItems, selectedWeekFrom, selectedWeekTo)
+    if (!encodedSnapshot) return
+
+    const updatedSnapshot = decodeMobileShareSnapshot(encodedSnapshot)
+    if (!updatedSnapshot) return
+
+    const { error } = await supabase
+      .from('public_schedule_shares')
+      .update({ snapshot: updatedSnapshot })
+      .eq('week_from', selectedWeekFrom)
+      .eq('week_to', selectedWeekTo)
+
+    if (error) {
+      console.error('Could not refresh public mobile share snapshots.', error)
+    }
   }
 
   async function copyMobileShareLink() {
@@ -4867,7 +4898,7 @@ async function copyContactList() {
 
             <div style={styles.mobileShareTools}>
               <div style={styles.mobileShareLinkBox}>
-                Use <strong>Copy Mobile Link</strong> or <strong>Copy SMS Message</strong> to generate a short public link. The link is created when you click the button, so the screen does not show a giant URL anymore.
+                Use <strong>Copy Mobile Link</strong> or <strong>Copy SMS Message</strong> to generate a short public link. Existing public links for this week will refresh when the schedule is updated, so employees can keep using the same link.
               </div>
             </div>
 
