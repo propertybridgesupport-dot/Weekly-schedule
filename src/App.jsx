@@ -10,6 +10,7 @@ function emptyForemanAssignment() {
     assignment_to_date: '',
     work_description: '',
     split_note: '',
+    subcontractor_name: '',
   }
 }
 
@@ -168,11 +169,12 @@ function buildMobileShareSnapshot(items, selectedWeekFrom, selectedWeekTo) {
       equipmentMoves: item.equipment_moves || {},
       foremen: (item.schedule_item_foremen || []).map((assignment) => ({
         id: assignment.id,
-        name: assignment.foremen?.name || '—',
+        name: assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : '—'),
         fromDate: assignment.assignment_from_date || '',
         toDate: assignment.assignment_to_date || '',
         work: assignment.work_description || '',
-        splitNote: assignment.split_note || '',
+        splitNote: '',
+        subcontractor: assignment.split_note || '',
       })),
       surveyorAssignments: (item.schedule_item_surveyors || []).map((assignment) => ({
         id: assignment.id,
@@ -679,7 +681,7 @@ const [printLayout, setPrintLayout] = useState('report')
   function renderCollapsedQuickPills(item) {
     const pills = []
     const foremanNames = (item.schedule_item_foremen || [])
-      .map((assignment) => assignment.foremen?.name)
+      .map((assignment) => assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : ''))
       .filter(Boolean)
     const surveyorNames = (item.schedule_item_surveyors || [])
       .map((assignment) => assignment.surveyors?.name)
@@ -2642,11 +2644,12 @@ async function copyContactList() {
         item.schedule_item_foremen.map((assignment) => ({
           localId: crypto.randomUUID(),
           id: assignment.id,
-          foreman_id: assignment.foreman_id || '',
+          foreman_id: assignment.foreman_id || (assignment.split_note ? '__subcontractor__' : ''),
           assignment_from_date: assignment.assignment_from_date || '',
           assignment_to_date: assignment.assignment_to_date || '',
           work_description: assignment.work_description || '',
-          split_note: assignment.split_note || '',
+          split_note: '',
+          subcontractor_name: assignment.split_note || '',
         }))
       )
     } else {
@@ -2796,18 +2799,18 @@ async function copyContactList() {
         item.assignment_from_date ||
         item.assignment_to_date ||
         item.work_description ||
-        item.split_note
+        item.subcontractor_name
       )
     })
 
     if (cleanedForemanAssignments.length > 0) {
       const rowsToInsert = cleanedForemanAssignments.map((item) => ({
         schedule_item_id: scheduleItem.id,
-        foreman_id: item.foreman_id || null,
+        foreman_id: item.foreman_id === '__subcontractor__' ? null : item.foreman_id || null,
         assignment_from_date: item.assignment_from_date || null,
         assignment_to_date: item.assignment_to_date || null,
         work_description: item.work_description || null,
-        split_note: item.split_note || null,
+        split_note: item.foreman_id === '__subcontractor__' ? (item.subcontractor_name || null) : null,
       }))
 
       const { error: foremanError } = await supabase
@@ -4559,76 +4562,84 @@ async function copyContactList() {
                   </button>
                 </div>
 
-                <div style={styles.formGrid}>
-                  <div>
-                    <label style={styles.label}>Foreman</label>
-                    <select
-                      value={assignment.foreman_id}
-                      onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'foreman_id',
-                          e.target.value
-                        )
-                      }
-                      style={styles.select}
-                    >
-                      <option value="">Select Foreman</option>
-                      {foremen.map((person) => (
-                        <option key={person.id} value={person.id}>
-                          {person.name}
-                        </option>
-                      ))}
-                    </select>
+                <div style={styles.foremanAssignmentGrid}>
+                  <div style={styles.foremanPersonGrid}>
+                    <div>
+                      <label style={styles.label}>Foreman</label>
+                      <select
+                        value={assignment.foreman_id}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          updateForemanAssignment(assignment.localId, 'foreman_id', value)
+                          if (value !== '__subcontractor__') {
+                            updateForemanAssignment(assignment.localId, 'subcontractor_name', '')
+                            updateForemanAssignment(assignment.localId, 'split_note', '')
+                          }
+                        }}
+                        style={styles.select}
+                      >
+                        <option value="">Select Foreman</option>
+                        <option value="__subcontractor__">Subcontractor</option>
+                        {foremen.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {assignment.foreman_id === '__subcontractor__' ? (
+                      <div>
+                        <label style={styles.label}>Subcontractor</label>
+                        <input
+                          type="text"
+                          value={assignment.subcontractor_name || ''}
+                          onChange={(e) =>
+                            updateForemanAssignment(
+                              assignment.localId,
+                              'subcontractor_name',
+                              e.target.value
+                            )
+                          }
+                          style={styles.input}
+                          placeholder="Type subcontractor name..."
+                        />
+                      </div>
+                    ) : null}
                   </div>
 
-                  <div>
-                    <label style={styles.label}>From Date</label>
-                    <input
-                      type="date"
-                      value={assignment.assignment_from_date}
-                      onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'assignment_from_date',
-                          e.target.value
-                        )
-                      }
-                      style={styles.input}
-                    />
-                  </div>
+                  <div style={styles.twoColumnGrid}>
+                    <div>
+                      <label style={styles.label}>From Date</label>
+                      <input
+                        type="date"
+                        value={assignment.assignment_from_date}
+                        onChange={(e) =>
+                          updateForemanAssignment(
+                            assignment.localId,
+                            'assignment_from_date',
+                            e.target.value
+                          )
+                        }
+                        style={styles.input}
+                      />
+                    </div>
 
-                  <div>
-                    <label style={styles.label}>To Date</label>
-                    <input
-                      type="date"
-                      value={assignment.assignment_to_date}
-                      onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'assignment_to_date',
-                          e.target.value
-                        )
-                      }
-                      style={styles.input}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={styles.label}>Split / Partial-Week Note</label>
-                    <input
-                      type="text"
-                      value={assignment.split_note}
-                      onChange={(e) =>
-                        updateForemanAssignment(
-                          assignment.localId,
-                          'split_note',
-                          e.target.value
-                        )
-                      }
-                      style={styles.input}
-                      placeholder="Half week here, then another job..."
-                    />
+                    <div>
+                      <label style={styles.label}>To Date</label>
+                      <input
+                        type="date"
+                        value={assignment.assignment_to_date}
+                        onChange={(e) =>
+                          updateForemanAssignment(
+                            assignment.localId,
+                            'assignment_to_date',
+                            e.target.value
+                          )
+                        }
+                        style={styles.input}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -4995,7 +5006,7 @@ async function copyContactList() {
                                 <div key={assignment.id} style={styles.foremanViewCard}>
                                   <div>
                                     <strong>Foreman:</strong>{' '}
-                                    {assignment.foremen?.name || '—'}
+                                    {assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : '—')}
                                   </div>
                                   <div>
                                     <strong>Dates:</strong>{' '}
@@ -5011,10 +5022,6 @@ async function copyContactList() {
                                   <div>
                                     <strong>Work:</strong>{' '}
                                     {assignment.work_description || '—'}
-                                  </div>
-                                  <div>
-                                    <strong>Split Note:</strong>{' '}
-                                    {assignment.split_note || '—'}
                                   </div>
                                 </div>
                               ))}
@@ -5551,7 +5558,7 @@ async function copyContactList() {
                               {item.schedule_item_foremen.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{assignment.foremen?.name || '—'}</strong>
+                                    <strong>{assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : '—')}</strong>
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
@@ -5563,11 +5570,6 @@ async function copyContactList() {
                                         assignment.assignment_to_date
                                       )}
                                     </div>
-                                    {assignment.split_note ? (
-                                      <div>
-                                        <strong>Note:</strong> {assignment.split_note}
-                                      </div>
-                                    ) : null}
                                   </div>
                                   <div style={styles.printCompactNoteCol}>
                                     <strong>Work:</strong> {assignment.work_description || '—'}
@@ -6336,6 +6338,21 @@ const styles = {
     gap: '12px',
     flexWrap: 'wrap',
     marginTop: '12px',
+  },
+  foremanAssignmentGrid: {
+    display: 'grid',
+    gap: '10px',
+  },
+  foremanPersonGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '12px',
+    alignItems: 'end',
+  },
+  twoColumnGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '12px',
   },
   formGrid: {
     display: 'grid',
