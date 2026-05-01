@@ -2610,8 +2610,11 @@ async function copyContactList() {
     setEditingScheduleItemId(item.id)
     setSelectedWeekFrom(item.from_date || '')
     setSelectedWeekTo(item.to_date || '')
-    const savedPmIds = Array.isArray(item.project_manager_ids)
+    const savedPmIdsFromMulti = Array.isArray(item.project_manager_ids)
       ? item.project_manager_ids.filter(Boolean)
+      : []
+    const savedPmIds = savedPmIdsFromMulti.length
+      ? savedPmIdsFromMulti
       : item.project_manager_id ? [item.project_manager_id] : []
     const savedSuperAssignments = Array.isArray(item.superintendent_assignments) && item.superintendent_assignments.length
       ? item.superintendent_assignments.map((assignment) => ({
