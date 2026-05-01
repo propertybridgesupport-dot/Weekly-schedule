@@ -5,9 +5,14 @@ function emptyForemanAssignment() {
   return {
     localId: crypto.randomUUID(),
     id: null,
-    foreman_id: '',
-    assignment_from_date: '',
-    assignmentimport React, { useEffect, useMemo, useState } from 'react'
+foreman_id: '',
+assignment_from_date: '',
+assignment_to_date: '',
+work_description: '',
+split_note: '',
+subcontractor_name: '',
+night: false,
+}
 import { supabase } from './lib/supabase'
 
 function emptyForemanAssignment() {
