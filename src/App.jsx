@@ -62,6 +62,14 @@ function emptySuperintendentAssignment() {
   }
 }
 
+function autoGrowTextarea(event) {
+  const el = event?.target
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+
 function toIsoDate(value) {
   const date = value instanceof Date ? new Date(value) : new Date(value)
   const year = date.getFullYear()
@@ -2449,46 +2457,6 @@ async function copyContactList() {
     }))
   }
 
-  function updateProjectManagerAssignment(index, value) {
-    setHasUnsavedChanges(true)
-    setScheduleForm((prev) => {
-      const current = Array.isArray(prev.project_manager_ids) && prev.project_manager_ids.length
-        ? [...prev.project_manager_ids]
-        : ['']
-      current[index] = value
-      const cleaned = current.filter((id, i) => id || i === 0)
-      return {
-        ...prev,
-        project_manager_ids: cleaned,
-        project_manager_id: cleaned.find(Boolean) || '',
-      }
-    })
-  }
-
-  function addProjectManagerAssignmentRow() {
-    setHasUnsavedChanges(true)
-    setScheduleForm((prev) => ({
-      ...prev,
-      project_manager_ids: [...(Array.isArray(prev.project_manager_ids) && prev.project_manager_ids.length ? prev.project_manager_ids : ['']), ''],
-    }))
-  }
-
-  function removeProjectManagerAssignmentRow(index) {
-    setHasUnsavedChanges(true)
-    setScheduleForm((prev) => {
-      const current = Array.isArray(prev.project_manager_ids) && prev.project_manager_ids.length
-        ? [...prev.project_manager_ids]
-        : ['']
-      const updated = current.filter((_, i) => i !== index)
-      const next = updated.length ? updated : ['']
-      return {
-        ...prev,
-        project_manager_ids: next,
-        project_manager_id: next.find(Boolean) || '',
-      }
-    })
-  }
-
   function updateSuperintendentAssignment(localId, field, value) {
     setHasUnsavedChanges(true)
     setScheduleForm((prev) => ({
@@ -4403,29 +4371,20 @@ async function copyContactList() {
               </div>
 
               <div>
-                <div style={styles.assignmentHeader}>
-                  <label style={styles.label}>Project Manager(s) (optional)</label>
-                  <button type="button" onClick={addProjectManagerAssignmentRow} style={styles.smallButton}>Add PM</button>
-                </div>
-                {(Array.isArray(scheduleForm.project_manager_ids) && scheduleForm.project_manager_ids.length ? scheduleForm.project_manager_ids : ['']).map((projectManagerId, index) => (
-                  <div key={`pm-row-${index}`} style={styles.inlineAssignmentRow}>
-                    <select
-                      value={projectManagerId || ''}
-                      onChange={(e) => updateProjectManagerAssignment(index, e.target.value)}
-                      style={styles.select}
-                    >
-                      <option value="">None</option>
-                      {projectManagers.map((person) => (
-                        <option key={person.id} value={person.id}>
-                          {person.name}
-                        </option>
-                      ))}
-                    </select>
-                    {(Array.isArray(scheduleForm.project_manager_ids) && scheduleForm.project_manager_ids.length > 1) ? (
-                      <button type="button" onClick={() => removeProjectManagerAssignmentRow(index)} style={styles.smallDangerButton}>Remove</button>
-                    ) : null}
-                  </div>
-                ))}
+                <label style={styles.label}>Project Manager(s) (optional)</label>
+                <select
+                  multiple
+                  value={scheduleForm.project_manager_ids || []}
+                  onChange={(e) => updateScheduleProjectManagers(e.target.selectedOptions)}
+                  style={{ ...styles.select, minHeight: '92px' }}
+                >
+                  {projectManagers.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name}
+                    </option>
+                  ))}
+                </select>
+                <div style={styles.helpText}>Hold Ctrl on computer to select more than one.</div>
               </div>
 
               <div>
@@ -4433,7 +4392,7 @@ async function copyContactList() {
                   <label style={styles.label}>Superintendent(s) (optional)</label>
                   <button type="button" onClick={addSuperintendentAssignmentRow} style={styles.smallButton}>Add Super</button>
                 </div>
-                {(scheduleForm.superintendent_assignments || []).map((assignment) => (
+                {(scheduleForm.superintendent_assignments || []).map((assignment, index) => (
                   <div key={assignment.localId} style={styles.inlineAssignmentRow}>
                     <select
                       value={assignment.superintendent_id}
@@ -4463,12 +4422,14 @@ async function copyContactList() {
                         onChange={() => updateSuperintendentAssignment(assignment.localId, 'shift', 'PM')}
                       /> PM
                     </label>
+                    {index === 0 ? (
+                      <span style={styles.inlineTinyHelp}>AM/PM prints only when 2+ supers are listed.</span>
+                    ) : null}
                     {(scheduleForm.superintendent_assignments || []).length > 1 ? (
                       <button type="button" onClick={() => removeSuperintendentAssignmentRow(assignment.localId)} style={styles.smallDangerButton}>Remove</button>
                     ) : null}
                   </div>
                 ))}
-                <div style={styles.helpText}>AM/PM only prints when more than one superintendent is listed.</div>
               </div>
 
               <div>
@@ -4504,6 +4465,8 @@ async function copyContactList() {
                     <textarea
                       value={scheduleForm.equipment_moves?.[dayKey] || ''}
                       onChange={(e) => updateEquipmentMove(dayKey, e.target.value)}
+                      onInput={autoGrowTextarea}
+                      rows={1}
                       style={styles.equipmentMoveTextarea}
                       placeholder={`${EQUIPMENT_DAY_LABELS[dayKey]} moves...`}
                     />
@@ -4517,7 +4480,9 @@ async function copyContactList() {
               <textarea
                 value={scheduleForm.notes}
                 onChange={(e) => updateScheduleForm('notes', e.target.value)}
-                style={styles.textarea}
+                onInput={autoGrowTextarea}
+                rows={1}
+                style={styles.compactTextarea}
                 placeholder="Overall notes for this job or week..."
               />
             </div>
@@ -6186,6 +6151,21 @@ const styles = {
     flexWrap: 'wrap',
     marginBottom: '16px',
   },
+  inlineAssignmentRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginBottom: '6px',
+  },
+  inlineTinyHelp: {
+    fontSize: '10px',
+    color: '#64748b',
+    lineHeight: '1.2',
+    marginLeft: '4px',
+    whiteSpace: 'nowrap',
+    alignSelf: 'center',
+  },
   assignmentTopRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -6589,6 +6569,20 @@ const styles = {
     boxSizing: 'border-box',
     resize: 'vertical',
   },
+  compactTextarea: {
+    display: 'block',
+    width: '100%',
+    minHeight: '38px',
+    height: '38px',
+    padding: '8px 10px',
+    borderRadius: '8px',
+    border: '1px solid #d9c7b1',
+    background: '#fffdfa',
+    boxSizing: 'border-box',
+    resize: 'vertical',
+    overflow: 'hidden',
+    lineHeight: '1.35',
+  },
   equipmentMovesSection: {
     marginTop: '18px',
     padding: '14px',
@@ -6620,13 +6614,15 @@ const styles = {
   equipmentMoveTextarea: {
     display: 'block',
     width: '100%',
-    minHeight: '82px',
-    padding: '10px',
+    minHeight: '38px',
+    height: '38px',
+    padding: '8px 10px',
     borderRadius: '10px',
     border: '1px solid #d9c7b1',
     background: '#fffdf9',
     boxSizing: 'border-box',
     resize: 'vertical',
+    overflow: 'hidden',
     fontSize: '13px',
     lineHeight: '1.35',
   },
