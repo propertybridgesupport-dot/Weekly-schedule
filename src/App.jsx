@@ -3236,6 +3236,12 @@ async function copyContactList() {
       })
   }
 
+  function getSelectedMobileTextGroups() {
+    return selectedMobileTextGroupIds
+      .map((groupId) => contactGroups.find((group) => group.id === groupId))
+      .filter(Boolean)
+  }
+
   function toggleMobileTextGroup(groupId) {
     setSelectedMobileTextGroupIds((prev) => {
       if (prev.includes(groupId)) return prev.filter((id) => id !== groupId)
@@ -3249,16 +3255,12 @@ async function copyContactList() {
       return
     }
 
-    let url = ''
-    try {
-      url = await createMobileShareUrl()
-    } catch (error) {
-      showError('Could not create public share link. Make sure the public share table is set up in Supabase.')
+    if (selectedMobileTextGroupIds.length > 1) {
+      showError('Multiple groups must be sent one at a time. Use the separate group buttons below.')
       return
     }
 
-    const selectedContacts = getContactsForSelectedMobileGroups()
-    openSmsApp(selectedContacts.map((contact) => contact.phone).filter(Boolean), buildSmsMessageText(url))
+    await sendTextToGroup(selectedMobileTextGroupIds[0])
   }
 
   async function sendMobileTextToAll() {
@@ -5258,25 +5260,54 @@ async function copyContactList() {
                 <div style={styles.mobileGroupChecklistTitle}>Contacts in Selected Group(s)</div>
                 {!selectedMobileTextGroupIds.length ? (
                   <div style={styles.smallText}>Select one or more groups to see the contacts.</div>
-                ) : getContactsForSelectedMobileGroups().length === 0 ? (
-                  <div style={styles.smallText}>No contacts in the selected group(s).</div>
                 ) : (
-                  <div style={styles.mobileSelectedContactNames}>
-                    {getContactsForSelectedMobileGroups().map((contact) => (
-                      <div key={contact.id} style={styles.mobileSelectedContactName}>{contact.name}</div>
-                    ))}
+                  <div style={styles.mobileSelectedGroupList}>
+                    {getSelectedMobileTextGroups().map((group) => {
+                      const groupContacts = getContactsForGroup(group.id)
+                      return (
+                        <div key={group.id} style={styles.mobileSelectedGroupBlock}>
+                          <div style={styles.mobileSelectedGroupTitle}>
+                            {group.name} · {groupContacts.length} contact{groupContacts.length === 1 ? '' : 's'}
+                          </div>
+                          {groupContacts.length ? (
+                            <div style={styles.mobileSelectedContactNames}>
+                              {groupContacts.map((contact) => (
+                                <div key={contact.id} style={styles.mobileSelectedContactName}>{contact.name}</div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={styles.smallText}>No contacts in this group.</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
 
               <div style={styles.mobileGroupActionBox}>
-                <button
-                  onClick={sendTextToSelectedGroups}
-                  disabled={!selectedMobileTextGroupIds.length}
-                  style={!selectedMobileTextGroupIds.length ? styles.buttonDisabled : styles.button}
-                >
-                  Text Selected Group(s)
-                </button>
+                {selectedMobileTextGroupIds.length <= 1 ? (
+                  <button
+                    onClick={sendTextToSelectedGroups}
+                    disabled={!selectedMobileTextGroupIds.length}
+                    style={!selectedMobileTextGroupIds.length ? styles.buttonDisabled : styles.button}
+                  >
+                    Text Selected Group
+                  </button>
+                ) : (
+                  <>
+                    <div style={styles.mobileGroupSendNote}>Send each group separately to stay under the text recipient limit.</div>
+                    {getSelectedMobileTextGroups().map((group) => (
+                      <button
+                        key={group.id}
+                        onClick={() => sendTextToGroup(group.id)}
+                        style={styles.button}
+                      >
+                        Text {group.name}
+                      </button>
+                    ))}
+                  </>
+                )}
                 <button
                   onClick={() => setSelectedMobileTextGroupIds([])}
                   style={styles.buttonSecondary}
@@ -6202,6 +6233,32 @@ const styles = {
     borderRadius: 12,
     padding: 14,
     background: '#fff',
+  },
+  mobileSelectedGroupList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  mobileSelectedGroupBlock: {
+    border: '1px solid #eadcc9',
+    borderRadius: 12,
+    padding: 10,
+    background: '#fffaf3',
+  },
+  mobileSelectedGroupTitle: {
+    fontSize: 13,
+    fontWeight: 800,
+    color: '#92400e',
+    marginBottom: 8,
+  },
+  mobileGroupSendNote: {
+    fontSize: 12,
+    color: '#92400e',
+    lineHeight: 1.35,
+    padding: '8px 10px',
+    border: '1px solid #fed7aa',
+    borderRadius: 10,
+    background: '#fff7ed',
   },
   mobileGroupActionBox: {
     display: 'flex',
