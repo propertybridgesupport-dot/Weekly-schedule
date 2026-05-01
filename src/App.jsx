@@ -4441,17 +4441,22 @@ async function copyContactList() {
               </div>
             </div>
 
-            <div style={{ marginTop: '16px' }}>
-              <label style={styles.label}>Equipment Moves</label>
+            <div style={styles.equipmentMovesSection}>
+              <div style={styles.assignmentHeader}>
+                <div>
+                  <label style={styles.label}>Equipment Moves</label>
+                  <div style={styles.helpText}>Enter only the days needed. Blank days stay off the printed report.</div>
+                </div>
+              </div>
               <div style={styles.equipmentMovesGrid}>
                 {EQUIPMENT_DAY_KEYS.map((dayKey) => (
-                  <div key={dayKey}>
-                    <label style={styles.label}>{EQUIPMENT_DAY_LABELS[dayKey]}</label>
+                  <div key={dayKey} style={styles.equipmentMoveDayCard}>
+                    <label style={styles.equipmentMoveDayLabel}>{EQUIPMENT_DAY_LABELS[dayKey]}</label>
                     <textarea
                       value={scheduleForm.equipment_moves?.[dayKey] || ''}
                       onChange={(e) => updateEquipmentMove(dayKey, e.target.value)}
                       style={styles.equipmentMoveTextarea}
-                      placeholder={`Equipment moves for ${EQUIPMENT_DAY_LABELS[dayKey]}...`}
+                      placeholder={`${EQUIPMENT_DAY_LABELS[dayKey]} moves...`}
                     />
                   </div>
                 ))}
@@ -6534,6 +6539,47 @@ const styles = {
     background: '#fffdfa',
     boxSizing: 'border-box',
     resize: 'vertical',
+  },
+  equipmentMovesSection: {
+    marginTop: '18px',
+    padding: '14px',
+    border: '1px solid #eadfce',
+    borderRadius: '14px',
+    background: '#fffaf3',
+  },
+  equipmentMovesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '12px',
+    alignItems: 'stretch',
+  },
+  equipmentMoveDayCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    padding: '10px',
+    border: '1px solid #ead7c2',
+    borderRadius: '12px',
+    background: '#ffffff',
+    minWidth: 0,
+  },
+  equipmentMoveDayLabel: {
+    fontSize: '13px',
+    fontWeight: '800',
+    color: '#18233c',
+  },
+  equipmentMoveTextarea: {
+    display: 'block',
+    width: '100%',
+    minHeight: '82px',
+    padding: '10px',
+    borderRadius: '10px',
+    border: '1px solid #d9c7b1',
+    background: '#fffdf9',
+    boxSizing: 'border-box',
+    resize: 'vertical',
+    fontSize: '13px',
+    lineHeight: '1.35',
   },
   listWrap: {
     flex: 1,
