@@ -11,6 +11,7 @@ function emptyForemanAssignment() {
     work_description: '',
     split_note: '',
     subcontractor_name: '',
+    night: false,
   }
 }
 
@@ -37,7 +38,7 @@ const WEEKDAY_LABELS = {
   friday: 'Fri',
 }
 
-const EQUIPMENT_DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+const EQUIPMENT_DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'general']
 const EQUIPMENT_DAY_LABELS = {
   monday: 'Monday',
   tuesday: 'Tuesday',
@@ -46,6 +47,7 @@ const EQUIPMENT_DAY_LABELS = {
   friday: 'Friday',
   saturday: 'Saturday',
   sunday: 'Sunday',
+  general: 'General Note',
 }
 
 function emptyEquipmentMoves() {
@@ -53,6 +55,32 @@ function emptyEquipmentMoves() {
     acc[dayKey] = ''
     return acc
   }, {})
+}
+
+
+const FOREMAN_NIGHT_MARKER = '|||NIGHTS'
+
+function getForemanSubcontractorName(splitNote) {
+  return String(splitNote || '').replace(FOREMAN_NIGHT_MARKER, '').trim()
+}
+
+function getForemanNightFlag(splitNote) {
+  return String(splitNote || '').includes(FOREMAN_NIGHT_MARKER)
+}
+
+function buildForemanSplitNote(subcontractorName, isNight) {
+  const name = String(subcontractorName || '').trim()
+  if (!name && !isNight) return ''
+  return `${name}${isNight ? FOREMAN_NIGHT_MARKER : ''}`
+}
+
+function getForemanDisplayNameFromAssignment(assignment) {
+  const subcontractorName = getForemanSubcontractorName(assignment?.split_note || assignment?.splitNote || assignment?.subcontractor || assignment?.subcontractor_name)
+  return assignment?.foremen?.name || assignment?.name || (subcontractorName ? `Subcontractor: ${subcontractorName}` : '—')
+}
+
+function getForemanNightFromAssignment(assignment) {
+  return Boolean(assignment?.night) || getForemanNightFlag(assignment?.split_note || assignment?.splitNote || assignment?.subcontractor || assignment?.subcontractor_name)
 }
 
 function emptySuperintendentAssignment() {
@@ -167,15 +195,20 @@ function buildMobileShareSnapshot(items, selectedWeekFrom, selectedWeekTo) {
       surveyor: item.surveyors?.name || '—',
       notes: item.notes || '',
       equipmentMoves: item.equipment_moves || {},
-      foremen: (item.schedule_item_foremen || []).map((assignment) => ({
-        id: assignment.id,
-        name: assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : '—'),
-        fromDate: assignment.assignment_from_date || '',
-        toDate: assignment.assignment_to_date || '',
-        work: assignment.work_description || '',
-        splitNote: '',
-        subcontractor: assignment.split_note || '',
-      })),
+      foremen: (item.schedule_item_foremen || []).map((assignment) => {
+        const subcontractorName = getForemanSubcontractorName(assignment.split_note)
+        const night = getForemanNightFlag(assignment.split_note)
+        return {
+          id: assignment.id,
+          name: assignment.foremen?.name || (subcontractorName ? `Subcontractor: ${subcontractorName}` : '—'),
+          fromDate: assignment.assignment_from_date || '',
+          toDate: assignment.assignment_to_date || '',
+          work: assignment.work_description || '',
+          splitNote: '',
+          subcontractor: subcontractorName,
+          night,
+        }
+      }),
       surveyorAssignments: (item.schedule_item_surveyors || []).map((assignment) => ({
         id: assignment.id,
         name: assignment.surveyors?.name || '—',
@@ -681,7 +714,7 @@ const [printLayout, setPrintLayout] = useState('report')
   function renderCollapsedQuickPills(item) {
     const pills = []
     const foremanNames = (item.schedule_item_foremen || [])
-      .map((assignment) => assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : ''))
+      .map((assignment) => getForemanDisplayNameFromAssignment(assignment))
       .filter(Boolean)
     const surveyorNames = (item.schedule_item_surveyors || [])
       .map((assignment) => assignment.surveyors?.name)
@@ -2641,16 +2674,21 @@ async function copyContactList() {
 
     if (item.schedule_item_foremen?.length) {
       setForemanAssignments(
-        item.schedule_item_foremen.map((assignment) => ({
-          localId: crypto.randomUUID(),
-          id: assignment.id,
-          foreman_id: assignment.foreman_id || (assignment.split_note ? '__subcontractor__' : ''),
-          assignment_from_date: assignment.assignment_from_date || '',
-          assignment_to_date: assignment.assignment_to_date || '',
-          work_description: assignment.work_description || '',
-          split_note: '',
-          subcontractor_name: assignment.split_note || '',
-        }))
+        item.schedule_item_foremen.map((assignment) => {
+          const subcontractorName = getForemanSubcontractorName(assignment.split_note)
+          const night = getForemanNightFlag(assignment.split_note)
+          return {
+            localId: crypto.randomUUID(),
+            id: assignment.id,
+            foreman_id: assignment.foreman_id || (subcontractorName ? '__subcontractor__' : ''),
+            assignment_from_date: assignment.assignment_from_date || '',
+            assignment_to_date: assignment.assignment_to_date || '',
+            work_description: assignment.work_description || '',
+            split_note: '',
+            subcontractor_name: subcontractorName,
+            night,
+          }
+        })
       )
     } else {
       setForemanAssignments([emptyForemanAssignment()])
@@ -2799,7 +2837,8 @@ async function copyContactList() {
         item.assignment_from_date ||
         item.assignment_to_date ||
         item.work_description ||
-        item.subcontractor_name
+        item.subcontractor_name ||
+        item.night
       )
     })
 
@@ -2810,7 +2849,7 @@ async function copyContactList() {
         assignment_from_date: item.assignment_from_date || null,
         assignment_to_date: item.assignment_to_date || null,
         work_description: item.work_description || null,
-        split_note: item.subcontractor_name || null,
+        split_note: buildForemanSplitNote(item.subcontractor_name, item.night) || null,
       }))
 
       const { error: foremanError } = await supabase
@@ -3251,10 +3290,10 @@ async function copyContactList() {
                     {(item.foremen || item.schedule_item_foremen).map((assignment) => (
                       <div key={assignment.id} style={styles.mobileReadonlyAssignmentCard}>
                         <div style={styles.mobileReadonlyAssignmentName}>
-                          {(assignment.name ?? assignment.foremen?.name) || '—'}
+                          {getForemanDisplayNameFromAssignment(assignment)}
                         </div>
                         <div style={styles.mobileReadonlyAssignmentLine}>
-                          {formatDate(assignment.fromDate ?? assignment.assignment_from_date)} to {formatDate(assignment.toDate ?? assignment.assignment_to_date)}
+                          {formatDate(assignment.fromDate ?? assignment.assignment_from_date)} to {formatDate(assignment.toDate ?? assignment.assignment_to_date)}{getForemanNightFromAssignment(assignment) ? ' • NIGHTS' : ''}
                         </div>
                         <div style={styles.mobileReadonlyAssignmentSubtle}>
                           {formatAssignmentWeekdays(
@@ -3265,9 +3304,9 @@ async function copyContactList() {
                         <div style={styles.mobileReadonlyAssignmentLine}>
                           <strong>Work:</strong> {(assignment.work ?? assignment.work_description) || '—'}
                         </div>
-                        {(assignment.splitNote ?? assignment.split_note) ? (
+                        {getForemanSubcontractorName(assignment.splitNote ?? assignment.split_note) ? (
                           <div style={styles.mobileReadonlyAssignmentLine}>
-                            <strong>Note:</strong> {assignment.splitNote ?? assignment.split_note}
+                            <strong>Subcontractor:</strong> {getForemanSubcontractorName(assignment.splitNote ?? assignment.split_note)}
                           </div>
                         ) : null}
                       </div>
@@ -3808,13 +3847,6 @@ async function copyContactList() {
                 style={activeTab === 'weekly' ? styles.button : styles.buttonSecondary}
               >
                 Weekly Schedule
-              </button>
-              <button
-                className="nav-button"
-                onClick={() => handleTabChange('grid')}
-                style={activeTab === 'grid' ? styles.button : styles.buttonSecondary}
-              >
-                Weekly Grid
               </button>
               <button
                 className="nav-button"
@@ -4553,7 +4585,17 @@ async function copyContactList() {
             {foremanAssignments.map((assignment, index) => (
               <div key={assignment.localId} style={styles.assignmentCard}>
                 <div style={styles.assignmentTopRow}>
-                  <strong>Foreman Assignment {index + 1}</strong>
+                  <div style={styles.foremanAssignmentTitleWrap}>
+                    <strong>Foreman Assignment {index + 1}</strong>
+                    <label style={styles.nightWorkLabel}>
+                      <input
+                        type="checkbox"
+                        checked={!!assignment.night}
+                        onChange={(e) => updateForemanAssignment(assignment.localId, 'night', e.target.checked)}
+                      />
+                      Nights
+                    </label>
+                  </div>
                   <button
                     onClick={() => removeForemanAssignmentRow(assignment.localId)}
                     style={styles.buttonDanger}
@@ -4761,7 +4803,7 @@ async function copyContactList() {
                       onInput={autoGrowTextarea}
                       rows={1}
                       style={styles.equipmentMoveTextarea}
-                      placeholder={`${EQUIPMENT_DAY_LABELS[dayKey]} moves...`}
+                      placeholder={dayKey === 'general' ? 'General equipment note...' : `${EQUIPMENT_DAY_LABELS[dayKey]} moves...`}
                     />
                   </div>
                 ))}
@@ -5003,12 +5045,12 @@ async function copyContactList() {
                                 <div key={assignment.id} style={styles.foremanViewCard}>
                                   <div>
                                     <strong>Foreman:</strong>{' '}
-                                    {assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : '—')}
+                                    {getForemanDisplayNameFromAssignment(assignment)}
                                   </div>
                                   <div>
                                     <strong>Dates:</strong>{' '}
                                     {formatDate(assignment.assignment_from_date)} to{' '}
-                                    {formatDate(assignment.assignment_to_date)}
+                                    {formatDate(assignment.assignment_to_date)} {getForemanNightFromAssignment(assignment) ? <strong>NIGHTS</strong> : null}
                                   </div>
                                   <div style={styles.assignmentDaysText}>
                                     {formatAssignmentWeekdays(
@@ -5346,7 +5388,6 @@ async function copyContactList() {
       style={styles.jobPrefixSelect}
     >
       <option value="report">Report Layout</option>
-      <option value="grid">Weekly Grid Layout</option>
       <option value="equipment">Equipment Moves by Job</option>
     </select>
 
@@ -5555,11 +5596,11 @@ async function copyContactList() {
                               {item.schedule_item_foremen.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{assignment.foremen?.name || (assignment.split_note ? `Subcontractor: ${assignment.split_note}` : '—')}</strong>
+                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
-                                      <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)}
+                                      <strong>Dates:</strong> {formatDate(assignment.assignment_from_date)} to {formatDate(assignment.assignment_to_date)} {getForemanNightFromAssignment(assignment) ? <strong>NIGHTS</strong> : null}
                                     </div>
                                     <div style={styles.printCompactDaysLine}>
                                       {formatAssignmentWeekdays(
@@ -5734,7 +5775,7 @@ function buildForemanGroups(items) {
   items.forEach((item) => {
     const assignments = item.foremen || item.schedule_item_foremen || []
     assignments.forEach((assignment) => {
-      const name = (assignment.name ?? assignment.foremen?.name) || 'Unassigned Foreman'
+      const name = getForemanDisplayNameFromAssignment(assignment) || 'Unassigned Foreman'
       if (!groups.has(name)) {
         groups.set(name, [])
       }
@@ -5746,7 +5787,8 @@ function buildForemanGroups(items) {
         fromDate: assignment.fromDate ?? assignment.assignment_from_date,
         toDate: assignment.toDate ?? assignment.assignment_to_date,
         work: assignment.work ?? assignment.work_description,
-        splitNote: assignment.splitNote ?? assignment.split_note,
+        splitNote: getForemanSubcontractorName(assignment.splitNote ?? assignment.split_note),
+        night: getForemanNightFromAssignment(assignment),
       })
     })
   })
@@ -5765,7 +5807,7 @@ function buildSuperintendentGroups(items) {
     if (!groups.has(name)) groups.set(name, [])
 
     const foremanNames = (item.foremen || item.schedule_item_foremen || [])
-      .map((assignment) => (assignment.name ?? assignment.foremen?.name) || '')
+      .map((assignment) => getForemanDisplayNameFromAssignment(assignment))
       .filter(Boolean)
       .join(', ')
 
@@ -6246,6 +6288,20 @@ const styles = {
     marginLeft: '4px',
     whiteSpace: 'nowrap',
     alignSelf: 'center',
+  },
+  foremanAssignmentTitleWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    flexWrap: 'wrap',
+  },
+  nightWorkLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#a54600',
   },
   assignmentTopRow: {
     display: 'flex',
