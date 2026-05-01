@@ -1252,9 +1252,6 @@ async function copyContactList() {
     setContacts(contactsResult.data || [])
     setContactGroups(contactGroupsResult.data || [])
 
-    if (!selectedEmailGroupId && (emailGroupsResult.data || []).length) {
-      setSelectedEmailGroupId(emailGroupsResult.data[0].id)
-    }
 
     if (!selectedTextGroupViewId && (contactGroupsResult.data || []).length) {
       setSelectedTextGroupViewId(contactGroupsResult.data[0].id)
@@ -3129,10 +3126,14 @@ async function copyContactList() {
 
       const body = encodeURIComponent(`${weekLabel ? `${reportName} - ${weekLabel}` : reportName}\n\n${equipmentBody}`)
       window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
+      setSelectedEmailGroupId('')
+      setSelectedEmailContactId('')
       return
     }
 
     window.location.href = `mailto:${recipients.join(',')}?subject=${subject}`
+    setSelectedEmailGroupId('')
+    setSelectedEmailContactId('')
     showSuccess('Email opened. Attach the saved PDF before sending.')
   }
 
@@ -5375,12 +5376,8 @@ async function copyContactList() {
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
           <div style={styles.printPageWrap} className={`print-page-wrap ${false ? 'print-grid-mode' : 'print-report-mode'}`}>
-<div style={styles.assignmentHeader} className="no-print">
+<div style={styles.printControlsHeader} className="no-print">
   <div style={styles.topBarButtons}>
-    <button onClick={() => window.print()} style={styles.button}>
-      Print / Save PDF
-    </button>
-
     <select
       value={printLayout}
       onChange={(e) => setPrintLayout(e.target.value)}
@@ -5390,6 +5387,10 @@ async function copyContactList() {
       <option value="weekly">Weekly Schedule</option>
       <option value="equipment">Equipment Schedule</option>
     </select>
+
+    <button onClick={() => window.print()} style={styles.button}>
+      Print / Save PDF
+    </button>
 
     <select
       value={selectedEmailGroupId}
@@ -5429,6 +5430,10 @@ async function copyContactList() {
     >
       Email Selected
     </button>
+  </div>
+  <div style={styles.emailNoteBox}>
+    <strong>Email note:</strong>{' '}
+    Browser security does not allow this app to silently attach a PDF to Outlook. Click <em>Print / Save PDF</em>, save the PDF, then use <em>Email Selected</em> to open Outlook with the selected recipient(s).
   </div>
 </div>
 
@@ -5480,10 +5485,6 @@ async function copyContactList() {
   />
 </div>
 
-<div style={styles.emailNoteBox} className="no-print">
-  <strong>Email note:</strong>{' '}
-  Browser security does not allow this app to silently attach a PDF to Outlook. Click <em>Print / Save PDF</em>, save the PDF, then use <em>Email Selected</em> to open Outlook with the selected recipient(s).
-</div>
             <div style={styles.printPreviewStage} className="print-preview-stage">
               <div style={false ? styles.reportPaperGrid : styles.reportPaper} className="print-paper">
               <div style={styles.reportHeader} className="report-header-print-fix">
@@ -6274,6 +6275,10 @@ const styles = {
     flexWrap: 'wrap',
     marginBottom: '16px',
   },
+  printControlsHeader: {
+    display: 'block',
+    marginBottom: '16px',
+  },
   inlineAssignmentRow: {
     display: 'flex',
     alignItems: 'center',
@@ -6458,12 +6463,10 @@ const styles = {
     padding: '12px',
   },
   emailNoteBox: {
-    marginBottom: '16px',
-    background: '#fff7ed',
-    border: '1px solid #fed7aa',
-    borderRadius: '10px',
-    padding: '12px',
-    fontSize: '14px',
+    marginTop: '8px',
+    marginBottom: '4px',
+    marginLeft: '12px',
+    fontSize: '12px',
     color: '#7c2d12',
   },
   bannerSuccess: {
