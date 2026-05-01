@@ -36,6 +36,32 @@ const WEEKDAY_LABELS = {
   friday: 'Fri',
 }
 
+const EQUIPMENT_DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+const EQUIPMENT_DAY_LABELS = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
+}
+
+function emptyEquipmentMoves() {
+  return EQUIPMENT_DAY_KEYS.reduce((acc, dayKey) => {
+    acc[dayKey] = ''
+    return acc
+  }, {})
+}
+
+function emptySuperintendentAssignment() {
+  return {
+    localId: crypto.randomUUID(),
+    superintendent_id: '',
+    shift: '',
+  }
+}
+
 function toIsoDate(value) {
   const date = value instanceof Date ? new Date(value) : new Date(value)
   const year = date.getFullYear()
@@ -125,10 +151,13 @@ function buildMobileShareSnapshot(items, selectedWeekFrom, selectedWeekTo) {
       id: item.id,
       jobNumber: item.jobs?.job_number || '—',
       jobName: item.jobs?.job_name || 'No Job Name',
-      projectManager: item.project_managers?.name || '—',
-      superintendent: item.superintendents?.name || '—',
+      projectManager: item.project_manager_labels || item.project_managers?.name || '—',
+      projectManagers: item.project_manager_labels || item.project_managers?.name || '—',
+      superintendent: item.superintendent_labels || item.superintendents?.name || '—',
+      superintendents: item.superintendent_labels || item.superintendents?.name || '—',
       surveyor: item.surveyors?.name || '—',
       notes: item.notes || '',
+      equipmentMoves: item.equipment_moves || {},
       foremen: (item.schedule_item_foremen || []).map((assignment) => ({
         id: assignment.id,
         name: assignment.foremen?.name || '—',
@@ -268,8 +297,11 @@ const [printLayout, setPrintLayout] = useState('report')
     to_date: '',
     job_id: '',
     project_manager_id: '',
+    project_manager_ids: [],
     superintendent_id: '',
+    superintendent_assignments: [emptySuperintendentAssignment()],
     surveyor_id: '',
+    equipment_moves: emptyEquipmentMoves(),
     notes: '',
   })
 
@@ -435,6 +467,40 @@ const [printLayout, setPrintLayout] = useState('report')
     })
   }, [jobs])
 
+
+  function getProjectManagerNamesForItem(item) {
+    const ids = Array.isArray(item?.project_manager_ids)
+      ? item.project_manager_ids.filter(Boolean)
+      : item?.project_manager_id ? [item.project_manager_id] : []
+    const names = ids
+      .map((id) => projectManagers.find((person) => person.id === id)?.name)
+      .filter(Boolean)
+    if (names.length) return names.join(', ')
+    return item?.project_manager_labels || item?.project_managers?.name || ''
+  }
+
+  function getSuperintendentLabelsForItem(item) {
+    const assignments = Array.isArray(item?.superintendent_assignments)
+      ? item.superintendent_assignments.filter((assignment) => assignment?.superintendent_id)
+      : item?.superintendent_id ? [{ superintendent_id: item.superintendent_id, shift: '' }] : []
+    const showShift = assignments.length > 1
+    const labels = assignments.map((assignment) => {
+      const name = superintendents.find((person) => person.id === assignment.superintendent_id)?.name || ''
+      if (!name) return ''
+      const shift = showShift && assignment.shift ? ` (${assignment.shift})` : ''
+      return `${name}${shift}`
+    }).filter(Boolean)
+    if (labels.length) return labels.join(', ')
+    return item?.superintendent_labels || item?.superintendents?.name || ''
+  }
+
+  function getEquipmentMoveEntriesForItem(item) {
+    const moves = item?.equipment_moves || {}
+    return EQUIPMENT_DAY_KEYS
+      .map((dayKey) => ({ dayKey, label: EQUIPMENT_DAY_LABELS[dayKey], text: String(moves?.[dayKey] || '').trim() }))
+      .filter((entry) => entry.text)
+  }
+
   const filteredScheduleItems = useMemo(() => {
     return scheduleItems
   }, [scheduleItems])
@@ -474,12 +540,18 @@ const [printLayout, setPrintLayout] = useState('report')
       }
     })
 
-    return Object.values(latestByJob).sort((a, b) => {
+    const sortedWeekItems = Object.values(latestByJob).sort((a, b) => {
       const aNum = extractJobNumberValue(a.jobs?.job_number)
       const bNum = extractJobNumberValue(b.jobs?.job_number)
       return aNum - bNum
     })
-  }, [scheduleItems, selectedWeekTo])
+
+    return sortedWeekItems.map((item) => ({
+      ...item,
+      project_manager_labels: getProjectManagerNamesForItem(item),
+      superintendent_labels: getSuperintendentLabelsForItem(item),
+    }))
+  }, [scheduleItems, selectedWeekTo, projectManagers, superintendents])
 
   useEffect(() => {
     if (!session || !selectedWeekFrom || !selectedWeekTo) return
@@ -605,8 +677,8 @@ const [printLayout, setPrintLayout] = useState('report')
       .map((assignment) => assignment.surveyors?.name)
       .filter(Boolean)
 
-    if (item.project_managers?.name) pills.push(`PM: ${item.project_managers.name}`)
-    if (item.superintendents?.name) pills.push(`Super: ${item.superintendents.name}`)
+    if (getProjectManagerNamesForItem(item)) pills.push(`PM: ${getProjectManagerNamesForItem(item)}`)
+    if (getSuperintendentLabelsForItem(item)) pills.push(`Super: ${getSuperintendentLabelsForItem(item)}`)
     if (item.surveyors?.name) pills.push(`Surveyor: ${item.surveyors.name}`)
     if (foremanNames.length) pills.push(`Foremen: ${foremanNames.join(', ')}`)
     if (surveyorNames.length) pills.push(`Surveyor Days: ${surveyorNames.join(', ')}`)
@@ -2366,6 +2438,58 @@ async function copyContactList() {
     }))
   }
 
+
+  function updateScheduleProjectManagers(selectedOptions) {
+    const values = Array.from(selectedOptions || []).map((option) => option.value).filter(Boolean)
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => ({
+      ...prev,
+      project_manager_ids: values,
+      project_manager_id: values[0] || '',
+    }))
+  }
+
+  function updateSuperintendentAssignment(localId, field, value) {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => ({
+      ...prev,
+      superintendent_assignments: (prev.superintendent_assignments || [emptySuperintendentAssignment()]).map((item) =>
+        item.localId === localId ? { ...item, [field]: value } : item
+      ),
+    }))
+  }
+
+  function addSuperintendentAssignmentRow() {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => ({
+      ...prev,
+      superintendent_assignments: [...(prev.superintendent_assignments || []), emptySuperintendentAssignment()],
+    }))
+  }
+
+  function removeSuperintendentAssignmentRow(localId) {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => {
+      const updated = (prev.superintendent_assignments || []).filter((item) => item.localId !== localId)
+      return {
+        ...prev,
+        superintendent_assignments: updated.length ? updated : [emptySuperintendentAssignment()],
+      }
+    })
+  }
+
+  function updateEquipmentMove(dayKey, value) {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => ({
+      ...prev,
+      equipment_moves: {
+        ...emptyEquipmentMoves(),
+        ...(prev.equipment_moves || {}),
+        [dayKey]: value,
+      },
+    }))
+  }
+
   function updateForemanAssignment(localId, field, value) {
     setHasUnsavedChanges(true)
     setForemanAssignments((prev) =>
@@ -2419,8 +2543,11 @@ async function copyContactList() {
       to_date: '',
       job_id: '',
       project_manager_id: '',
+      project_manager_ids: [],
       superintendent_id: '',
+      superintendent_assignments: [emptySuperintendentAssignment()],
       surveyor_id: '',
+      equipment_moves: emptyEquipmentMoves(),
       notes: '',
     })
     setForemanAssignments([emptyForemanAssignment()])
@@ -2435,13 +2562,27 @@ async function copyContactList() {
     setEditingScheduleItemId(item.id)
     setSelectedWeekFrom(item.from_date || '')
     setSelectedWeekTo(item.to_date || '')
+    const savedPmIds = Array.isArray(item.project_manager_ids)
+      ? item.project_manager_ids.filter(Boolean)
+      : item.project_manager_id ? [item.project_manager_id] : []
+    const savedSuperAssignments = Array.isArray(item.superintendent_assignments) && item.superintendent_assignments.length
+      ? item.superintendent_assignments.map((assignment) => ({
+          localId: crypto.randomUUID(),
+          superintendent_id: assignment.superintendent_id || assignment.id || '',
+          shift: assignment.shift || '',
+        }))
+      : item.superintendent_id ? [{ localId: crypto.randomUUID(), superintendent_id: item.superintendent_id, shift: '' }] : [emptySuperintendentAssignment()]
+
     setScheduleForm({
       from_date: item.from_date || '',
       to_date: item.to_date || '',
       job_id: item.job_id || '',
-      project_manager_id: item.project_manager_id || '',
-      superintendent_id: item.superintendent_id || '',
+      project_manager_id: savedPmIds[0] || '',
+      project_manager_ids: savedPmIds,
+      superintendent_id: savedSuperAssignments.find((assignment) => assignment.superintendent_id)?.superintendent_id || '',
+      superintendent_assignments: savedSuperAssignments,
       surveyor_id: item.surveyor_id || '',
+      equipment_moves: { ...emptyEquipmentMoves(), ...(item.equipment_moves || {}) },
       notes: item.notes || '',
     })
 
@@ -2516,13 +2657,31 @@ async function copyContactList() {
       editingScheduleItemId ? 'Updating schedule item...' : 'Saving schedule item...'
     )
 
+    const projectManagerIds = Array.isArray(scheduleForm.project_manager_ids)
+      ? scheduleForm.project_manager_ids.filter(Boolean)
+      : scheduleForm.project_manager_id ? [scheduleForm.project_manager_id] : []
+    const superintendentAssignmentsToSave = (scheduleForm.superintendent_assignments || [])
+      .filter((assignment) => assignment.superintendent_id)
+      .map((assignment) => ({
+        superintendent_id: assignment.superintendent_id,
+        shift: assignment.shift || '',
+      }))
+    const equipmentMovesToSave = EQUIPMENT_DAY_KEYS.reduce((acc, dayKey) => {
+      const value = String(scheduleForm.equipment_moves?.[dayKey] || '').trim()
+      if (value) acc[dayKey] = value
+      return acc
+    }, {})
+
     const payload = {
       from_date: selectedWeekFrom,
       to_date: selectedWeekTo,
       job_id: scheduleForm.job_id,
-      project_manager_id: scheduleForm.project_manager_id || null,
-      superintendent_id: scheduleForm.superintendent_id || null,
+      project_manager_id: projectManagerIds[0] || null,
+      project_manager_ids: projectManagerIds,
+      superintendent_id: superintendentAssignmentsToSave[0]?.superintendent_id || null,
+      superintendent_assignments: superintendentAssignmentsToSave,
       surveyor_id: scheduleForm.surveyor_id || null,
+      equipment_moves: equipmentMovesToSave,
       notes: scheduleForm.notes || null,
     }
 
@@ -2712,8 +2871,11 @@ async function copyContactList() {
             to_date: nextWeek.to,
             job_id: item.job_id,
             project_manager_id: item.project_manager_id || null,
+            project_manager_ids: item.project_manager_ids || (item.project_manager_id ? [item.project_manager_id] : []),
             superintendent_id: item.superintendent_id || null,
+            superintendent_assignments: item.superintendent_assignments || (item.superintendent_id ? [{ superintendent_id: item.superintendent_id, shift: '' }] : []),
             surveyor_id: item.surveyor_id || null,
+            equipment_moves: item.equipment_moves || {},
             notes: item.notes || null,
           })
           .select()
@@ -2988,11 +3150,11 @@ async function copyContactList() {
                 <div style={styles.mobileReadonlyMetaRow}>
                   <div style={styles.mobileReadonlyMetaItem}>
                     <span style={styles.mobileReadonlyMetaLabel}>PM:</span>
-                    <span>{item.projectManager ?? item.project_managers?.name ?? '—'}</span>
+                    <span>{item.projectManager ?? item.project_manager_labels ?? getProjectManagerNamesForItem(item) ?? '—'}</span>
                   </div>
                   <div style={styles.mobileReadonlyMetaItem}>
                     <span style={styles.mobileReadonlyMetaLabel}>Super:</span>
-                    <span>{item.superintendent ?? item.superintendents?.name ?? '—'}</span>
+                    <span>{item.superintendent ?? item.superintendent_labels ?? getSuperintendentLabelsForItem(item) ?? '—'}</span>
                   </div>
                   <div style={styles.mobileReadonlyMetaItem}>
                     <span style={styles.mobileReadonlyMetaLabel}>Surveyor:</span>
@@ -4201,39 +4363,63 @@ async function copyContactList() {
               </div>
 
               <div>
-                <label style={styles.label}>Project Manager (optional)</label>
+                <label style={styles.label}>Project Manager(s) (optional)</label>
                 <select
-                  value={scheduleForm.project_manager_id}
-                  onChange={(e) =>
-                    updateScheduleForm('project_manager_id', e.target.value)
-                  }
-                  style={styles.select}
+                  multiple
+                  value={scheduleForm.project_manager_ids || []}
+                  onChange={(e) => updateScheduleProjectManagers(e.target.selectedOptions)}
+                  style={{ ...styles.select, minHeight: '92px' }}
                 >
-                  <option value="">None</option>
                   {projectManagers.map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.name}
                     </option>
                   ))}
                 </select>
+                <div style={styles.helpText}>Hold Ctrl on computer to select more than one.</div>
               </div>
 
               <div>
-                <label style={styles.label}>Superintendent (optional)</label>
-                <select
-                  value={scheduleForm.superintendent_id}
-                  onChange={(e) =>
-                    updateScheduleForm('superintendent_id', e.target.value)
-                  }
-                  style={styles.select}
-                >
-                  <option value="">None</option>
-                  {superintendents.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.name}
-                    </option>
-                  ))}
-                </select>
+                <div style={styles.assignmentHeader}>
+                  <label style={styles.label}>Superintendent(s) (optional)</label>
+                  <button type="button" onClick={addSuperintendentAssignmentRow} style={styles.smallButton}>Add Super</button>
+                </div>
+                {(scheduleForm.superintendent_assignments || []).map((assignment) => (
+                  <div key={assignment.localId} style={styles.inlineAssignmentRow}>
+                    <select
+                      value={assignment.superintendent_id}
+                      onChange={(e) => updateSuperintendentAssignment(assignment.localId, 'superintendent_id', e.target.value)}
+                      style={styles.select}
+                    >
+                      <option value="">None</option>
+                      {superintendents.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.name}
+                        </option>
+                      ))}
+                    </select>
+                    <label style={styles.inlineCheckLabel}>
+                      <input
+                        type="radio"
+                        name={`super-shift-${assignment.localId}`}
+                        checked={assignment.shift === 'AM'}
+                        onChange={() => updateSuperintendentAssignment(assignment.localId, 'shift', 'AM')}
+                      /> AM
+                    </label>
+                    <label style={styles.inlineCheckLabel}>
+                      <input
+                        type="radio"
+                        name={`super-shift-${assignment.localId}`}
+                        checked={assignment.shift === 'PM'}
+                        onChange={() => updateSuperintendentAssignment(assignment.localId, 'shift', 'PM')}
+                      /> PM
+                    </label>
+                    {(scheduleForm.superintendent_assignments || []).length > 1 ? (
+                      <button type="button" onClick={() => removeSuperintendentAssignmentRow(assignment.localId)} style={styles.smallDangerButton}>Remove</button>
+                    ) : null}
+                  </div>
+                ))}
+                <div style={styles.helpText}>AM/PM only prints when more than one superintendent is listed.</div>
               </div>
 
               <div>
@@ -4252,6 +4438,23 @@ async function copyContactList() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '16px' }}>
+              <label style={styles.label}>Equipment Moves</label>
+              <div style={styles.equipmentMovesGrid}>
+                {EQUIPMENT_DAY_KEYS.map((dayKey) => (
+                  <div key={dayKey}>
+                    <label style={styles.label}>{EQUIPMENT_DAY_LABELS[dayKey]}</label>
+                    <textarea
+                      value={scheduleForm.equipment_moves?.[dayKey] || ''}
+                      onChange={(e) => updateEquipmentMove(dayKey, e.target.value)}
+                      style={styles.equipmentMoveTextarea}
+                      placeholder={`Equipment moves for ${EQUIPMENT_DAY_LABELS[dayKey]}...`}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -4657,16 +4860,24 @@ async function copyContactList() {
                         <>
                           <div style={styles.metaGrid}>
                             <div>
-                              <strong>PM:</strong> {item.project_managers?.name || '—'}
+                              <strong>PM:</strong> {getProjectManagerNamesForItem(item) || '—'}
                             </div>
                             <div>
                               <strong>Superintendent:</strong>{' '}
-                              {item.superintendents?.name || '—'}
+                              {getSuperintendentLabelsForItem(item) || '—'}
                             </div>
                             <div>
                               <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
                             </div>
                           </div>
+                          {getEquipmentMoveEntriesForItem(item).length ? (
+                            <div style={styles.noteBox}>
+                              <strong>Equipment Moves:</strong>
+                              {getEquipmentMoveEntriesForItem(item).map((move) => (
+                                <div key={move.dayKey}><strong>{move.label}:</strong> {move.text}</div>
+                              ))}
+                            </div>
+                          ) : null}
 
                           {item.notes && (
                             <div style={styles.notesBox}>
@@ -5032,6 +5243,7 @@ async function copyContactList() {
     >
       <option value="report">Report Layout</option>
       <option value="grid">Weekly Grid Layout</option>
+      <option value="equipment">Equipment Moves by Job</option>
     </select>
 
     <select
@@ -5147,7 +5359,35 @@ async function copyContactList() {
                 </div>
                 <div style={styles.reportDivider} />
               </div>
-{printLayout === 'report' ? (
+{printLayout === 'equipment' ? (
+  <>
+    <div style={styles.printCompactSectionLabel}>Equipment Moves by Job</div>
+    {printScheduleItems.filter((item) => getEquipmentMoveEntriesForItem(item).length).length ? (
+      <div style={styles.printReportList} className="print-report-list">
+        {printScheduleItems.filter((item) => getEquipmentMoveEntriesForItem(item).length).map((item, index, list) => (
+          <React.Fragment key={item.id}>
+            <div style={styles.printReportCard} className="print-report-card">
+              <div style={styles.printCompactJobTitle}>
+                {item.jobs?.job_number || '—'} — {item.jobs?.job_name || 'No Job Name'}
+              </div>
+              <div style={styles.printCompactAssignmentTable}>
+                {getEquipmentMoveEntriesForItem(item).map((move) => (
+                  <div key={`${item.id}-${move.dayKey}`} style={styles.printCompactAssignmentRow}>
+                    <div style={styles.printCompactNameCol}><strong>{move.label}</strong></div>
+                    <div style={styles.printCompactNoteCol}>{move.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {index !== list.length - 1 ? <div style={styles.jobDivider} className="print-job-divider" /> : null}
+          </React.Fragment>
+        ))}
+      </div>
+    ) : (
+      <p style={styles.text}>No equipment moves entered for this week.</p>
+    )}
+  </>
+) : printLayout === 'report' ? (
   <>
     {printScheduleItems.length === 0 ? (
       <p style={styles.text}>No schedule items found for this print view.</p>
@@ -5178,11 +5418,11 @@ async function copyContactList() {
                           <div style={styles.printCompactMetaRow}>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>PM:</span>
-                              <span>{item.project_managers?.name || '—'}</span>
+                              <span>{getProjectManagerNamesForItem(item) || '—'}</span>
                             </div>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>Super:</span>
-                              <span>{item.superintendents?.name || '—'}</span>
+                              <span>{getSuperintendentLabelsForItem(item) || '—'}</span>
                             </div>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>Surveyor:</span>
@@ -5255,6 +5495,21 @@ async function copyContactList() {
                                   <div style={styles.printCompactNoteCol}>
                                     <strong>Note:</strong> {assignment.note || '—'}
                                   </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+
+
+                        {getEquipmentMoveEntriesForItem(item).length ? (
+                          <>
+                            <div style={styles.printCompactSectionLabel}>Equipment Moves</div>
+                            <div style={styles.printCompactAssignmentTable}>
+                              {getEquipmentMoveEntriesForItem(item).map((move) => (
+                                <div key={`${item.id}-${move.dayKey}`} style={styles.printCompactAssignmentRow}>
+                                  <div style={styles.printCompactNameCol}><strong>{move.label}</strong></div>
+                                  <div style={styles.printCompactNoteCol}>{move.text}</div>
                                 </div>
                               ))}
                             </div>
@@ -5406,7 +5661,7 @@ function buildSuperintendentGroups(items) {
   const groups = new Map()
 
   items.forEach((item) => {
-    const name = (item.superintendent ?? item.superintendents?.name) || 'Unassigned Superintendent'
+    const name = (item.superintendent ?? item.superintendent_labels ?? item.superintendents?.name) || 'Unassigned Superintendent'
     if (!groups.has(name)) groups.set(name, [])
 
     const foremanNames = (item.foremen || item.schedule_item_foremen || [])
@@ -5418,7 +5673,7 @@ function buildSuperintendentGroups(items) {
       key: String(item.id || item.jobNumber || item.jobs?.job_number || Math.random()),
       jobNumber: (item.jobNumber ?? item.jobs?.job_number) || '—',
       jobName: (item.jobName ?? item.jobs?.job_name) || 'No Job Name',
-      pm: item.projectManager ?? item.project_managers?.name ?? '',
+      pm: item.projectManager ?? item.project_manager_labels ?? item.project_managers?.name ?? '',
       surveyor: item.surveyor ?? item.surveyors?.name ?? '',
       foremen: foremanNames,
       jobNotes: item.notes || '',
@@ -5441,8 +5696,8 @@ function buildSurveyorGroups(items) {
       key: String(item.id || item.jobNumber || item.jobs?.job_number || '') + '-' + String(assignment?.id || groupName),
       jobNumber: (item.jobNumber ?? item.jobs?.job_number) || '—',
       jobName: (item.jobName ?? item.jobs?.job_name) || 'No Job Name',
-      pm: item.projectManager ?? item.project_managers?.name ?? '',
-      superintendent: item.superintendent ?? item.superintendents?.name ?? '',
+      pm: item.projectManager ?? item.project_manager_labels ?? item.project_managers?.name ?? '',
+      superintendent: item.superintendent ?? item.superintendent_labels ?? item.superintendents?.name ?? '',
       dayLine: assignment ? formatSurveyorDays(assignment) : '',
       note: assignment?.note || '',
       jobNotes: item.notes || '',
@@ -5469,8 +5724,8 @@ function getScheduleItemSearchText(item) {
   const parts = [
     item.jobs?.job_number,
     item.jobs?.job_name,
-    item.project_managers?.name,
-    item.superintendents?.name,
+    item.project_manager_labels || item.project_managers?.name,
+    item.superintendent_labels || item.superintendents?.name,
     item.surveyors?.name,
     item.notes,
   ]
