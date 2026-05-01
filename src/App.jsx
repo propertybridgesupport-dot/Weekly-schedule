@@ -2810,7 +2810,7 @@ async function copyContactList() {
         assignment_from_date: item.assignment_from_date || null,
         assignment_to_date: item.assignment_to_date || null,
         work_description: item.work_description || null,
-        split_note: item.foreman_id === '__subcontractor__' ? (item.subcontractor_name || null) : null,
+        split_note: item.subcontractor_name || null,
       }))
 
       const { error: foremanError } = await supabase
@@ -4572,7 +4572,6 @@ async function copyContactList() {
                           const value = e.target.value
                           updateForemanAssignment(assignment.localId, 'foreman_id', value)
                           if (value !== '__subcontractor__') {
-                            updateForemanAssignment(assignment.localId, 'subcontractor_name', '')
                             updateForemanAssignment(assignment.localId, 'split_note', '')
                           }
                         }}
@@ -4588,24 +4587,22 @@ async function copyContactList() {
                       </select>
                     </div>
 
-                    {assignment.foreman_id === '__subcontractor__' ? (
-                      <div>
-                        <label style={styles.label}>Subcontractor</label>
-                        <input
-                          type="text"
-                          value={assignment.subcontractor_name || ''}
-                          onChange={(e) =>
-                            updateForemanAssignment(
-                              assignment.localId,
-                              'subcontractor_name',
-                              e.target.value
-                            )
-                          }
-                          style={styles.input}
-                          placeholder="Type subcontractor name..."
-                        />
-                      </div>
-                    ) : null}
+                    <div>
+                      <label style={styles.label}>Subcontractor <span style={styles.mutedText}>(optional)</span></label>
+                      <input
+                        type="text"
+                        value={assignment.subcontractor_name || ''}
+                        onChange={(e) =>
+                          updateForemanAssignment(
+                            assignment.localId,
+                            'subcontractor_name',
+                            e.target.value
+                          )
+                        }
+                        style={styles.input}
+                        placeholder="Type subcontractor name..."
+                      />
+                    </div>
                   </div>
 
                   <div style={styles.twoColumnGrid}>
