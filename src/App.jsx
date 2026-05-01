@@ -289,12 +289,12 @@ export default function App() {
   const [scheduleItems, setScheduleItems] = useState([])
   const [emailGroups, setEmailGroups] = useState([])
   const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
+  const [selectedEmailContactId, setSelectedEmailContactId] = useState('')
   const [selectedTextGroupViewId, setSelectedTextGroupViewId] = useState('')
 const [reportNotes, setReportNotes] = useState('')
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
-  const [notesStyle, setNotesStyle] = useState('accent')
   const [showActiveOnly, setShowActiveOnly] = useState(false)
   const [weeklySearchText, setWeeklySearchText] = useState('')
   const [jumpToScheduleItemId, setJumpToScheduleItemId] = useState('')
@@ -330,7 +330,7 @@ const [reportNotes, setReportNotes] = useState('')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-const [printLayout, setPrintLayout] = useState('report')
+const [printLayout, setPrintLayout] = useState('')
   const [editingScheduleItemId, setEditingScheduleItemId] = useState(null)
   const [showScheduleEditor, setShowScheduleEditor] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -3087,22 +3087,33 @@ async function copyContactList() {
     }
   }
 
-  function emailSchedule(group) {
-    if (!group || !group.email_group_recipients?.length) {
-      showError('This email group has no recipients.')
-      return
+  function getSelectedEmailRecipients() {
+    if (selectedEmailContactId) {
+      const contact = contacts.find((person) => person.id === selectedEmailContactId)
+      return contact?.email ? [contact.email] : []
     }
 
-    const recipients = group.email_group_recipients
-      .filter((r) => r.active !== false && r.email)
-      .map((r) => r.email)
+    if (selectedEmailGroupId) {
+      const group = emailGroups.find((item) => item.id === selectedEmailGroupId)
+      return (group?.email_group_recipients || [])
+        .filter((recipient) => recipient.active !== false && recipient.email)
+        .map((recipient) => recipient.email)
+    }
+
+    return []
+  }
+
+  function emailSelectedReport() {
+    const recipients = getSelectedEmailRecipients()
 
     if (!recipients.length) {
-      showError('This email group has no active recipients.')
+      showError('Select a group or contact with an email address first.')
       return
     }
 
     const weekLabel = buildEmailWeekLabel(selectedWeekFrom, selectedWeekTo)
+    const reportName = printLayout === 'equipment' ? 'Equipment Schedule' : 'Weekly Schedule'
+    const subject = encodeURIComponent(weekLabel ? `${reportName} - ${weekLabel}` : reportName)
 
     if (printLayout === 'equipment') {
       const equipmentItems = printScheduleItems.filter((item) => getEquipmentMoveEntriesForItem(item).length)
@@ -3116,23 +3127,13 @@ async function copyContactList() {
           }).join('\n\n')
         : 'No equipment moves entered for this week.'
 
-      const subject = encodeURIComponent(
-        weekLabel ? `Equipment Moves - ${weekLabel}` : 'Equipment Moves'
-      )
-      const body = encodeURIComponent(
-        `${weekLabel ? `Equipment Moves - ${weekLabel}` : 'Equipment Moves'}\n\n${equipmentBody}`
-      )
+      const body = encodeURIComponent(`${weekLabel ? `${reportName} - ${weekLabel}` : reportName}\n\n${equipmentBody}`)
       window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
       return
     }
 
-    const subject = encodeURIComponent(
-      weekLabel ? `Weekly Schedule - ${weekLabel}` : 'Weekly Schedule'
-    )
-
-    // Leave the body parameter off completely so Outlook can apply
-    // the selected account's default signature to the new message.
     window.location.href = `mailto:${recipients.join(',')}?subject=${subject}`
+    showSuccess('Email opened. Attach the saved PDF before sending.')
   }
 
   function renderDayContents(item, dayKey) {
@@ -3651,7 +3652,7 @@ async function copyContactList() {
     return (
       <div style={styles.page} className="print-root">
         <div style={styles.card}>
-          <h1 style={styles.title}>Weekly Schedule App</h1>
+          <h1 style={styles.title}>Weekly Schedule</h1>
           <p style={styles.text}>Loading...</p>
         </div>
       </div>
@@ -3662,7 +3663,7 @@ async function copyContactList() {
     return (
       <div style={styles.page}>
         <div style={styles.loginCard}>
-          <h1 style={styles.title}>Weekly Schedule App Login</h1>
+          <h1 style={styles.title}>Weekly Schedule Login</h1>
           <p style={styles.text}>{message}</p>
 
           <input
@@ -3707,8 +3708,8 @@ async function copyContactList() {
     <div style={styles.page}>
 <style>{`
   @page {
-    size: ${printLayout === 'grid' ? 'landscape' : 'portrait'};
-    margin: ${printLayout === 'grid' ? '0.12in' : '0.18in'};
+    size: ${false ? 'landscape' : 'portrait'};
+    margin: ${false ? '0.12in' : '0.18in'};
   }
 
   button {
@@ -3771,7 +3772,7 @@ async function copyContactList() {
       box-shadow: none !important;
       border-radius: 0 !important;
       transform-origin: top center;
-      padding: ${printLayout === 'grid' ? '0.14in 0.16in 0.12in' : '0.14in 0.18in 0.12in'} !important;
+      padding: ${false ? '0.14in 0.16in 0.12in' : '0.14in 0.18in 0.12in'} !important;
     }
 
     .print-report-list {
@@ -3821,7 +3822,7 @@ async function copyContactList() {
         <div style={styles.topBar}>
           <div style={styles.headerTopRow}>
             <div style={styles.headerTextBlock}>
-              <h1 style={styles.title}>Weekly Schedule App</h1>
+              <h1 style={styles.title}>Weekly Schedule</h1>
               <p style={styles.headerSubtitle}>Command Construction Industries Scheduling System</p>
             </div>
 
@@ -5373,10 +5374,8 @@ async function copyContactList() {
 
       {activeTab === 'print' && (
         <div style={styles.singleColumnWrap}>
-          <div style={styles.printPageWrap} className={`print-page-wrap ${printLayout === 'grid' ? 'print-grid-mode' : 'print-report-mode'}`}>
+          <div style={styles.printPageWrap} className={`print-page-wrap ${false ? 'print-grid-mode' : 'print-report-mode'}`}>
 <div style={styles.assignmentHeader} className="no-print">
-  <h2 style={styles.sectionTitle}>Print / PDF View</h2>
-
   <div style={styles.topBarButtons}>
     <button onClick={() => window.print()} style={styles.button}>
       Print / Save PDF
@@ -5387,25 +5386,20 @@ async function copyContactList() {
       onChange={(e) => setPrintLayout(e.target.value)}
       style={styles.jobPrefixSelect}
     >
-      <option value="report">Report Layout</option>
-      <option value="equipment">Equipment Moves by Job</option>
-    </select>
-
-    <select
-      value={notesStyle}
-      onChange={(e) => setNotesStyle(e.target.value)}
-      style={styles.jobPrefixSelect}
-    >
-      <option value="accent">Accent Style</option>
-      <option value="box">Box Style</option>
+      <option value="" disabled>Select Report</option>
+      <option value="weekly">Weekly Schedule</option>
+      <option value="equipment">Equipment Schedule</option>
     </select>
 
     <select
       value={selectedEmailGroupId}
-      onChange={(e) => setSelectedEmailGroupId(e.target.value)}
+      onChange={(e) => {
+        setSelectedEmailGroupId(e.target.value)
+        if (e.target.value) setSelectedEmailContactId('')
+      }}
       style={styles.jobPrefixSelect}
     >
-      <option value="">Select Email Group</option>
+      <option value="">Select Group</option>
       {emailGroups.map((group) => (
         <option key={group.id} value={group.id}>
           {group.name}
@@ -5413,11 +5407,27 @@ async function copyContactList() {
       ))}
     </select>
 
-    <button
-      onClick={() => emailSchedule(selectedEmailGroup)}
-      style={styles.buttonSecondary}
+    <select
+      value={selectedEmailContactId}
+      onChange={(e) => {
+        setSelectedEmailContactId(e.target.value)
+        if (e.target.value) setSelectedEmailGroupId('')
+      }}
+      style={styles.jobPrefixSelect}
     >
-      Email Selected Group
+      <option value="">Select Contact</option>
+      {contacts.filter((contact) => contact.email).map((contact) => (
+        <option key={contact.id} value={contact.id}>
+          {contact.name}
+        </option>
+      ))}
+    </select>
+
+    <button
+      onClick={emailSelectedReport}
+      style={styles.button}
+    >
+      Email Selected
     </button>
   </div>
 </div>
@@ -5471,13 +5481,11 @@ async function copyContactList() {
 </div>
 
 <div style={styles.emailNoteBox} className="no-print">
-  <strong>How this works right now:</strong>{' '}
-  {printLayout === 'equipment'
-    ? 'Equipment Moves can be printed/PDF saved, or emailed as text to the selected group.'
-    : <>click <em>Print / Save PDF</em> first, save the PDF, then click the email button to open your email app and attach the PDF.</>}
+  <strong>Email note:</strong>{' '}
+  Browser security does not allow this app to silently attach a PDF to Outlook. Click <em>Print / Save PDF</em>, save the PDF, then use <em>Email Selected</em> to open Outlook with the selected recipient(s).
 </div>
             <div style={styles.printPreviewStage} className="print-preview-stage">
-              <div style={printLayout === 'grid' ? styles.reportPaperGrid : styles.reportPaper} className="print-paper">
+              <div style={false ? styles.reportPaperGrid : styles.reportPaper} className="print-paper">
               <div style={styles.reportHeader} className="report-header-print-fix">
                 <div style={styles.reportHeaderTopBorder} />
                 <div style={styles.reportHeaderTop}>
@@ -5533,7 +5541,7 @@ async function copyContactList() {
       <p style={styles.text}>No equipment moves entered for this week.</p>
     )}
   </>
-) : printLayout === 'report' ? (
+) : (printLayout === 'weekly' || !printLayout) ? (
   <>
     {printScheduleItems.length === 0 ? (
       <p style={styles.text}>No schedule items found for this print view.</p>
@@ -5578,11 +5586,7 @@ async function copyContactList() {
 
                         {item.notes ? (
                           <div
-                            style={
-                              notesStyle === 'accent'
-                                ? styles.printNotesAccent
-                                : styles.printNotesBox
-                            }
+                            style={styles.printNotesAccent}
                           >
                             <span style={{ fontWeight: '600' }}>Job Notes: </span>
                             <span>{item.notes}</span>
@@ -5670,11 +5674,7 @@ async function copyContactList() {
               <div style={styles.printSectionHeader}>Print Notes</div>
 
               <div
-                style={
-                  notesStyle === 'accent'
-                    ? styles.printNotesAccent
-                    : styles.printNotesBox
-                }
+                style={styles.printNotesAccent}
               >
                 {reportNotes ? <div style={styles.printFieldNotesText}>{reportNotes}</div> : null}
                 <div style={styles.reportNotesLine} />
