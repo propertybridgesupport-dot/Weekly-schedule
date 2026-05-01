@@ -3058,6 +3058,29 @@ async function copyContactList() {
     }
 
     const weekLabel = buildEmailWeekLabel(selectedWeekFrom, selectedWeekTo)
+
+    if (printLayout === 'equipment') {
+      const equipmentItems = printScheduleItems.filter((item) => getEquipmentMoveEntriesForItem(item).length)
+      const equipmentBody = equipmentItems.length
+        ? equipmentItems.map((item) => {
+            const jobTitle = `${item.jobs?.job_number || '—'} — ${item.jobs?.job_name || 'No Job Name'}`
+            const moves = getEquipmentMoveEntriesForItem(item)
+              .map((move) => `  ${move.label}: ${move.text}`)
+              .join('\n')
+            return `${jobTitle}\n${moves}`
+          }).join('\n\n')
+        : 'No equipment moves entered for this week.'
+
+      const subject = encodeURIComponent(
+        weekLabel ? `Equipment Moves - ${weekLabel}` : 'Equipment Moves'
+      )
+      const body = encodeURIComponent(
+        `${weekLabel ? `Equipment Moves - ${weekLabel}` : 'Equipment Moves'}\n\n${equipmentBody}`
+      )
+      window.location.href = `mailto:${recipients.join(',')}?subject=${subject}&body=${body}`
+      return
+    }
+
     const subject = encodeURIComponent(
       weekLabel ? `Weekly Schedule - ${weekLabel}` : 'Weekly Schedule'
     )
@@ -4500,30 +4523,6 @@ async function copyContactList() {
               </div>
             </div>
 
-            <div style={styles.equipmentMovesSection}>
-              <div style={styles.assignmentHeader}>
-                <div>
-                  <label style={styles.label}>Equipment Moves</label>
-                  <div style={styles.inlineTinyHelp}>Enter only the days needed. Blank days stay off the printed report.</div>
-                </div>
-              </div>
-              <div style={styles.equipmentMovesGrid}>
-                {EQUIPMENT_DAY_KEYS.map((dayKey) => (
-                  <div key={dayKey} style={styles.equipmentMoveDayCard}>
-                    <label style={styles.equipmentMoveDayLabel}>{EQUIPMENT_DAY_LABELS[dayKey]}</label>
-                    <textarea
-                      value={scheduleForm.equipment_moves?.[dayKey] || ''}
-                      onChange={(e) => updateEquipmentMove(dayKey, e.target.value)}
-                      onInput={autoGrowTextarea}
-                      rows={1}
-                      style={styles.equipmentMoveTextarea}
-                      placeholder={`${EQUIPMENT_DAY_LABELS[dayKey]} moves...`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div style={{ marginTop: '16px' }}>
               <label style={styles.label}>Overall Job Notes</label>
               <textarea
@@ -4641,7 +4640,9 @@ async function copyContactList() {
                         e.target.value
                       )
                     }
-                    style={styles.textarea}
+                    onInput={autoGrowTextarea}
+                    rows={1}
+                    style={styles.compactTextarea}
                     placeholder="What is this foreman doing on this job?"
                   />
                 </div>
@@ -4723,12 +4724,40 @@ async function copyContactList() {
                         e.target.value
                       )
                     }
-                    style={styles.textarea}
+                    onInput={autoGrowTextarea}
+                    rows={1}
+                    style={styles.compactTextarea}
                     placeholder="What does the surveyor need to do?"
                   />
                 </div>
               </div>
             ))}
+
+            <div style={styles.equipmentMovesSection}>
+              <div style={styles.assignmentHeader}>
+                <div>
+                  <label style={styles.label}>Equipment Moves</label>
+                  <div style={styles.inlineTinyHelp}>Enter only the days needed. Blank days stay off the printed report.</div>
+                </div>
+              </div>
+              <div style={styles.equipmentMovesGrid}>
+                {EQUIPMENT_DAY_KEYS.map((dayKey) => (
+                  <div key={dayKey} style={styles.equipmentMoveDayCard}>
+                    <label style={styles.equipmentMoveDayLabel}>{EQUIPMENT_DAY_LABELS[dayKey]}</label>
+                    <textarea
+                      value={scheduleForm.equipment_moves?.[dayKey] || ''}
+                      onChange={(e) => updateEquipmentMove(dayKey, e.target.value)}
+                      onInput={autoGrowTextarea}
+                      rows={1}
+                      style={styles.equipmentMoveTextarea}
+                      placeholder={`${EQUIPMENT_DAY_LABELS[dayKey]} moves...`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+
 
             <div style={styles.bottomButtons}>
               <button onClick={saveScheduleItem} disabled={isActionBusy('saveSchedule')} style={isActionBusy('saveSchedule') ? styles.buttonDisabled : styles.button}>
@@ -5394,9 +5423,10 @@ async function copyContactList() {
 </div>
 
 <div style={styles.emailNoteBox} className="no-print">
-  <strong>How this works right now:</strong> click{' '}
-  <em>Print / Save PDF</em> first, save the PDF, then click the email
-  button to open your email app and attach the PDF.
+  <strong>How this works right now:</strong>{' '}
+  {printLayout === 'equipment'
+    ? 'Equipment Moves can be printed/PDF saved, or emailed as text to the selected group.'
+    : <>click <em>Print / Save PDF</em> first, save the PDF, then click the email button to open your email app and attach the PDF.</>}
 </div>
             <div style={styles.printPreviewStage} className="print-preview-stage">
               <div style={printLayout === 'grid' ? styles.reportPaperGrid : styles.reportPaper} className="print-paper">
