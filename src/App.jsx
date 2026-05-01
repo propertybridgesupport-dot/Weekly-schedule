@@ -2449,6 +2449,46 @@ async function copyContactList() {
     }))
   }
 
+  function updateProjectManagerAssignment(index, value) {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => {
+      const current = Array.isArray(prev.project_manager_ids) && prev.project_manager_ids.length
+        ? [...prev.project_manager_ids]
+        : ['']
+      current[index] = value
+      const cleaned = current.filter((id, i) => id || i === 0)
+      return {
+        ...prev,
+        project_manager_ids: cleaned,
+        project_manager_id: cleaned.find(Boolean) || '',
+      }
+    })
+  }
+
+  function addProjectManagerAssignmentRow() {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => ({
+      ...prev,
+      project_manager_ids: [...(Array.isArray(prev.project_manager_ids) && prev.project_manager_ids.length ? prev.project_manager_ids : ['']), ''],
+    }))
+  }
+
+  function removeProjectManagerAssignmentRow(index) {
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => {
+      const current = Array.isArray(prev.project_manager_ids) && prev.project_manager_ids.length
+        ? [...prev.project_manager_ids]
+        : ['']
+      const updated = current.filter((_, i) => i !== index)
+      const next = updated.length ? updated : ['']
+      return {
+        ...prev,
+        project_manager_ids: next,
+        project_manager_id: next.find(Boolean) || '',
+      }
+    })
+  }
+
   function updateSuperintendentAssignment(localId, field, value) {
     setHasUnsavedChanges(true)
     setScheduleForm((prev) => ({
@@ -4363,20 +4403,29 @@ async function copyContactList() {
               </div>
 
               <div>
-                <label style={styles.label}>Project Manager(s) (optional)</label>
-                <select
-                  multiple
-                  value={scheduleForm.project_manager_ids || []}
-                  onChange={(e) => updateScheduleProjectManagers(e.target.selectedOptions)}
-                  style={{ ...styles.select, minHeight: '92px' }}
-                >
-                  {projectManagers.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.name}
-                    </option>
-                  ))}
-                </select>
-                <div style={styles.helpText}>Hold Ctrl on computer to select more than one.</div>
+                <div style={styles.assignmentHeader}>
+                  <label style={styles.label}>Project Manager(s) (optional)</label>
+                  <button type="button" onClick={addProjectManagerAssignmentRow} style={styles.smallButton}>Add PM</button>
+                </div>
+                {(Array.isArray(scheduleForm.project_manager_ids) && scheduleForm.project_manager_ids.length ? scheduleForm.project_manager_ids : ['']).map((projectManagerId, index) => (
+                  <div key={`pm-row-${index}`} style={styles.inlineAssignmentRow}>
+                    <select
+                      value={projectManagerId || ''}
+                      onChange={(e) => updateProjectManagerAssignment(index, e.target.value)}
+                      style={styles.select}
+                    >
+                      <option value="">None</option>
+                      {projectManagers.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.name}
+                        </option>
+                      ))}
+                    </select>
+                    {(Array.isArray(scheduleForm.project_manager_ids) && scheduleForm.project_manager_ids.length > 1) ? (
+                      <button type="button" onClick={() => removeProjectManagerAssignmentRow(index)} style={styles.smallDangerButton}>Remove</button>
+                    ) : null}
+                  </div>
+                ))}
               </div>
 
               <div>
