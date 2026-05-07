@@ -59,6 +59,7 @@ function emptyEquipmentMoves() {
 
 
 const FOREMAN_NIGHT_MARKER = '|||NIGHTS'
+const QUICK_NOTE_DRAFT_KEY = 'weeklyScheduleFieldDumpDraft'
 
 function getForemanSubcontractorName(splitNote) {
   return String(splitNote || '').replace(FOREMAN_NIGHT_MARKER, '').trim()
@@ -257,6 +258,7 @@ export default function App() {
   const [message, setMessage] = useState('Checking login...')
   const [activeTab, setActiveTab] = useState('weekly')
   const [quickNote, setQuickNote] = useState('')
+  const [draftSavedAt, setDraftSavedAt] = useState('')
   const [fieldNotes, setFieldNotes] = useState([])
   const [fieldNotesSearch, setFieldNotesSearch] = useState('')
   const [fieldNotesView, setFieldNotesView] = useState('daily')
@@ -371,6 +373,47 @@ const [printLayout, setPrintLayout] = useState('')
 
     return () => subscription.unsubscribe()
   }, [])
+
+
+  useEffect(() => {
+    try {
+      const savedDraft = window.localStorage.getItem(QUICK_NOTE_DRAFT_KEY)
+      if (savedDraft && !quickNote.trim()) {
+        setQuickNote(savedDraft)
+        setDraftSavedAt('restored')
+      }
+    } catch (error) {
+      console.error('Could not restore field dump draft.', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (quickNote.trim()) {
+        window.localStorage.setItem(QUICK_NOTE_DRAFT_KEY, quickNote)
+        setDraftSavedAt(new Date().toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+        }))
+      }
+    } catch (error) {
+      console.error('Could not save field dump draft.', error)
+    }
+  }, [quickNote])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      try {
+        if (quickNote.trim()) {
+          window.localStorage.setItem(QUICK_NOTE_DRAFT_KEY, quickNote)
+        }
+      } catch (error) {
+        console.error('Background draft save failed.', error)
+      }
+    }, 4000)
+
+    return () => window.clearInterval(interval)
+  }, [quickNote])
 
   useEffect(() => {
     if (session) {
@@ -1646,6 +1689,16 @@ async function copyContactList() {
     return groups
   }, [fieldNotes, fieldNotesSearch, fieldNotesDateFilter, fieldNotesShowDone, jobs, foremen, superintendents])
 
+
+  function clearSavedQuickNoteDraft() {
+    try {
+      window.localStorage.removeItem(QUICK_NOTE_DRAFT_KEY)
+    } catch (error) {
+      console.error('Could not clear saved field dump draft.', error)
+    }
+    setDraftSavedAt('')
+  }
+
   async function saveQuickNote() {
     const noteText = quickNote.trim()
     if (!noteText) {
@@ -1671,6 +1724,7 @@ async function copyContactList() {
     }
 
     setQuickNote('')
+    clearSavedQuickNoteDraft()
     await loadFieldNotes()
     showSuccess(splitNotes.length > 1 ? `${splitNotes.length} field notes saved and separated.` : 'Field note saved.')
     setActionLoading('')
@@ -1935,13 +1989,18 @@ async function copyContactList() {
             spellCheck={true}
             style={quickMode ? styles.quickDumpTextArea : styles.fieldNotesTextArea}
           />
+          {draftSavedAt ? (
+            <div style={styles.draftSavedText}>
+              Draft saved{draftSavedAt === 'restored' ? ' • restored' : ` • ${draftSavedAt}`}
+            </div>
+          ) : null}
 
           <div style={styles.fieldNotesActionRow}>
             <button onClick={saveQuickNote} disabled={isActionBusy('saveQuickNote')} style={isActionBusy('saveQuickNote') ? styles.buttonDisabled : styles.button}>
               {isActionBusy('saveQuickNote') ? 'Saving...' : 'Save Field Note'}
             </button>
             <button onClick={cleanQuickNoteDraft} style={styles.buttonSecondary}>Clean Text</button>
-            <button onClick={() => setQuickNote('')} style={styles.buttonSecondary}>Clear</button>
+            <button onClick={() => { setQuickNote(''); clearSavedQuickNoteDraft() }} style={styles.buttonSecondary}>Clear</button>
           </div>
         </div>
 
