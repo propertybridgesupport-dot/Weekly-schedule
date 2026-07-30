@@ -596,7 +596,11 @@ const [printLayout, setPrintLayout] = useState('')
     if (!selectedWeekTo) return scheduleItems
 
     const eligibleItems = scheduleItems.filter((item) => {
-      return !item.from_date || item.from_date <= selectedWeekTo
+      const jobStopDate = item.jobs?.stop_date || ''
+      const startsByThisWeek = !item.from_date || item.from_date <= selectedWeekTo
+      const isStillOpenForThisWeek = !jobStopDate || jobStopDate >= selectedWeekFrom
+
+      return startsByThisWeek && isStillOpenForThisWeek
     })
 
     const latestByJob = {}
@@ -2774,18 +2778,46 @@ async function copyContactList() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  async function deleteScheduleItem(id) {
-    const confirmed = window.confirm('Delete this schedule item?')
+  async function closeOutScheduleItem(id) {
+    const item = scheduleItems.find((scheduleItem) => scheduleItem.id === id)
+    const jobId = item?.job_id || item?.jobs?.id
+
+    if (!jobId) {
+      showError('Could not identify this job.')
+      return
+    }
+
+    if (!selectedWeekFrom) {
+      showError('Please select the week where the job should be closed out.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Close out this job beginning the week of ${formatLongDate(selectedWeekFrom)}? ` +
+      'It will remain in Master Info and on all previous weekly schedules.'
+    )
     if (!confirmed) return
 
-    const { error } = await supabase.from('schedule_items').delete().eq('id', id)
+    const closeDate = shiftIsoDate(selectedWeekFrom, -1)
+    setActionLoading(`closeOutSchedule-${id}`)
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ stop_date: closeDate })
+      .eq('id', jobId)
 
     if (error) {
       showError(error.message)
-    } else {
-      if (editingScheduleItemId === id) resetScheduleForm()
-      loadAllData()
+      setActionLoading('')
+      return
     }
+
+    if (editingScheduleItemId === id) resetScheduleForm()
+    await loadAllData()
+    showSuccess(
+      'Job closed out. Previous weeks were preserved, and it will no longer roll forward.'
+    )
+    setActionLoading('')
   }
 
   async function saveScheduleItem() {
@@ -5105,10 +5137,11 @@ async function copyContactList() {
                             Edit
                           </button>
                           <button
-                            onClick={() => deleteScheduleItem(item.id)}
+                            onClick={() => closeOutScheduleItem(item.id)}
                             style={styles.smallDangerButton}
+                            disabled={isActionBusy(`closeOutSchedule-${item.id}`)}
                           >
-                            Delete
+                            {isActionBusy(`closeOutSchedule-${item.id}`) ? 'Closing...' : 'Close Out'}
                           </button>
                         </div>
                       </div>
