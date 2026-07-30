@@ -4,12 +4,6 @@ import { supabase } from './lib/supabase'
 function emptyForemanAssignment() {
   return {
     localId: crypto.randomUUID(),
-    id: nuimport React, { useEffect, useMemo, useState } from 'react'
-import { supabase } from './lib/supabase'
-
-function emptyForemanAssignment() {
-  return {
-    localId: crypto.randomUUID(),
     id: null,
     foreman_id: '',
     assignment_from_date: '',
