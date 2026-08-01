@@ -59,6 +59,7 @@ function emptyEquipmentMoves() {
 
 
 const FOREMAN_NIGHT_MARKER = '|||NIGHTS'
+const SCHEDULE_CLOSE_OUT_MARKER = '|||SCHEDULE_CLOSED_OUT|||'
 const QUICK_NOTE_DRAFT_KEY = 'weeklyScheduleFieldDumpDraft'
 
 function getForemanSubcontractorName(splitNote) {
@@ -595,30 +596,39 @@ const [printLayout, setPrintLayout] = useState('')
   const weekScheduleItems = useMemo(() => {
     if (!selectedWeekTo) return scheduleItems
 
+    // Master Info start/stop dates are informational only.
+    // Weekly visibility is controlled only by schedule entries and Close Out markers.
     const eligibleItems = scheduleItems.filter((item) => {
-      const jobStopDate = item.jobs?.stop_date || ''
-      const startsByThisWeek = !item.from_date || item.from_date <= selectedWeekTo
-      const isStillOpenForThisWeek = !jobStopDate || jobStopDate >= selectedWeekFrom
-
-      return startsByThisWeek && isStillOpenForThisWeek
+      return !item.from_date || item.from_date <= selectedWeekTo
     })
 
-    const latestByJob = {}
+    const latestRegularByJob = {}
+    const latestCloseOutByJob = {}
 
     eligibleItems.forEach((item) => {
       const jobId = item.job_id || item.jobs?.id || item.id
+      const itemFrom = item.from_date || ''
+      const isCloseOutMarker = item.notes === SCHEDULE_CLOSE_OUT_MARKER
 
-      if (!latestByJob[jobId]) {
-        latestByJob[jobId] = item
+      if (isCloseOutMarker) {
+        const currentCloseOut = latestCloseOutByJob[jobId]
+        if (!currentCloseOut || itemFrom > (currentCloseOut.from_date || '')) {
+          latestCloseOutByJob[jobId] = item
+        }
         return
       }
 
-      const currentLatest = latestByJob[jobId]
-      const itemFrom = item.from_date || ''
+      const currentLatest = latestRegularByJob[jobId]
+
+      if (!currentLatest) {
+        latestRegularByJob[jobId] = item
+        return
+      }
+
       const latestFrom = currentLatest.from_date || ''
 
       if (itemFrom > latestFrom) {
-        latestByJob[jobId] = item
+        latestRegularByJob[jobId] = item
         return
       }
 
@@ -626,12 +636,22 @@ const [printLayout, setPrintLayout] = useState('')
         const itemTo = item.to_date || ''
         const latestTo = currentLatest.to_date || ''
         if (itemTo > latestTo) {
-          latestByJob[jobId] = item
+          latestRegularByJob[jobId] = item
         }
       }
     })
 
-    const sortedWeekItems = Object.values(latestByJob).sort((a, b) => {
+    const visibleItems = Object.entries(latestRegularByJob)
+      .filter(([jobId, item]) => {
+        const closeOut = latestCloseOutByJob[jobId]
+        if (!closeOut) return true
+
+        // A later regular schedule entry reopens the job.
+        return (item.from_date || '') > (closeOut.from_date || '')
+      })
+      .map(([, item]) => item)
+
+    const sortedWeekItems = visibleItems.sort((a, b) => {
       const aNum = extractJobNumberValue(a.jobs?.job_number)
       const bNum = extractJobNumberValue(b.jobs?.job_number)
       return aNum - bNum
@@ -2787,27 +2807,53 @@ async function copyContactList() {
       return
     }
 
-    if (!selectedWeekFrom) {
+    if (!selectedWeekFrom || !selectedWeekTo) {
       showError('Please select the week where the job should be closed out.')
       return
     }
 
     const confirmed = window.confirm(
       `Close out this job beginning the week of ${formatLongDate(selectedWeekFrom)}? ` +
-      'It will remain in Master Info and on all previous weekly schedules.'
+      'It will remain in Master Info and on all previous weekly schedules. ' +
+      'The projected start and stop dates will not be changed.'
     )
     if (!confirmed) return
 
-    const closeDate = shiftIsoDate(selectedWeekFrom, -1)
     setActionLoading(`closeOutSchedule-${id}`)
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ stop_date: closeDate })
-      .eq('id', jobId)
+    const existingThisWeek = scheduleItems.find((scheduleItem) => {
+      const scheduleJobId = scheduleItem.job_id || scheduleItem.jobs?.id
+      return (
+        scheduleJobId === jobId &&
+        scheduleItem.from_date === selectedWeekFrom &&
+        scheduleItem.to_date === selectedWeekTo
+      )
+    })
 
-    if (error) {
-      showError(error.message)
+    let closeOutError
+
+    if (existingThisWeek) {
+      const result = await supabase
+        .from('schedule_items')
+        .update({ notes: SCHEDULE_CLOSE_OUT_MARKER })
+        .eq('id', existingThisWeek.id)
+
+      closeOutError = result.error
+    } else {
+      const result = await supabase
+        .from('schedule_items')
+        .insert({
+          from_date: selectedWeekFrom,
+          to_date: selectedWeekTo,
+          job_id: jobId,
+          notes: SCHEDULE_CLOSE_OUT_MARKER,
+        })
+
+      closeOutError = result.error
+    }
+
+    if (closeOutError) {
+      showError(closeOutError.message)
       setActionLoading('')
       return
     }
@@ -2815,7 +2861,7 @@ async function copyContactList() {
     if (editingScheduleItemId === id) resetScheduleForm()
     await loadAllData()
     showSuccess(
-      'Job closed out. Previous weeks were preserved, and it will no longer roll forward.'
+      'Job closed out. Previous weeks were preserved, and Master Info dates were not changed.'
     )
     setActionLoading('')
   }
@@ -4074,7 +4120,7 @@ async function copyContactList() {
               style={styles.input}
             />
 
-            <label style={styles.label}>Start Date</label>
+            <label style={styles.label}>Projected Start Date (information only)</label>
             <input
               type="date"
               value={jobStartDate}
@@ -4082,7 +4128,7 @@ async function copyContactList() {
               style={styles.input}
             />
 
-            <label style={styles.label}>Stop Date</label>
+            <label style={styles.label}>Projected Stop Date (information only)</label>
             <input
               type="date"
               value={jobStopDate}
