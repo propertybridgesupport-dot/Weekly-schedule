@@ -303,7 +303,7 @@ const [reportNotes, setReportNotes] = useState('')
   const [weeklySearchText, setWeeklySearchText] = useState('')
   const [jumpToScheduleItemId, setJumpToScheduleItemId] = useState('')
   const [mobileLayout, setMobileLayout] = useState('jobs')
-  const [mobileShareLayout, setMobileShareLayout] = useState(['foremen', 'superintendents', 'surveyors'].includes(mobileLayoutParam) ? mobileLayoutParam : 'jobs')
+  const [mobileShareLayout, setMobileShareLayout] = useState(['foremen', 'superintendents', 'surveyors', 'equipment'].includes(mobileLayoutParam) ? mobileLayoutParam : 'jobs')
   const [mobilePersonFilter, setMobilePersonFilter] = useState('')
   const [showPrintActiveOnly, setShowPrintActiveOnly] = useState(false)
   const [collapsedScheduleItemIds, setCollapsedScheduleItemIds] = useState(new Set())
@@ -583,10 +583,60 @@ const [printLayout, setPrintLayout] = useState('')
   }
 
   function getEquipmentMoveEntriesForItem(item) {
-    const moves = item?.equipment_moves || {}
+    const moves = item?.equipmentMoves || item?.equipment_moves || {}
     return EQUIPMENT_DAY_KEYS
       .map((dayKey) => ({ dayKey, label: EQUIPMENT_DAY_LABELS[dayKey], text: String(moves?.[dayKey] || '').trim() }))
       .filter((entry) => entry.text)
+  }
+
+  function buildMobileEquipmentGroups(items = []) {
+    return EQUIPMENT_DAY_KEYS
+      .map((dayKey) => {
+        const moves = items
+          .map((item) => {
+            const moveText = String((item?.equipmentMoves || item?.equipment_moves || {})?.[dayKey] || '').trim()
+            if (!moveText) return null
+
+            return {
+              key: `${item.id || item.job_id || item.jobNumber || item.jobs?.job_number}-${dayKey}`,
+              jobNumber: item.jobNumber ?? item.jobs?.job_number ?? '—',
+              jobName: item.jobName ?? item.jobs?.job_name ?? 'No Job Name',
+              text: moveText,
+            }
+          })
+          .filter(Boolean)
+
+        return { dayKey, label: EQUIPMENT_DAY_LABELS[dayKey], moves }
+      })
+      .filter((group) => group.moves.length)
+  }
+
+  function renderMobileEquipmentGroups(items = []) {
+    const groups = buildMobileEquipmentGroups(items)
+
+    return (
+      <div style={styles.mobileReadonlyListCompact}>
+        {groups.length === 0 ? (
+          <div style={styles.mobileEmptyCard}>No equipment moves entered for this week.</div>
+        ) : (
+          groups.map((group) => (
+            <div key={group.dayKey} style={styles.mobileReadonlyCard}>
+              <div style={styles.mobileReadonlyJobTitle}>{group.label}</div>
+              <div style={styles.mobileReadonlyBody}>
+                {group.moves.map((move) => (
+                  <div key={move.key} style={styles.mobileReadonlyAssignmentCard}>
+                    <div style={styles.mobileReadonlyAssignmentName}>
+                      {move.jobNumber} — {move.jobName}
+                    </div>
+                    <div style={styles.mobileReadonlyAssignmentLine}>{move.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    )
   }
 
   const filteredScheduleItems = useMemo(() => {
@@ -3469,6 +3519,19 @@ async function copyContactList() {
                   </div>
                 ) : null}
 
+                {getEquipmentMoveEntriesForItem(item).length ? (
+                  <div style={styles.mobileReadonlySection}>
+                    <div style={styles.mobileReadonlySectionTitle}>Equipment Moves</div>
+                    {getEquipmentMoveEntriesForItem(item).map((move) => (
+                      <div key={`${item.id || item.jobNumber || item.jobs?.job_number}-${move.dayKey}`} style={styles.mobileReadonlyAssignmentCard}>
+                        <div style={styles.mobileReadonlyAssignmentLine}>
+                          <strong>{move.label}:</strong> {move.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 {(item.foremen || item.schedule_item_foremen)?.length ? (
                   <div style={styles.mobileReadonlySection}>
                     <div style={styles.mobileReadonlySectionTitle}>Foreman Assignments</div>
@@ -3661,6 +3724,7 @@ async function copyContactList() {
             ['foremen', 'Foreman'],
             ['superintendents', 'Superintendent'],
             ['surveyors', 'Surveyor'],
+            ['equipment', 'Equipment Moves'],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -3673,7 +3737,7 @@ async function copyContactList() {
           ))}
         </div>
 
-        {mobileShareLayout !== 'jobs' ? (
+        {!['jobs', 'equipment'].includes(mobileShareLayout) ? (
           <select
             value={mobilePersonFilter}
             onChange={(e) => setMobilePersonFilter(e.target.value)}
@@ -3724,7 +3788,7 @@ async function copyContactList() {
 
           {renderMobileReadonlyLayoutToggle(weekScheduleItems)}
 
-          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(weekScheduleItems, { compact: true }) : renderMobileRoleGroups(weekScheduleItems, mobileShareLayout)}
+          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(weekScheduleItems, { compact: true }) : mobileShareLayout === 'equipment' ? renderMobileEquipmentGroups(weekScheduleItems) : renderMobileRoleGroups(weekScheduleItems, mobileShareLayout)}
         </div>
       </div>
     )
@@ -3764,7 +3828,7 @@ async function copyContactList() {
 
           {renderMobileReadonlyLayoutToggle(weekScheduleItems)}
 
-          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true }) : renderMobileRoleGroups(mobileShareSnapshot.items || [], mobileShareLayout)}
+          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(mobileShareSnapshot.items || [], { compact: true }) : mobileShareLayout === 'equipment' ? renderMobileEquipmentGroups(mobileShareSnapshot.items || []) : renderMobileRoleGroups(mobileShareSnapshot.items || [], mobileShareLayout)}
         </div>
       </div>
     )
@@ -3826,7 +3890,7 @@ async function copyContactList() {
 
           {renderMobileReadonlyLayoutToggle(weekScheduleItems)}
 
-          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true }) : renderMobileRoleGroups(publicShareData.snapshot?.items || [], mobileShareLayout)}
+          {mobileShareLayout === 'jobs' ? renderReadonlyScheduleCards(publicShareData.snapshot?.items || [], { compact: true }) : mobileShareLayout === 'equipment' ? renderMobileEquipmentGroups(publicShareData.snapshot?.items || []) : renderMobileRoleGroups(publicShareData.snapshot?.items || [], mobileShareLayout)}
         </div>
       </div>
     )
@@ -5513,6 +5577,7 @@ async function copyContactList() {
                   <option value="foremen">Group by Foreman</option>
                   <option value="superintendents">Group by Superintendent</option>
                   <option value="surveyors">Group by Surveyor</option>
+                  <option value="equipment">Equipment Moves by Day</option>
                 </select>
               </div>
             </div>
@@ -5563,7 +5628,7 @@ async function copyContactList() {
                   <div style={styles.mobileReadonlyDivider} />
                 </div>
 
-                {mobileLayout === 'jobs' ? renderReadonlyScheduleCards(weekScheduleItems, { compact: true }) : renderMobileRoleGroups(weekScheduleItems, mobileLayout)}
+                {mobileLayout === 'jobs' ? renderReadonlyScheduleCards(weekScheduleItems, { compact: true }) : mobileLayout === 'equipment' ? renderMobileEquipmentGroups(weekScheduleItems) : renderMobileRoleGroups(weekScheduleItems, mobileLayout)}
               </div>
             </div>
           </div>
