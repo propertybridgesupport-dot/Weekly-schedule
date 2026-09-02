@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 function emptyForemanAssignment() {
@@ -61,6 +61,7 @@ function emptyEquipmentMoves() {
 const FOREMAN_NIGHT_MARKER = '|||NIGHTS'
 const SCHEDULE_CLOSE_OUT_MARKER = '|||SCHEDULE_CLOSED_OUT|||'
 const QUICK_NOTE_DRAFT_KEY = 'weeklyScheduleFieldDumpDraft'
+const REPORT_NOTES_STORAGE_KEY = 'weeklyScheduleReportNotesByWeek'
 
 function getForemanSubcontractorName(splitNote) {
   return String(splitNote || '').replace(FOREMAN_NIGHT_MARKER, '').trim()
@@ -74,6 +75,32 @@ function buildForemanSplitNote(subcontractorName, isNight) {
   const name = String(subcontractorName || '').trim()
   if (!name && !isNight) return ''
   return `${name}${isNight ? FOREMAN_NIGHT_MARKER : ''}`
+}
+
+function getReportNotesWeekKey(weekFrom, weekTo) {
+  return weekFrom && weekTo ? `${weekFrom}__${weekTo}` : ''
+}
+
+function readStoredReportNotesByWeek() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(REPORT_NOTES_STORAGE_KEY) || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (error) {
+    console.error('Could not read saved report notes.', error)
+    return {}
+  }
+}
+
+function writeStoredReportNotesByWeek(notesByWeek) {
+  try {
+    window.localStorage.setItem(REPORT_NOTES_STORAGE_KEY, JSON.stringify(notesByWeek))
+  } catch (error) {
+    console.error('Could not save report notes.', error)
+  }
+}
+
+function isReportNotesTableMissing(error) {
+  return error?.code === '42P01' || error?.code === 'PGRST205'
 }
 
 function getForemanDisplayNameFromAssignment(assignment) {
@@ -296,6 +323,10 @@ export default function App() {
   const [selectedEmailContactId, setSelectedEmailContactId] = useState('')
   const [selectedTextGroupViewId, setSelectedTextGroupViewId] = useState('')
 const [reportNotes, setReportNotes] = useState('')
+  const [reportNotesLoadedWeekKey, setReportNotesLoadedWeekKey] = useState('')
+  const [showReportNotesModal, setShowReportNotesModal] = useState(false)
+  const reportNotesEditedWeekKeys = useRef(new Set())
+  const reportNotesTableUnavailable = useRef(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
@@ -465,6 +496,80 @@ const [printLayout, setPrintLayout] = useState('')
   }, [selectedWeekFrom, selectedWeekTo])
 
   useEffect(() => {
+    const weekKey = getReportNotesWeekKey(selectedWeekFrom, selectedWeekTo)
+    const storedNotes = readStoredReportNotesByWeek()
+    setReportNotes(storedNotes[weekKey] || '')
+    setReportNotesLoadedWeekKey('')
+
+    if (!weekKey || reportNotesTableUnavailable.current) {
+      setReportNotesLoadedWeekKey(weekKey)
+      return undefined
+    }
+
+    let cancelled = false
+    async function loadReportNotes() {
+      const { data, error } = await supabase
+        .from('weekly_report_notes')
+        .select('notes')
+        .eq('week_from', selectedWeekFrom)
+        .eq('week_to', selectedWeekTo)
+        .maybeSingle()
+
+      if (cancelled) return
+      if (error) {
+        if (isReportNotesTableMissing(error)) reportNotesTableUnavailable.current = true
+        else {
+          console.error('Could not load weekly report notes.', error)
+          showError('Could not load the saved report notes for this week.')
+        }
+      } else if (!reportNotesEditedWeekKeys.current.has(weekKey)) {
+        const notes = String(data?.notes || '')
+        setReportNotes(notes)
+        if (notes) storedNotes[weekKey] = notes
+        else delete storedNotes[weekKey]
+        writeStoredReportNotesByWeek(storedNotes)
+      }
+      setReportNotesLoadedWeekKey(weekKey)
+    }
+
+    loadReportNotes()
+    return () => { cancelled = true }
+  }, [selectedWeekFrom, selectedWeekTo])
+
+  useEffect(() => {
+    const weekKey = getReportNotesWeekKey(selectedWeekFrom, selectedWeekTo)
+    if (!weekKey || weekKey !== reportNotesLoadedWeekKey) return
+
+    const storedNotes = readStoredReportNotesByWeek()
+    const notes = String(reportNotes || '')
+    if (notes) storedNotes[weekKey] = notes
+    else delete storedNotes[weekKey]
+    writeStoredReportNotesByWeek(storedNotes)
+
+    if (reportNotesTableUnavailable.current) return
+    const saveTimer = window.setTimeout(async () => {
+      const { error } = await supabase
+        .from('weekly_report_notes')
+        .upsert(
+          { week_from: selectedWeekFrom, week_to: selectedWeekTo, notes },
+          { onConflict: 'week_from,week_to' }
+        )
+
+      if (error) {
+        if (isReportNotesTableMissing(error)) reportNotesTableUnavailable.current = true
+        else {
+          console.error('Could not save weekly report notes.', error)
+          showError('Could not save the report notes for this week.')
+        }
+        return
+      }
+      reportNotesEditedWeekKeys.current.delete(weekKey)
+    }, 500)
+
+    return () => window.clearTimeout(saveTimer)
+  }, [selectedWeekFrom, selectedWeekTo, reportNotes, reportNotesLoadedWeekKey])
+
+  useEffect(() => {
     if (!isViewerMode) return
     if (viewerWeekFromParam && viewerWeekToParam) {
       setSelectedWeekFrom(viewerWeekFromParam)
@@ -522,6 +627,20 @@ const [printLayout, setPrintLayout] = useState('')
     setSelectedWeekFrom(currentWeek.from)
     setSelectedWeekTo(currentWeek.to)
     setJumpToScheduleItemId('')
+  }
+
+  function openReportNotesModal() {
+    setShowReportNotesModal(true)
+  }
+
+  function closeReportNotesModal() {
+    setShowReportNotesModal(false)
+  }
+
+  function updateReportNotes(value) {
+    const weekKey = getReportNotesWeekKey(selectedWeekFrom, selectedWeekTo)
+    if (weekKey) reportNotesEditedWeekKeys.current.add(weekKey)
+    setReportNotes(value)
   }
 
   function applyWeekFromAnyDate(value) {
@@ -5354,6 +5473,47 @@ async function copyContactList() {
               </button>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={openReportNotesModal}
+            className="no-print"
+            style={{ ...styles.button, position: 'fixed', right: '22px', bottom: '22px', zIndex: 80, boxShadow: '0 10px 26px rgba(15, 23, 42, 0.2)' }}
+          >
+            {reportNotes.trim() ? 'Edit Report Notes' : 'Add Report Notes'}
+          </button>
+
+          {showReportNotesModal ? (
+            <div
+              className="no-print"
+              onClick={closeReportNotesModal}
+              style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px', background: 'rgba(15, 23, 42, 0.48)' }}
+            >
+              <div
+                style={{ ...styles.sectionCard, width: 'min(680px, 100%)', maxHeight: '78vh', overflowY: 'auto', margin: 0 }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div style={styles.assignmentHeader}>
+                  <div>
+                    <h2 style={styles.sectionTitle}>Report Notes</h2>
+                    <div style={styles.smallText}>These notes stay tied to the selected week and match the Print screen.</div>
+                  </div>
+                  <button type="button" onClick={closeReportNotesModal} style={styles.smallButton}>Close</button>
+                </div>
+                <label style={styles.label}>Week of {selectedWeekFrom ? formatLongDate(selectedWeekFrom) : 'Selected Week'}</label>
+                <textarea
+                  value={reportNotes}
+                  onChange={(e) => updateReportNotes(e.target.value)}
+                  onInput={autoGrowTextarea}
+                  placeholder="Add any overall notes for this report..."
+                  style={{ ...styles.printNotesTextarea, minHeight: '180px' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => updateReportNotes('')} style={styles.buttonSecondary}>Clear Notes</button>
+                  <button type="button" onClick={closeReportNotesModal} style={styles.button}>Done</button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -5743,10 +5903,13 @@ async function copyContactList() {
   <label style={styles.label}>Report Notes (optional)</label>
   <textarea
     value={reportNotes}
-    onChange={(e) => setReportNotes(e.target.value)}
+    onChange={(e) => updateReportNotes(e.target.value)}
     placeholder="Add any overall notes for this report..."
     style={styles.printNotesTextarea}
   />
+  <div style={styles.smallText}>
+    This matches the Weekly Schedule notes button and stays saved for the selected week.
+  </div>
 </div>
 
             <div style={styles.printPreviewStage} className="print-preview-stage">
