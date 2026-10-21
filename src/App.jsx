@@ -6095,7 +6095,7 @@ async function copyContactList() {
                               {item.schedule_item_foremen.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>{vacationNote(item, 'foreman', foremanVacationId(assignment))}
+                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>{vacationNote(item, 'foreman', foremanVacationId(assignment), true)}
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
@@ -6125,7 +6125,7 @@ async function copyContactList() {
                               {item.schedule_item_surveyors.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{assignment.surveyors?.name || '—'}</strong>{vacationNote(item, 'surveyor', assignment.surveyor_id)}
+                                    <strong>{assignment.surveyors?.name || '—'}</strong>{vacationNote(item, 'surveyor', assignment.surveyor_id, true)}
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
