@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
+import { vacationKey, vacationsForWeek, validateVacations, VacationFields, VacationNote } from './vacation'
 
 function emptyForemanAssignment() {
   return {
@@ -380,6 +381,7 @@ const [printLayout, setPrintLayout] = useState('')
     superintendent_assignments: [emptySuperintendentAssignment()],
     surveyor_id: '',
     equipment_moves: emptyEquipmentMoves(),
+    vacations: {},
     notes: '',
   })
 
@@ -2881,6 +2883,7 @@ async function copyContactList() {
       superintendent_assignments: [emptySuperintendentAssignment()],
       surveyor_id: '',
       equipment_moves: emptyEquipmentMoves(),
+      vacations: {},
       notes: '',
     })
     setForemanAssignments([emptyForemanAssignment()])
@@ -2919,6 +2922,7 @@ async function copyContactList() {
       superintendent_assignments: savedSuperAssignments,
       surveyor_id: item.surveyor_id || '',
       equipment_moves: { ...emptyEquipmentMoves(), ...(item.equipment_moves || {}) },
+      vacations: item.vacations || {},
       notes: item.notes || '',
     })
 
@@ -3035,6 +3039,46 @@ async function copyContactList() {
     setActionLoading('')
   }
 
+  function foremanVacationId(assignment) {
+    return assignment.foreman_id && assignment.foreman_id !== '__subcontractor__'
+      ? assignment.foreman_id
+      : getForemanSubcontractorName(assignment.subcontractor_name || assignment.split_note)
+  }
+
+  function updateVacation(role, id, value) {
+    if (!id) return
+    setHasUnsavedChanges(true)
+    setScheduleForm((prev) => ({
+      ...prev,
+      vacations: { ...(prev.vacations || {}), [vacationKey(role, id)]: value },
+    }))
+  }
+
+  function vacationFields(role, id) {
+    return <VacationFields person={id} value={scheduleForm.vacations?.[vacationKey(role, id)]}
+      onChange={(value) => updateVacation(role, id, value)} />
+  }
+
+  function vacationNote(item, role, id, block = false) {
+    const vacations = vacationsForWeek(item.vacations, selectedWeekFrom, selectedWeekTo)
+    return <VacationNote value={vacations[vacationKey(role, id)]} block={block} />
+  }
+
+  function renderManagerNames(item, role) {
+    const isPm = role === 'pm'
+    const people = isPm ? projectManagers : superintendents
+    const rows = isPm
+      ? (item.project_manager_ids?.length ? item.project_manager_ids : [item.project_manager_id]).filter(Boolean).map((id) => ({ id }))
+      : (item.superintendent_assignments?.length ? item.superintendent_assignments : [{ superintendent_id: item.superintendent_id }])
+          .filter((row) => row.superintendent_id).map((row) => ({ id: row.superintendent_id, shift: row.shift }))
+    if (!rows.length) return isPm ? getProjectManagerNamesForItem(item) || '—' : getSuperintendentLabelsForItem(item) || '—'
+    return rows.map((row) => <span key={row.id} style={{ display: 'block' }}>
+      {people.find((person) => person.id === row.id)?.name || (isPm ? item.project_managers?.name : item.superintendents?.name) || '—'}
+      {!isPm && rows.length > 1 && row.shift ? ` (${row.shift})` : ''}
+      {vacationNote(item, role, row.id, true)}
+    </span>)
+  }
+
   async function saveScheduleItem() {
     setActionLoading('saveSchedule')
     if (!scheduleForm.job_id) {
@@ -3045,6 +3089,21 @@ async function copyContactList() {
 
     if (!selectedWeekFrom || !selectedWeekTo) {
       showError('Please choose the week first on the Weekly Schedule tab')
+      setActionLoading('')
+      return
+    }
+
+    const vacationPersonKeys = new Set([
+      ...(scheduleForm.project_manager_ids || []).filter(Boolean).map((id) => vacationKey('pm', id)),
+      ...(scheduleForm.superintendent_assignments || []).filter((row) => row.superintendent_id).map((row) => vacationKey('super', row.superintendent_id)),
+      vacationKey('surveyor', scheduleForm.surveyor_id),
+      ...foremanAssignments.map((row) => vacationKey('foreman', foremanVacationId(row))),
+      ...surveyorAssignments.map((row) => vacationKey('surveyor', row.surveyor_id)),
+    ].filter(Boolean))
+    const vacationsToSave = Object.fromEntries(Object.entries(scheduleForm.vacations || {})
+      .filter(([key, value]) => vacationPersonKeys.has(key) && value?.selected))
+    if (!validateVacations(vacationsToSave)) {
+      showError('For each person on vacation, enter From and To dates. To must be on or after From.')
       setActionLoading('')
       return
     }
@@ -3078,6 +3137,7 @@ async function copyContactList() {
       superintendent_assignments: superintendentAssignmentsToSave,
       surveyor_id: scheduleForm.surveyor_id || null,
       equipment_moves: equipmentMovesToSave,
+      vacations: vacationsToSave,
       notes: scheduleForm.notes || null,
     }
 
@@ -3273,6 +3333,7 @@ async function copyContactList() {
             superintendent_assignments: item.superintendent_assignments || (item.superintendent_id ? [{ superintendent_id: item.superintendent_id, shift: '' }] : []),
             surveyor_id: item.surveyor_id || null,
             equipment_moves: item.equipment_moves || {},
+            vacations: vacationsForWeek(item.vacations, nextWeek.from, nextWeek.to),
             notes: item.notes || null,
           })
           .select()
@@ -4858,6 +4919,7 @@ async function copyContactList() {
                         </option>
                       ))}
                     </select>
+                    {vacationFields('pm', projectManagerId)}
                     {(Array.isArray(scheduleForm.project_manager_ids) && scheduleForm.project_manager_ids.length > 1) ? (
                       <button type="button" onClick={() => removeProjectManagerAssignmentRow(index)} style={styles.smallDangerButton}>Remove</button>
                     ) : null}
@@ -4884,6 +4946,7 @@ async function copyContactList() {
                         </option>
                       ))}
                     </select>
+                    {vacationFields('super', assignment.superintendent_id)}
                     <label style={styles.inlineCheckLabel}>
                       <input
                         type="radio"
@@ -4926,6 +4989,7 @@ async function copyContactList() {
                     </option>
                   ))}
                 </select>
+                {vacationFields('surveyor', scheduleForm.surveyor_id)}
               </div>
             </div>
 
@@ -4995,6 +5059,7 @@ async function copyContactList() {
                           </option>
                         ))}
                       </select>
+                      {vacationFields('foreman', foremanVacationId(assignment))}
                     </div>
 
                     <div>
@@ -5114,6 +5179,8 @@ async function copyContactList() {
                     </select>
                   </div>
                 </div>
+
+                {vacationFields('surveyor', assignment.surveyor_id)}
 
                 <div style={styles.dayCheckboxRow}>
                   {WEEKDAY_KEYS.map((dayKey) => (
@@ -5379,14 +5446,14 @@ async function copyContactList() {
                         <>
                           <div style={styles.metaGrid}>
                             <div>
-                              <strong>PM:</strong> {getProjectManagerNamesForItem(item) || '—'}
+                              <strong>PM:</strong> {renderManagerNames(item, 'pm')}
                             </div>
                             <div>
                               <strong>Superintendent:</strong>{' '}
-                              {getSuperintendentLabelsForItem(item) || '—'}
+                              {renderManagerNames(item, 'super')}
                             </div>
                             <div>
-                              <strong>Surveyor:</strong> {item.surveyors?.name || '—'}
+                              <strong>Surveyor:</strong> {item.surveyors?.name || '—'}{vacationNote(item, 'surveyor', item.surveyor_id)}
                             </div>
                           </div>
                           {getEquipmentMoveEntriesForItem(item).length ? (
@@ -5414,7 +5481,7 @@ async function copyContactList() {
                                 <div key={assignment.id} style={styles.foremanViewCard}>
                                   <div>
                                     <strong>Foreman:</strong>{' '}
-                                    {getForemanDisplayNameFromAssignment(assignment)}
+                                    {getForemanDisplayNameFromAssignment(assignment)}{vacationNote(item, 'foreman', foremanVacationId(assignment))}
                                   </div>
                                   <div>
                                     <strong>Dates:</strong>{' '}
@@ -5446,7 +5513,7 @@ async function copyContactList() {
                                 <div key={assignment.id} style={styles.foremanViewCard}>
                                   <div>
                                     <strong>Surveyor:</strong>{' '}
-                                    {assignment.surveyors?.name || '—'}
+                                    {assignment.surveyors?.name || '—'}{vacationNote(item, 'surveyor', assignment.surveyor_id)}
                                   </div>
                                   <div>
                                     <strong>Days:</strong>{' '}
@@ -6000,15 +6067,15 @@ async function copyContactList() {
                           <div style={styles.printCompactMetaRow}>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>PM:</span>
-                              <span>{getProjectManagerNamesForItem(item) || '—'}</span>
+                              <span>{renderManagerNames(item, 'pm')}</span>
                             </div>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>Super:</span>
-                              <span>{getSuperintendentLabelsForItem(item) || '—'}</span>
+                              <span>{renderManagerNames(item, 'super')}</span>
                             </div>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>Surveyor:</span>
-                              <span>{item.surveyors?.name || '—'}</span>
+                              <span>{item.surveyors?.name || '—'}{vacationNote(item, 'surveyor', item.surveyor_id)}</span>
                             </div>
                           </div>
 
@@ -6028,7 +6095,7 @@ async function copyContactList() {
                               {item.schedule_item_foremen.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>
+                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>{vacationNote(item, 'foreman', foremanVacationId(assignment))}
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
@@ -6058,7 +6125,7 @@ async function copyContactList() {
                               {item.schedule_item_surveyors.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{assignment.surveyors?.name || '—'}</strong>
+                                    <strong>{assignment.surveyors?.name || '—'}</strong>{vacationNote(item, 'surveyor', assignment.surveyor_id)}
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
