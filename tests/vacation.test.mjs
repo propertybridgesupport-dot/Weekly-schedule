@@ -57,7 +57,7 @@ test('lower assignment vacation dates align beside Vacation without From or To l
   assert.match(html, /grid-template-columns:max-content max-content/)
   assert.match(html, /white-space:nowrap/)
   assert.match(html, /grid-row:1 \/ span 2/)
-  assert.match(html, /Vacation:<\/span><span>10\/20\/26<\/span><span>10\/23\/26<\/span>/)
+  assert.match(html, /Vacation:<\/span><span>10\/20\/26 to<\/span><span>10\/23\/26<\/span>/)
   assert.doesNotMatch(html, /From:|To:/)
   assert.equal(renderToStaticMarkup(React.createElement(VacationNote, { value: { ...vacation, selected: false }, stacked: true })), '')
 })

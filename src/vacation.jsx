@@ -45,7 +45,7 @@ export function VacationNote({ value, block = false, stacked = false }) {
   const date = (iso) => `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(2, 4)}`
   if (stacked) return <span style={{ display: 'grid', gridTemplateColumns: 'max-content max-content', columnGap: '5px', whiteSpace: 'nowrap', fontSize: '0.92em', fontWeight: 600 }}>
     <span style={{ gridRow: '1 / span 2' }}>Vacation:</span>
-    <span>{date(value.from)}</span>
+    <span>{date(value.from)} to</span>
     <span>{date(value.to)}</span>
   </span>
   return <span style={{ display: block ? 'block' : 'inline', fontSize: '0.92em', fontWeight: 600, marginLeft: block ? 0 : '6px' }}>
