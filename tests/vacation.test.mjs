@@ -51,3 +51,11 @@ test('checkbox reveals two calendar date inputs only when selected', () => {
   assert.match(html, /aria-label="Vacation from"/)
   assert.match(html, /aria-label="Vacation to"/)
 })
+
+test('lower assignment vacation dates use aligned From and To rows', () => {
+  const html = renderToStaticMarkup(React.createElement(VacationNote, { value: vacation, block: true, stacked: true }))
+  assert.match(html, /grid-template-columns:max-content max-content/)
+  assert.match(html, /white-space:nowrap/)
+  assert.match(html, /<span>From:<\/span><span>10\/20\/26<\/span><span>To:<\/span><span>10\/23\/26<\/span>/)
+  assert.equal(renderToStaticMarkup(React.createElement(VacationNote, { value: { ...vacation, selected: false }, stacked: true })), '')
+})

@@ -40,9 +40,16 @@ export function VacationFields({ value = {}, onChange, person }) {
   </fieldset>
 }
 
-export function VacationNote({ value, block = false }) {
+export function VacationNote({ value, block = false, stacked = false }) {
   if (!value?.selected || !value.from || !value.to) return null
   const date = (iso) => `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(2, 4)}`
+  if (stacked) return <span style={{ display: 'block', fontSize: '0.92em', fontWeight: 600 }}>
+    Vacation:
+    <span style={{ display: 'grid', gridTemplateColumns: 'max-content max-content', columnGap: '5px', whiteSpace: 'nowrap' }}>
+      <span>From:</span><span>{date(value.from)}</span>
+      <span>To:</span><span>{date(value.to)}</span>
+    </span>
+  </span>
   return <span style={{ display: block ? 'block' : 'inline', fontSize: '0.92em', fontWeight: 600, marginLeft: block ? 0 : '6px' }}>
     Vacation: {date(value.from)} to {date(value.to)}
   </span>

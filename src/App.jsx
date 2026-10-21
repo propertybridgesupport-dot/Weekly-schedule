@@ -3059,9 +3059,9 @@ async function copyContactList() {
       onChange={(value) => updateVacation(role, id, value)} />
   }
 
-  function vacationNote(item, role, id, block = false) {
+  function vacationNote(item, role, id, block = false, stacked = false) {
     const vacations = vacationsForWeek(item.vacations, selectedWeekFrom, selectedWeekTo)
-    return <VacationNote value={vacations[vacationKey(role, id)]} block={block} />
+    return <VacationNote value={vacations[vacationKey(role, id)]} block={block} stacked={stacked} />
   }
 
   function renderManagerNames(item, role) {
@@ -6075,7 +6075,7 @@ async function copyContactList() {
                             </div>
                             <div style={styles.printMetaItem}>
                               <span style={styles.printMetaLabel}>Surveyor:</span>
-                              <span>{item.surveyors?.name || '—'}{vacationNote(item, 'surveyor', item.surveyor_id)}</span>
+                              <span>{item.surveyors?.name || '—'}{vacationNote(item, 'surveyor', item.surveyor_id, true)}</span>
                             </div>
                           </div>
 
@@ -6095,7 +6095,7 @@ async function copyContactList() {
                               {item.schedule_item_foremen.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>{vacationNote(item, 'foreman', foremanVacationId(assignment), true)}
+                                    <strong>{getForemanDisplayNameFromAssignment(assignment)}</strong>{vacationNote(item, 'foreman', foremanVacationId(assignment), true, true)}
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
@@ -6125,7 +6125,7 @@ async function copyContactList() {
                               {item.schedule_item_surveyors.map((assignment) => (
                                 <div key={assignment.id} style={styles.printCompactAssignmentRow}>
                                   <div style={styles.printCompactNameCol}>
-                                    <strong>{assignment.surveyors?.name || '—'}</strong>{vacationNote(item, 'surveyor', assignment.surveyor_id, true)}
+                                    <strong>{assignment.surveyors?.name || '—'}</strong>{vacationNote(item, 'surveyor', assignment.surveyor_id, true, true)}
                                   </div>
                                   <div style={styles.printCompactInfoCol}>
                                     <div>
