@@ -10,7 +10,7 @@ const source = await readFile(new URL('../src/vacation.jsx', import.meta.url), '
 const { code } = await transformWithEsbuild(source, 'vacation.jsx', { loader: 'jsx', format: 'cjs' })
 const compiled = { exports: {} }
 new Function('require', 'module', 'exports', code)(createRequire(import.meta.url), compiled, compiled.exports)
-const { vacationKey, vacationsForWeek, validateVacations, VacationNote, VacationFields } = compiled.exports
+const { vacationKey, vacationsForWeek, sharedVacationsForWeek, vacationChangesToSave, validateVacations, VacationNote, VacationFields } = compiled.exports
 const vacation = { selected: true, from: '2026-10-20', to: '2026-10-23' }
 
 test('vacations remain attached to the correct role and person', () => {
@@ -60,4 +60,24 @@ test('lower assignment vacation dates align beside Vacation without From or To l
   assert.match(html, /Vacation:<\/span><span>10\/20\/26 to<\/span><span>10\/23\/26<\/span>/)
   assert.doesNotMatch(html, /From:|To:/)
   assert.equal(renderToStaticMarkup(React.createElement(VacationNote, { value: { ...vacation, selected: false }, stacked: true })), '')
+})
+
+test('one personnel vacation applies to every job and keeps its dates across week boundaries', () => {
+  const rows = [{ id: 'v1', person_key: 'pm:p1', from_date: '2026-10-23', to_date: '2026-10-28', updated_at: '2026-10-21T12:00:00Z' }]
+  for (const job of [{ pm: 'p1' }, { pm: 'p1' }]) {
+    const note = sharedVacationsForWeek(rows, '2026-10-19', '2026-10-25')[vacationKey('pm', job.pm)]
+    assert.equal(note.from, '2026-10-23')
+    assert.equal(note.to, '2026-10-28')
+    assert.equal(note.record_id, 'v1')
+  }
+  assert.equal(sharedVacationsForWeek(rows, '2026-10-26', '2026-11-01')['pm:p1'].from, '2026-10-23')
+  assert.deepEqual(sharedVacationsForWeek(rows, '2026-11-02', '2026-11-08'), {})
+  assert.equal(sharedVacationsForWeek(rows, '2026-10-19', '2026-10-25')['pm:p2'], undefined)
+})
+
+test('save only explicitly edited people, including unchecked records', () => {
+  const keys = new Set(['pm:p1', 'super:s1'])
+  assert.deepEqual(vacationChangesToSave({}, keys), [])
+  const cleared = { record_id: 'v1', selected: false, updated_at: 'version' }
+  assert.deepEqual(vacationChangesToSave({ 'pm:p1': cleared, 'foreman:removed': vacation }, keys), [{ ...cleared, person_key: 'pm:p1' }])
 })

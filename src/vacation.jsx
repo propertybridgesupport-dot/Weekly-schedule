@@ -4,6 +4,24 @@ export function vacationKey(role, id) {
   return id ? `${role}:${id}` : ''
 }
 
+export function sharedVacationsForWeek(records = [], from, to) {
+  const values = {}
+  for (const record of [...records].sort((a, b) => String(a.updated_at).localeCompare(String(b.updated_at)))) {
+    if ((!to || record.from_date <= to) && (!from || record.to_date >= from)) {
+      values[record.person_key] = {
+        selected: true, from: record.from_date, to: record.to_date,
+        record_id: record.id, updated_at: record.updated_at,
+      }
+    }
+  }
+  return values
+}
+
+export function vacationChangesToSave(drafts = {}, personKeys = new Set()) {
+  return Object.entries(drafts).filter(([key]) => personKeys.has(key))
+    .map(([person_key, value]) => ({ ...value, person_key }))
+}
+
 export function vacationsForWeek(vacations = {}, from, to) {
   return Object.fromEntries(Object.entries(vacations || {}).filter(([, value]) =>
     value?.selected && value.from && value.to && value.from <= value.to &&
@@ -25,6 +43,9 @@ export function VacationFields({ value = {}, onChange, person }) {
       <input type="checkbox" checked={!!value.selected} onChange={(e) => onChange({ ...value, selected: e.target.checked })} />
       On vacation
     </label>
+    <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+      Saved vacation dates apply to this person on every job.
+    </span>
     {value.selected ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '6px' }}>
       <label style={{ fontSize: '13px' }}>From
         <input aria-label="Vacation from" type="date" required value={value.from || ''} max={value.to || undefined}

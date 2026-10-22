@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
-import { vacationKey, vacationsForWeek, validateVacations, VacationFields, VacationNote } from './vacation'
+import { vacationKey, sharedVacationsForWeek, vacationChangesToSave, validateVacations, VacationFields, VacationNote } from './vacation'
 
 function emptyForemanAssignment() {
   return {
@@ -319,6 +319,7 @@ export default function App() {
   const [surveyors, setSurveyors] = useState([])
   const [foremen, setForemen] = useState([])
   const [scheduleItems, setScheduleItems] = useState([])
+  const [personVacations, setPersonVacations] = useState([])
   const [emailGroups, setEmailGroups] = useState([])
   const [selectedEmailGroupId, setSelectedEmailGroupId] = useState('')
   const [selectedEmailContactId, setSelectedEmailContactId] = useState('')
@@ -331,6 +332,7 @@ const [reportNotes, setReportNotes] = useState('')
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [selectedWeekFrom, setSelectedWeekFrom] = useState(initialWeekRange.from)
   const [selectedWeekTo, setSelectedWeekTo] = useState(initialWeekRange.to)
+  const sharedVacations = useMemo(() => sharedVacationsForWeek(personVacations, selectedWeekFrom, selectedWeekTo), [personVacations, selectedWeekFrom, selectedWeekTo])
   const [showActiveOnly, setShowActiveOnly] = useState(false)
   const [weeklySearchText, setWeeklySearchText] = useState('')
   const [jumpToScheduleItemId, setJumpToScheduleItemId] = useState('')
@@ -1402,6 +1404,7 @@ async function copyContactList() {
     setSurveyors([])
     setForemen([])
     setScheduleItems([])
+    setPersonVacations([])
     setEmailGroups([])
     setContacts([])
     setContactGroups([])
@@ -1499,6 +1502,12 @@ async function copyContactList() {
     if (!recipientGroupId && (emailGroupsResult.data || []).length) {
       setRecipientGroupId(emailGroupsResult.data[0].id)
     }
+  }
+
+  async function loadPersonVacations() {
+    const { data, error } = await supabase.from('person_vacations').select('*')
+    if (error) throw new Error('Could not load vacation dates. ' + error.message)
+    setPersonVacations(data || [])
   }
 
   async function loadScheduleItems() {
@@ -2319,7 +2328,7 @@ async function copyContactList() {
     setMessage('Loading data from Supabase...')
 
     try {
-      await Promise.all([loadMasterData(), loadScheduleItems(), loadFieldNotes()])
+      await Promise.all([loadMasterData(), loadScheduleItems(), loadFieldNotes(), loadPersonVacations()])
       setLastUpdatedAt(new Date().toISOString())
       setMessage('Data loaded successfully.')
     } catch (err) {
@@ -2922,7 +2931,7 @@ async function copyContactList() {
       superintendent_assignments: savedSuperAssignments,
       surveyor_id: item.surveyor_id || '',
       equipment_moves: { ...emptyEquipmentMoves(), ...(item.equipment_moves || {}) },
-      vacations: item.vacations || {},
+      vacations: {},
       notes: item.notes || '',
     })
 
@@ -3055,13 +3064,12 @@ async function copyContactList() {
   }
 
   function vacationFields(role, id) {
-    return <VacationFields person={id} value={scheduleForm.vacations?.[vacationKey(role, id)]}
+    return <VacationFields person={id} value={scheduleForm.vacations?.[vacationKey(role, id)] ?? sharedVacations[vacationKey(role, id)]}
       onChange={(value) => updateVacation(role, id, value)} />
   }
 
   function vacationNote(item, role, id, block = false, stacked = false) {
-    const vacations = vacationsForWeek(item.vacations, selectedWeekFrom, selectedWeekTo)
-    return <VacationNote value={vacations[vacationKey(role, id)]} block={block} stacked={stacked} />
+    return <VacationNote value={sharedVacations[vacationKey(role, id)]} block={block} stacked={stacked} />
   }
 
   function renderManagerNames(item, role) {
@@ -3100,8 +3108,8 @@ async function copyContactList() {
       ...foremanAssignments.map((row) => vacationKey('foreman', foremanVacationId(row))),
       ...surveyorAssignments.map((row) => vacationKey('surveyor', row.surveyor_id)),
     ].filter(Boolean))
-    const vacationsToSave = Object.fromEntries(Object.entries(scheduleForm.vacations || {})
-      .filter(([key, value]) => vacationPersonKeys.has(key) && value?.selected))
+    const vacationChanges = vacationChangesToSave(scheduleForm.vacations, vacationPersonKeys)
+    const vacationsToSave = Object.fromEntries(vacationChanges.map((value) => [value.person_key, value]))
     if (!validateVacations(vacationsToSave)) {
       showError('For each person on vacation, enter From and To dates. To must be on or after From.')
       setActionLoading('')
@@ -3137,7 +3145,7 @@ async function copyContactList() {
       superintendent_assignments: superintendentAssignmentsToSave,
       surveyor_id: scheduleForm.surveyor_id || null,
       equipment_moves: equipmentMovesToSave,
-      vacations: vacationsToSave,
+      vacations: {},
       notes: scheduleForm.notes || null,
     }
 
@@ -3266,6 +3274,16 @@ async function copyContactList() {
       }
     }
 
+    if (vacationChanges.length) {
+      const { error: vacationError } = await supabase.rpc('save_person_vacations', { p_changes: vacationChanges })
+      if (vacationError) {
+        showError('The job was saved, but vacation dates could not be updated. ' + vacationError.message)
+        setEditingScheduleItemId(scheduleItem.id)
+        setActionLoading('')
+        return
+      }
+    }
+
     setMessage(
       editingScheduleItemId
         ? 'Schedule item updated successfully.'
@@ -3333,7 +3351,7 @@ async function copyContactList() {
             superintendent_assignments: item.superintendent_assignments || (item.superintendent_id ? [{ superintendent_id: item.superintendent_id, shift: '' }] : []),
             surveyor_id: item.surveyor_id || null,
             equipment_moves: item.equipment_moves || {},
-            vacations: vacationsForWeek(item.vacations, nextWeek.from, nextWeek.to),
+            vacations: {},
             notes: item.notes || null,
           })
           .select()
