@@ -2904,9 +2904,10 @@ async function copyContactList() {
     setHasUnsavedChanges(false)
     setReturnToScrollY(window.scrollY)
     setReturnToItemId(item.id)
-    setEditingScheduleItemId(item.id)
-    setSelectedWeekFrom(item.from_date || '')
-    setSelectedWeekTo(item.to_date || '')
+    // Jobs carry forward from earlier weeks. Edit the displayed week, creating
+    // a new entry when necessary so earlier schedules remain intact.
+    const isCurrentWeekEntry = item.from_date === selectedWeekFrom && item.to_date === selectedWeekTo
+    setEditingScheduleItemId(isCurrentWeekEntry ? item.id : null)
     const savedPmIdsFromMulti = Array.isArray(item.project_manager_ids)
       ? item.project_manager_ids.filter(Boolean)
       : []
@@ -2922,8 +2923,8 @@ async function copyContactList() {
       : item.superintendent_id ? [{ localId: crypto.randomUUID(), superintendent_id: item.superintendent_id, shift: '' }] : [emptySuperintendentAssignment()]
 
     setScheduleForm({
-      from_date: item.from_date || '',
-      to_date: item.to_date || '',
+      from_date: selectedWeekFrom,
+      to_date: selectedWeekTo,
       job_id: item.job_id || '',
       project_manager_id: savedPmIds[0] || '',
       project_manager_ids: savedPmIds,
